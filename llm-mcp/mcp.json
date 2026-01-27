@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "bitwig-mcp": {
+      "command": "node",
+      "args": [
+        "/home/taenia/Code/bitwig-mcp-poc/index.js"
+      ]
+    }
+  }
+}

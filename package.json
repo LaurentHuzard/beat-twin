@@ -1,0 +1,8 @@
+{
+  "name": "bitwig-mcp-poc",
+  "version": "0.0.1",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}
