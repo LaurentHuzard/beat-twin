@@ -7,6 +7,8 @@ var application;
 var trackBank;
 var sceneBank;
 var cursorTrack;
+var cursorDevice;
+var remoteControlsBank;
 
 // Connection state
 var isConnected = false;
@@ -33,6 +35,21 @@ function init() {
   cursorTrack.solo().markInterested();
   cursorTrack.arm().markInterested();
   cursorTrack.name().markInterested();
+
+  // --- Cursor Device Setup ---
+  cursorDevice = cursorTrack.createCursorDevice("MCP_DEVICE", "Cursor Device", 0, CursorDeviceFollowMode.FOLLOW_SELECTION);
+  cursorDevice.name().markInterested();
+  cursorDevice.isWindowOpen().markInterested();
+  cursorDevice.isExpanded().markInterested();
+  
+  // Remote Controls (8 knobs/macros)
+  remoteControlsBank = cursorDevice.createCursorRemoteControlsPage(8);
+  for (var i = 0; i < 8; i++) {
+    var param = remoteControlsBank.getParameter(i);
+    param.name().markInterested();
+    param.value().markInterested();
+    param.value().setIndication(true);
+  }
 
   // Create Main Track Bank (8 tracks, 0 sends, 8 scenes)
   trackBank = host.createMainTrackBank(8, 0, 8);
@@ -332,6 +349,55 @@ function handleRequest(request, connection) {
       
       case "application.createAudioTrack":
         application.createAudioTrack(-1);
+        result = "OK";
+        break;
+
+      // --- Device Control ---
+      case "device.get_status":
+        result = {
+          name: cursorDevice.name().get(),
+          isWindowOpen: cursorDevice.isWindowOpen().get(),
+          isExpanded: cursorDevice.isExpanded().get()
+        };
+        break;
+
+      case "device.toggle_window":
+        cursorDevice.isWindowOpen().toggle();
+        result = "OK";
+        break;
+
+      case "device.toggle_expanded":
+        cursorDevice.isExpanded().toggle();
+        result = "OK";
+        break;
+
+      case "device.get_remote_controls":
+        var controls = [];
+        for (var i = 0; i < 8; i++) {
+          var param = remoteControlsBank.getParameter(i);
+          controls.push({
+            index: i,
+            name: param.name().get(),
+            value: param.value().get()
+          });
+        }
+        result = controls;
+        break;
+
+      case "device.set_remote_control":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          remoteControlsBank.getParameter(request.params[0]).value().set(request.params[1]);
+          result = "OK";
+        } else throw "Missing parameters (index, value)";
+        break;
+
+      case "device.page_next":
+        remoteControlsBank.selectNextPage(true);
+        result = "OK";
+        break;
+
+      case "device.page_previous":
+        remoteControlsBank.selectPreviousPage(true);
         result = "OK";
         break;
 

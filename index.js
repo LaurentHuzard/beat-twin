@@ -384,6 +384,49 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         description: "Create a new audio track",
         inputSchema: { type: "object", properties: {} },
       },
+      // --- Device Tools ---
+      {
+        name: "device_get_status",
+        description: "Get status of the currently selected device",
+        inputSchema: { type: "object", properties: {} },
+      },
+      {
+        name: "device_toggle_window",
+        description: "Toggle the device window",
+        inputSchema: { type: "object", properties: {} },
+      },
+      {
+        name: "device_toggle_expanded",
+        description: "Toggle the device expanded view",
+        inputSchema: { type: "object", properties: {} },
+      },
+      {
+        name: "device_get_remote_controls",
+        description: "Get the 8 remote control parameters for the current page",
+        inputSchema: { type: "object", properties: {} },
+      },
+      {
+        name: "device_set_remote_control",
+        description: "Set value for a remote control parameter",
+        inputSchema: {
+          type: "object",
+          properties: {
+            index: { type: "number", description: "Parameter index 0-7" },
+            value: { type: "number", description: "Value 0.0 to 1.0" },
+          },
+          required: ["index", "value"],
+        },
+      },
+      {
+        name: "device_page_next",
+        description: "Select next remote controls page",
+        inputSchema: { type: "object", properties: {} },
+      },
+      {
+        name: "device_page_previous",
+        description: "Select previous remote controls page",
+        inputSchema: { type: "object", properties: {} },
+      },
     ],
   };
 });
@@ -491,6 +534,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case "application_create_audio_track":
         result = await callBitwig("application.createAudioTrack");
+        break;
+
+      // --- Device Tools ---
+      case "device_get_status":
+        result = await callBitwig("device.get_status");
+        break;
+      case "device_toggle_window":
+        result = await callBitwig("device.toggle_window");
+        break;
+      case "device_toggle_expanded":
+        result = await callBitwig("device.toggle_expanded");
+        break;
+      case "device_get_remote_controls":
+        result = await callBitwig("device.get_remote_controls");
+        break;
+      case "device_set_remote_control":
+        result = await callBitwig("device.set_remote_control", [args.index, args.value]);
+        break;
+      case "device_page_next":
+        result = await callBitwig("device.page_next");
+        break;
+      case "device_page_previous":
+        result = await callBitwig("device.page_previous");
         break;
 
       default:
