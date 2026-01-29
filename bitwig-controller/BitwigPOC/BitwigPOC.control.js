@@ -1,109 +1,369 @@
-loadAPI(25);
-println("Script loaded - API 25");
+loadAPI(10);
 
-host.setShouldFailOnDeprecatedUse(true);
+host.defineController("BitwigPOC", "BitwigPOC", "0.1", "761be710-90df-4577-8094-01314323214c", "Laurent Huzard");
 
-host.defineController("BitwigMCP", "Bitwig MCP Controller", "15.0", "229fb466-63d5-529e-a179-e439002c39d0", "taenia");
-host.defineMidiPorts(0, 0);
-
-var application;
 var transport;
-var buffer = "";
+var application;
+var trackBank;
+var sceneBank;
+var cursorTrack;
 
-// Polyfill for String.endsWith
-if (!String.prototype.endsWith) {
-  String.prototype.endsWith = function (search, this_len) {
-    if (this_len === undefined || this_len > this.length) {
-      this_len = this.length;
-    }
-    return this.substring(this_len - search.length, this_len) === search;
-  };
-}
-
-function setupUDPListener() {
-  var port = 19561;
-  println("Setting up UDP listener on port " + port + "...");
-
-  // Use UDP instead of TCP - this is simpler and more reliable
-  var success = host.addDatagramPacketObserver("BitwigMCP", port, function (data) {
-    host.showPopupNotification("UDP Data received!");
-    try {
-      var msgString = new java.lang.String(data, "UTF-8");
-      var jsString = "" + msgString;
-      println("Received UDP: " + jsString);
-      handleDataRef(jsString);
-    } catch (e) {
-      println("Error processing UDP data: " + e);
-    }
-  });
-
-  if (success) {
-    println("UDP listener bound to port " + port);
-    host.showPopupNotification("Bitwig MCP listening on UDP port " + port);
-  } else {
-    println("ERROR: Failed to bind UDP port " + port);
-    host.showPopupNotification("FAILED to bind UDP port!");
-  }
-}
-
-function handleDataRef(newData) {
-  buffer += newData;
-  var lines = buffer.split("\n");
-
-  if (!buffer.endsWith("\n")) {
-    buffer = lines.pop();
-  } else {
-    buffer = "";
-    lines.pop();
-  }
-
-  for (var i = 0; i < lines.length; i++) {
-    var line = lines[i];
-    if (line.trim().length > 0) {
-      try {
-        var msg = JSON.parse(line);
-        handleMessage(msg);
-      } catch (e) {
-        println("JSON Parse Error: " + e + " in: " + line);
-      }
-    }
-  }
-}
-
-function handleMessage(msg) {
-  println("Handling command: " + msg.method);
-  host.showPopupNotification("CMD: " + msg.method);
-
-  if (msg.method === "tracks.create") {
-    application.createInstrumentTrack(0);
-  } else if (msg.method === "transport.play") {
-    transport.play();
-  } else if (msg.method === "transport.stop") {
-    transport.stop();
-  } else if (msg.method === "transport.restart") {
-    transport.restart();
-  } else {
-    println("Unknown command: " + msg.method);
-  }
-}
+// Connection state
+var isConnected = false;
 
 function init() {
+  transport = host.createTransport();
+
+  // Mark values we need to read as interested
+  transport.tempo().value().markInterested();
+  transport.getPosition().markInterested();
+  transport.isPlaying().markInterested();
+  transport.isArrangerRecordEnabled().markInterested();
+
+  application = host.createApplication();
+
+  // --- Track Control Setup ---
+  // Create a Cursor Track (follows selection)
+  cursorTrack = host.createCursorTrack("MCP_CURSOR", "Cursor Track", 0, 0, true);
+
+  // Mark interested for Cursor Track
+  cursorTrack.volume().markInterested();
+  cursorTrack.pan().markInterested();
+  cursorTrack.mute().markInterested();
+  cursorTrack.solo().markInterested();
+  cursorTrack.arm().markInterested();
+  cursorTrack.name().markInterested();
+
+  // Create Main Track Bank (8 tracks, 0 sends, 8 scenes)
+  trackBank = host.createMainTrackBank(8, 0, 8);
+
+  // Mark interested for Track Bank
+  for (var i = 0; i < 8; i++) {
+    var track = trackBank.getItemAt(i);
+    track.volume().markInterested();
+    track.pan().markInterested();
+    track.mute().markInterested();
+    track.solo().markInterested();
+    track.arm().markInterested();
+    track.name().markInterested();
+    track.color().markInterested();
+    
+    // Clip Launcher Slots
+    var clipLauncher = track.clipLauncherSlotBank();
+    for (var j = 0; j < 8; j++) {
+      var slot = clipLauncher.getItemAt(j);
+      slot.hasContent().markInterested();
+      slot.isPlaying().markInterested();
+      slot.isRecording().markInterested();
+      slot.isPlaybackQueued().markInterested();
+    }
+  }
+  
+  // Create Scene Bank (8 scenes)
+  sceneBank = host.createSceneBank(8);
+  for (var i = 0; i < 8; i++) {
+     var scene = sceneBank.getScene(i);
+     scene.name().markInterested();
+     scene.sceneIndex().markInterested();
+  }
+
+  println("BitwigPOC Initialized");
+
+  // Create a TCP server on port 8888 for the Node.js MCP server to connect to.
+  // host.createRemoteConnection returns a RemoteSocket.
+  var remoteSocket = host.createRemoteConnection("BitwigMCP", 8888);
+
+  remoteSocket.setClientConnectCallback(function (remoteConnection) {
+    println("Client connected");
+    isConnected = true;
+
+    remoteConnection.setDisconnectCallback(function () {
+      println("Client disconnected");
+      isConnected = false;
+    });
+
+    remoteConnection.setReceiveCallback(function (data) {
+      // data is a byte[]
+      var msgString = "";
+      for (var i = 0; i < data.length; i++) {
+        msgString += String.fromCharCode(data[i]);
+      }
+
+      // Handle JSON-RPC
+      try {
+        var request = JSON.parse(msgString);
+        handleRequest(request, remoteConnection);
+      } catch (e) {
+        println("Error parsing JSON: " + e);
+        sendError(remoteConnection, null, -32700, "Parse error");
+      }
+    });
+  });
+}
+
+function handleRequest(request, connection) {
+  if (!request.method) {
+    sendError(connection, request.id, -32600, "Invalid Request");
+    return;
+  }
+
+  var result;
   try {
-    application = host.createApplication();
-    transport = host.createTransport();
+    switch (request.method) {
+      // --- Transport ---
+      case "transport.play":
+        transport.play();
+        result = "OK";
+        break;
+      case "transport.stop":
+        transport.stop();
+        result = "OK";
+        break;
+      case "transport.restart":
+        transport.restart();
+        result = "OK";
+        break;
+      case "transport.record":
+        transport.record();
+        result = "OK";
+        break;
+      case "transport.getTempo":
+        // Tempo is a bit complex in Bitwig API, usually requires an observer.
+        // For immediate sync return, we might need to cache observed values.
+        // OR we just return the currently cached value.
+        result = transport.tempo().value().getRaw();
+        break;
+      case "transport.setTempo":
+        if (request.params && request.params[0]) {
+          transport.tempo().value().setRaw(request.params[0]);
+          result = "OK";
+        } else {
+          throw "Missing tempo parameter";
+        }
+        break;
+      case "transport.getPosition":
+        result = transport.getPosition().get();
+        break;
+      case "transport.setPosition":
+        if (request.params && request.params[0]) {
+          transport.getPosition().set(request.params[0]);
+          result = "OK";
+        } else {
+          throw "Missing position parameter";
+        }
+        break;
+      case "transport.getIsPlaying":
+        result = transport.isPlaying().get();
+        break;
+      case "transport.getIsRecording":
+        result = transport.isArrangerRecordEnabled().get();
+        break;
 
-    println("Bitwig POC Initialized - API 25");
-    host.showPopupNotification("Bitwig MCP Ready!");
+      // --- Track Bank Control ---
+      case "track.bank.get_status":
+        var tracks = [];
+        for (var i = 0; i < 8; i++) {
+          var t = trackBank.getItemAt(i);
+          tracks.push({
+            index: i,
+            name: t.name().get(),
+            volume: t.volume().get(),
+            pan: t.pan().get(),
+            mute: t.mute().get(),
+            solo: t.solo().get(),
+            arm: t.arm().get(),
+            color: {
+              red: t.color().red(),
+              green: t.color().green(),
+              blue: t.color().blue()
+            }
+          });
+        }
+        result = tracks;
+        break;
 
-    setupUDPListener();
+      case "track.bank.volume":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          trackBank.getItemAt(request.params[0]).volume().set(request.params[1]);
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+
+      case "track.bank.pan":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          trackBank.getItemAt(request.params[0]).pan().set(request.params[1]);
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+
+      case "track.bank.mute":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          trackBank.getItemAt(request.params[0]).mute().set(request.params[1]);
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+
+      case "track.bank.solo":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          trackBank.getItemAt(request.params[0]).solo().set(request.params[1]);
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+
+      case "track.bank.select":
+        if (request.params && request.params[0] !== undefined) {
+          trackBank.getItemAt(request.params[0]).selectInMixer();
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+
+      // --- Clip Launcher ---
+      case "clip.launch":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          // track index, slot index
+          trackBank.getItemAt(request.params[0]).clipLauncherSlotBank().getItemAt(request.params[1]).launch();
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+
+      case "clip.record":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          // track index, slot index
+          trackBank.getItemAt(request.params[0]).clipLauncherSlotBank().getItemAt(request.params[1]).record();
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+
+      case "clip.stop":
+         if (request.params && request.params[0] !== undefined) {
+            // track index
+            trackBank.getItemAt(request.params[0]).stop();
+            result = "OK";
+         } else throw "Missing parameters";
+         break;
+
+      case "scene.launch":
+        if (request.params && request.params[0] !== undefined) {
+          sceneBank.getScene(request.params[0]).launch();
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+
+      case "scene.list":
+        var scenes = [];
+        for (var i = 0; i < 8; i++) {
+           var s = sceneBank.getScene(i);
+           scenes.push({
+             index: i,
+             name: s.name().get()
+           });
+        }
+        result = scenes;
+        break;
+
+      // --- Selected Track Control ---
+      case "track.selected.get_status":
+        result = {
+          name: cursorTrack.name().get(),
+          volume: cursorTrack.volume().get(),
+          pan: cursorTrack.pan().get(),
+          mute: cursorTrack.mute().get(),
+          solo: cursorTrack.solo().get(),
+          arm: cursorTrack.arm().get()
+        };
+        break;
+
+      case "track.selected.volume":
+        if (request.params && request.params[0] !== undefined) {
+          cursorTrack.volume().set(request.params[0]);
+          result = "OK";
+        } else throw "Missing parameter";
+        break;
+
+      case "track.selected.pan":
+        if (request.params && request.params[0] !== undefined) {
+          cursorTrack.pan().set(request.params[0]);
+          result = "OK";
+        } else throw "Missing parameter";
+        break;
+
+      case "track.selected.mute":
+        if (request.params && request.params[0] !== undefined) {
+          cursorTrack.mute().set(request.params[0]);
+          result = "OK";
+        } else throw "Missing parameter";
+        break;
+
+      case "track.selected.solo":
+        if (request.params && request.params[0] !== undefined) {
+          cursorTrack.solo().set(request.params[0]);
+          result = "OK";
+        } else throw "Missing parameter";
+        break;
+
+      case "track.selected.arm":
+        if (request.params && request.params[0] !== undefined) {
+          cursorTrack.arm().set(request.params[0]);
+          result = "OK";
+        } else throw "Missing parameter";
+        break;
+
+      case "ping":
+        result = "pong";
+        break;
+
+      default:
+        sendError(connection, request.id, -32601, "Method not found: " + request.method);
+        return;
+    }
+
+    // Success response
+    sendResponse(connection, request.id, result);
+
   } catch (e) {
-    println("Error in init: " + e);
-    host.showPopupNotification("Error: " + e);
+    sendError(connection, request.id, -32603, "Internal error: " + e);
   }
 }
 
-function flush() { }
+function sendResponse(connection, id, result) {
+  var response = {
+    jsonrpc: "2.0",
+    id: id,
+    result: result
+  };
+  sendJSON(connection, response);
+}
+
+function sendError(connection, id, code, message) {
+  var response = {
+    jsonrpc: "2.0",
+    id: id,
+    error: {
+      code: code,
+      message: message
+    }
+  };
+  sendJSON(connection, response);
+}
+
+function sendJSON(connection, data) {
+  var str = JSON.stringify(data) + "\n"; // Newline delimiter
+  // Convert string to byte array
+  // Explicitly converting char codes to Java byte array-like structure if needed, 
+  // but Bitwig SDK usually handles string-compatible byte arrays or we use a helper.
+  // However, setReceiveCallback gives us raw bytes, send expects raw bytes.
+
+  var bytes = [];
+  for (var i = 0; i < str.length; i++) {
+    bytes.push(str.charCodeAt(i));
+  }
+  connection.send(bytes);
+}
+
+function flush() {
+  // Called by Bitwig generally after init and usually per frame/gui refresh
+}
 
 function exit() {
-  println("Bitwig POC Exiting");
+  println("BitwigPOC Exited");
 }

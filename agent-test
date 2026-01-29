@@ -1,0 +1,55 @@
+#!/usr/bin/env node
+
+import fs from 'fs';
+import path from 'path';
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const testsDir = path.join(__dirname, 'tests');
+
+async function runTest(file) {
+    return new Promise((resolve, reject) => {
+        console.log(`\nRunning ${file}...`);
+        const p = spawn('node', [path.join(testsDir, file)], { stdio: 'inherit' });
+        p.on('close', (code) => {
+            if (code === 0) resolve();
+            else reject(new Error(`Test ${file} failed with code ${code}`));
+        });
+    });
+}
+
+async function main() {
+    const args = process.argv.slice(2);
+    
+    if (args.includes('--help') || args.includes('-h')) {
+        console.log("Usage: ./agent-test [test_file_name]");
+        console.log("       ./agent-test (runs all tests)");
+        return;
+    }
+
+    try {
+        const files = fs.readdirSync(testsDir).filter(f => f.startsWith('test_') && f.endsWith('.js'));
+        
+        let targetFiles = files;
+        if (args.length > 0) {
+            targetFiles = files.filter(f => f.includes(args[0]));
+        }
+
+        if (targetFiles.length === 0) {
+            console.log("No tests found matching pattern.");
+            return;
+        }
+
+        for (const file of targetFiles) {
+            await runTest(file);
+        }
+        
+        console.log("\nAll tests completed successfully.");
+    } catch (error) {
+        console.error("\nTest Suite Failed:", error.message);
+        process.exit(1);
+    }
+}
+
+main();

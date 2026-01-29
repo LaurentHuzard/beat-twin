@@ -14,7 +14,7 @@ The project consists of two main components communicating over a local TCP socke
 1.  **MCP Server (`index.js`)**
     - A Node.js application that implements the Model Context Protocol.
     - It listens for instructions from an MCP Client (like an AI Assistant).
-    - It acts as a TCP Server on port `19561` to relay commands to Bitwig.
+    - It acts as a TCP Server on port `8888` to relay commands to Bitwig.
 
 2.  **Bitwig Controller Script (`BitwigPOC.control.js`)**
     - A Java/JavaScript extension running inside Bitwig Studio.
@@ -24,16 +24,28 @@ The project consists of two main components communicating over a local TCP socke
 ```mermaid
 graph LR
     A[AI Agent / MCP Client] -->|MCP Protocol| B[Node.js MCP Server]
-    B -->|TCP :19561| C[Bitwig Controller Script]
+    B -->|TCP :8888| C[Bitwig Controller Script]
     C -->|Bitwig API| D[Bitwig Studio]
 ```
 
 ## ✨ Features / Tools
+## ✨ Features / Tools
 The following MCP tools are currently implemented:
-- **`bitwig_add_track`**: Adds a new instrument track to the project.
-- **`bitwig_play`**: Starts playback.
-- **`bitwig_stop`**: Stops playback.
-- **`bitwig_restart`**: Restarts playback from the beginning.
+
+### Transport
+- `transport_play`: Start playback
+- `transport_stop`: Stop playback
+- `transport_restart`: Restart playback
+- `transport_record`: Toggle recording
+- `transport_get_tempo` / `transport_set_tempo`: Manage BPM
+- `transport_get_position` / `transport_set_position`: Manage playhead position
+
+### Track & Mixer
+- `track_bank_get_status`: Get info (name/vol/pan/mute/solo) for 8 tracks
+- `track_bank_set_volume`, `_pan`, `_mute`, `_solo`: Control tracks by bank index
+- `track_bank_select`: Select a track in the bank
+- `track_selected_get_status`: Get info for the currently selected track
+- `track_selected_set_volume`, `_pan`, `_mute`, `_solo`, `_arm`: Control the selected track
 
 ## 🚀 Installation
 
