@@ -261,6 +261,19 @@ function handleRequest(request, connection) {
         result = scenes;
         break;
 
+      case "scene.create":
+        sceneBank.createScene();
+        result = "OK";
+        break;
+
+      case "clip.create":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined && request.params[2] !== undefined) {
+          // track index, slot index, length in beats
+          trackBank.getItemAt(request.params[0]).clipLauncherSlotBank().getItemAt(request.params[1]).createEmptyClip(request.params[2]);
+          result = "OK";
+        } else throw "Missing parameters (trackIndex, slotIndex, length)";
+        break;
+
       // --- Selected Track Control ---
       case "track.selected.get_status":
         result = {

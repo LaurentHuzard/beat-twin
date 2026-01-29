@@ -294,6 +294,24 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         description: "List available scenes in the current bank",
         inputSchema: { type: "object", properties: {} },
       },
+      {
+        name: "scene_create",
+        description: "Create a new empty scene",
+        inputSchema: { type: "object", properties: {} },
+      },
+      {
+        name: "clip_create",
+        description: "Create an empty clip in a track slot",
+        inputSchema: {
+          type: "object",
+          properties: {
+            trackIndex: { type: "number", description: "Track index 0-7" },
+            slotIndex: { type: "number", description: "Slot index 0-7" },
+            lengthBeats: { type: "number", description: "Length of clip in beats (e.g., 4, 8, 16)" },
+          },
+          required: ["trackIndex", "slotIndex", "lengthBeats"],
+        },
+      },
       // --- Selected Track Tools ---
       {
         name: "track_selected_get_status",
@@ -428,6 +446,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case "scene_list":
         result = await callBitwig("scene.list");
+        break;
+      case "scene_create":
+        result = await callBitwig("scene.create");
+        break;
+      case "clip_create":
+        result = await callBitwig("clip.create", [args.trackIndex, args.slotIndex, args.lengthBeats]);
         break;
 
       // --- Selected Track Tools ---
