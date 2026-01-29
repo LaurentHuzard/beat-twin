@@ -48,7 +48,7 @@ function init() {
     var param = remoteControlsBank.getParameter(i);
     param.name().markInterested();
     param.value().markInterested();
-    param.value().setIndication(true);
+    param.setIndication(true);
   }
 
   // Create Main Track Bank (8 tracks, 0 sends, 8 scenes)
