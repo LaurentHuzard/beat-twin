@@ -325,6 +325,16 @@ function handleRequest(request, connection) {
         result = "pong";
         break;
 
+      case "application.createInstrumentTrack":
+        application.createInstrumentTrack(-1); // -1 means add at end
+        result = "OK";
+        break;
+      
+      case "application.createAudioTrack":
+        application.createAudioTrack(-1);
+        result = "OK";
+        break;
+
       default:
         sendError(connection, request.id, -32601, "Method not found: " + request.method);
         return;

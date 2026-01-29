@@ -373,6 +373,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["state"],
         },
       },
+      // --- Application Tools ---
+      {
+        name: "application_create_instrument_track",
+        description: "Create a new instrument track",
+        inputSchema: { type: "object", properties: {} },
+      },
+      {
+        name: "application_create_audio_track",
+        description: "Create a new audio track",
+        inputSchema: { type: "object", properties: {} },
+      },
     ],
   };
 });
@@ -472,6 +483,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case "track_selected_set_arm":
         result = await callBitwig("track.selected.arm", [args.state]);
+        break;
+
+      // --- Application Tools ---
+      case "application_create_instrument_track":
+        result = await callBitwig("application.createInstrumentTrack");
+        break;
+      case "application_create_audio_track":
+        result = await callBitwig("application.createAudioTrack");
         break;
 
       default:
