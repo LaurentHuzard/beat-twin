@@ -1,6 +1,6 @@
-# Bitwig MCP POC
+# Beat Twin
 
-**A Proof of Concept bridging [Bitwig Studio](https://www.bitwig.com/) with the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/).**
+**A proof of concept bridging [Bitwig Studio](https://www.bitwig.com/) with the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/).**
 
 ## 🎯 Goal
 The goal of this project is to demonstrate how an AI Agent can control a Digital Audio Workstation (DAW) like Bitwig Studio. By exposing Bitwig's API through an MCP Server, Large Language Models (LLMs) can directly interact with the music production environment to perform tasks like:
@@ -28,7 +28,6 @@ graph LR
     C -->|Bitwig API| D[Bitwig Studio]
 ```
 
-## ✨ Features / Tools
 ## ✨ Features / Tools
 The following MCP tools are currently implemented:
 
