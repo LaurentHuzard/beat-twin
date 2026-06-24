@@ -5,121 +5,289 @@
  * Connects to Bitwig Studio via TCP (JSON-RPC) and exposes tools to an LLM.
  */
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
 import net from "net";
+import { fileURLToPath } from "url";
 
-// --- Bitwig Connection Configuration ---
-const BITWIG_HOST = "127.0.0.1";
-const BITWIG_PORT = 8888;
-let client = null;
-let requestId = 0;
-const pendingRequests = new Map();
+const BITWIG_HOST = process.env.BITWIG_HOST ?? "127.0.0.1";
+const BITWIG_PORT = Number.parseInt(process.env.BITWIG_PORT ?? "8888", 10);
+const BITWIG_CONNECT_DELAY_MS = Number.parseInt(
+  process.env.BITWIG_CONNECT_DELAY_MS ?? "500",
+  10,
+);
+const BITWIG_RESPONSE_TIMEOUT_MS = Number.parseInt(
+  process.env.BITWIG_RESPONSE_TIMEOUT_MS ?? "5000",
+  10,
+);
 
-// --- TCP Client Setup ---
-function connectToBitwig() {
-  return new Promise((resolve, reject) => {
-    client = new net.Socket();
+export class BitwigProtocolClient {
+  constructor({
+    host = BITWIG_HOST,
+    port = BITWIG_PORT,
+    connectDelayMs = BITWIG_CONNECT_DELAY_MS,
+    responseTimeoutMs = BITWIG_RESPONSE_TIMEOUT_MS,
+    createSocket = () => new net.Socket(),
+    logger = console,
+  } = {}) {
+    this.host = host;
+    this.port = port;
+    this.connectDelayMs = connectDelayMs;
+    this.responseTimeoutMs = responseTimeoutMs;
+    this.createSocket = createSocket;
+    this.logger = logger;
+    this.socket = null;
+    this.connectPromise = null;
+    this.requestId = 0;
+    this.pendingRequests = new Map();
+    this.responseBuffer = "";
+  }
 
-    client.connect(BITWIG_PORT, BITWIG_HOST, () => {
-      console.error(`Connected to Bitwig at ${BITWIG_HOST}:${BITWIG_PORT}`);
-      // Give Bitwig a moment to register callbacks
-      setTimeout(resolve, 500);
-    });
+  async connect() {
+    if (this.socket && !this.socket.destroyed) {
+      return;
+    }
 
-    client.on("data", (data) => {
-      // Handle incoming data (stream handling needed for robust impl, simplistic for now)
-      const lines = data.toString().split("\n");
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const response = JSON.parse(line);
-          if (response.id !== undefined && pendingRequests.has(response.id)) {
-            const { resolve, reject } = pendingRequests.get(response.id);
-            if (response.error) {
-              reject(new Error(response.error.message));
-            } else {
-              resolve(response.result);
-            }
-            pendingRequests.delete(response.id);
-          }
-        } catch (err) {
-          console.error("Error parsing response from Bitwig:", err);
+    if (this.connectPromise) {
+      return this.connectPromise;
+    }
+
+    this.responseBuffer = "";
+    this.connectPromise = new Promise((resolve, reject) => {
+      const socket = this.createSocket();
+      this.socket = socket;
+
+      let settled = false;
+      const settleResolve = () => {
+        if (settled) {
+          return;
         }
-      }
+        settled = true;
+        this.connectPromise = null;
+        resolve();
+      };
+      const settleReject = (error) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        this.connectPromise = null;
+        this.socket = null;
+        reject(error);
+      };
+
+      socket.on("data", (data) => {
+        this.handleData(data);
+      });
+
+      socket.on("close", () => {
+        this.logger.error("Connection to Bitwig closed");
+        this.socket = null;
+        this.responseBuffer = "";
+        this.rejectPending(new Error("Connection to Bitwig closed"));
+      });
+
+      socket.on("error", (error) => {
+        this.logger.error("Bitwig connection error:", error);
+        if (!settled) {
+          settleReject(error);
+        }
+      });
+
+      socket.connect(this.port, this.host, () => {
+        this.logger.error(`Connected to Bitwig at ${this.host}:${this.port}`);
+        setTimeout(settleResolve, this.connectDelayMs);
+      });
     });
 
-    client.on("close", () => {
-      console.error("Connection to Bitwig closed");
-      client = null;
-    });
+    return this.connectPromise;
+  }
 
-    client.on("error", (err) => {
-      console.error("Bitwig connection error:", err);
-    });
-  });
-}
-
-// --- JSON-RPC Helper ---
-function callBitwig(method, params = []) {
-  return new Promise(async (resolve, reject) => {
-    if (!client) {
+  async send(method, params = []) {
+    if (!this.socket || this.socket.destroyed) {
       try {
-        await connectToBitwig();
-      } catch (err) {
-        return reject(new Error("Could not connect to Bitwig. Is it running?"));
+        await this.connect();
+      } catch (error) {
+        throw new Error("Could not connect to Bitwig. Is it running?");
       }
     }
 
-    const id = requestId++;
+    const id = this.requestId++;
     const request = {
       jsonrpc: "2.0",
       method,
       params,
-      id
+      id,
     };
-
-    pendingRequests.set(id, { resolve, reject });
 
     const msg = JSON.stringify(request);
     const msgBuf = Buffer.from(msg, "utf8");
     const header = Buffer.alloc(4);
     header.writeUInt32BE(msgBuf.length, 0);
-    client.write(Buffer.concat([header, msgBuf]));
 
-    // Timeout
-    setTimeout(() => {
-      if (pendingRequests.has(id)) {
-        pendingRequests.get(id).reject(new Error("Timeout waiting for Bitwig response"));
-        pendingRequests.delete(id);
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        if (!this.pendingRequests.has(id)) {
+          return;
+        }
+        this.pendingRequests.delete(id);
+        reject(new Error("Timeout waiting for Bitwig response"));
+      }, this.responseTimeoutMs);
+
+      this.pendingRequests.set(id, {
+        resolve: (result) => {
+          clearTimeout(timeout);
+          resolve(result);
+        },
+        reject: (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        },
+      });
+
+      this.socket.write(Buffer.concat([header, msgBuf]));
+    });
+  }
+
+  handleData(data) {
+    this.responseBuffer += data.toString("utf8");
+
+    while (true) {
+      const newlineIndex = this.responseBuffer.indexOf("\n");
+      if (newlineIndex === -1) {
+        return;
       }
-    }, 5000);
-  });
+
+      const line = this.responseBuffer.slice(0, newlineIndex).trim();
+      this.responseBuffer = this.responseBuffer.slice(newlineIndex + 1);
+
+      if (!line) {
+        continue;
+      }
+
+      let response;
+      try {
+        response = JSON.parse(line);
+      } catch (error) {
+        const parseError = new Error(`Malformed Bitwig response: ${error.message}`);
+        this.logger.error(parseError.message);
+        this.destroy(parseError);
+        return;
+      }
+
+      if (response.id === undefined || !this.pendingRequests.has(response.id)) {
+        continue;
+      }
+
+      const pending = this.pendingRequests.get(response.id);
+      this.pendingRequests.delete(response.id);
+
+      if (response.error) {
+        pending.reject(new Error(response.error.message));
+      } else {
+        pending.resolve(response.result);
+      }
+    }
+  }
+
+  rejectPending(error) {
+    for (const { reject } of this.pendingRequests.values()) {
+      reject(error);
+    }
+    this.pendingRequests.clear();
+  }
+
+  destroy(error = new Error("Bitwig protocol client destroyed")) {
+    this.rejectPending(error);
+    this.responseBuffer = "";
+    if (this.socket && !this.socket.destroyed) {
+      this.socket.destroy();
+    }
+    this.socket = null;
+    this.connectPromise = null;
+  }
 }
 
+const protocolClient = new BitwigProtocolClient();
 
-// --- MCP Server Setup ---
-const server = new Server(
-  {
-    name: "bitwig-mcp-server",
-    version: "0.1.0",
-  },
-  {
-    capabilities: {
-      tools: {},
-    },
+export function callBitwig(method, params = []) {
+  return protocolClient.send(method, params);
+}
+
+async function readInspectionValue(call, method, params = []) {
+  try {
+    return { ok: true, value: await call(method, params) };
+  } catch (error) {
+    return { ok: false, error: error.message };
   }
-);
+}
 
-// --- Tool Definitions ---
+export async function inspectBitwigSession(call = callBitwig) {
+  const ping = await readInspectionValue(call, "ping");
+  if (!ping.ok) {
+    return {
+      connected: false,
+      setup_hint:
+        "Start the MCP server, open Bitwig Studio, enable the BitwigPOC controller, then retry inspection.",
+      error: ping.error,
+    };
+  }
 
-server.setRequestHandler(ListToolsRequestSchema, async () => {
+  const [
+    tempo,
+    position,
+    playing,
+    recording,
+    trackBank,
+    selectedTrack,
+    scenes,
+    selectedDevice,
+    remoteControls,
+  ] = await Promise.all([
+    readInspectionValue(call, "transport.getTempo"),
+    readInspectionValue(call, "transport.getPosition"),
+    readInspectionValue(call, "transport.getIsPlaying"),
+    readInspectionValue(call, "transport.getIsRecording"),
+    readInspectionValue(call, "track.bank.get_status"),
+    readInspectionValue(call, "track.selected.get_status"),
+    readInspectionValue(call, "scene.list"),
+    readInspectionValue(call, "device.get_status"),
+    readInspectionValue(call, "device.get_remote_controls"),
+  ]);
+
   return {
-    tools: [
+    connected: true,
+    scope: "read-only",
+    transport: {
+      tempo: tempo.ok ? tempo.value : null,
+      position: position.ok ? position.value : null,
+      isPlaying: playing.ok ? playing.value : null,
+      isRecording: recording.ok ? recording.value : null,
+    },
+    trackBank: trackBank.ok ? trackBank.value : null,
+    selectedTrack: selectedTrack.ok ? selectedTrack.value : null,
+    scenes: scenes.ok ? scenes.value : null,
+    selectedDevice: selectedDevice.ok ? selectedDevice.value : null,
+    remoteControls: remoteControls.ok ? remoteControls.value : null,
+    read_errors: {
+      tempo: tempo.ok ? null : tempo.error,
+      position: position.ok ? null : position.error,
+      isPlaying: playing.ok ? null : playing.error,
+      isRecording: recording.ok ? null : recording.error,
+      trackBank: trackBank.ok ? null : trackBank.error,
+      selectedTrack: selectedTrack.ok ? null : selectedTrack.error,
+      scenes: scenes.ok ? null : scenes.error,
+      selectedDevice: selectedDevice.ok ? null : selectedDevice.error,
+      remoteControls: remoteControls.ok ? null : remoteControls.error,
+    },
+  };
+}
+
+function getToolDefinitions() {
+  return [
+      {
+        name: "bitwig_session_inspect",
+        description: "Read-only inspection of Bitwig transport, tracks, scenes, selected device, and remote controls",
+        inputSchema: { type: "object", properties: {} },
+      },
       {
         name: "transport_play",
         description: "Start playback in Bitwig",
@@ -427,16 +595,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         description: "Select previous remote controls page",
         inputSchema: { type: "object", properties: {} },
       },
-    ],
-  };
-});
+    ];
+}
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+async function handleToolCall(request) {
   try {
     const { name, arguments: args } = request.params;
     let result;
 
     switch (name) {
+      case "bitwig_session_inspect":
+        result = await inspectBitwigSession();
+        break;
       case "transport_play":
         result = await callBitwig("transport.play");
         break;
@@ -582,12 +752,49 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       ],
     };
   }
-});
+}
+
+export async function createMcpServer() {
+  const [
+    { Server },
+    { StdioServerTransport },
+    { CallToolRequestSchema, ListToolsRequestSchema },
+  ] = await Promise.all([
+    import("@modelcontextprotocol/sdk/server/index.js"),
+    import("@modelcontextprotocol/sdk/server/stdio.js"),
+    import("@modelcontextprotocol/sdk/types.js"),
+  ]);
+
+  const server = new Server(
+    {
+      name: "bitwig-mcp-server",
+      version: "0.1.0",
+    },
+    {
+      capabilities: {
+        tools: {},
+      },
+    },
+  );
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: getToolDefinitions(),
+  }));
+  server.setRequestHandler(CallToolRequestSchema, handleToolCall);
+
+  return { server, StdioServerTransport };
+}
 
 async function runServer() {
+  const { server, StdioServerTransport } = await createMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("Bitwig MCP Server running on stdio");
 }
 
-runServer().catch(console.error);
+const isMainModule =
+  process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+
+if (isMainModule) {
+  runServer().catch(console.error);
+}

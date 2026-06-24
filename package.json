@@ -2,6 +2,9 @@
   "name": "bitwig-mcp-poc",
   "version": "0.0.1",
   "type": "module",
+  "scripts": {
+    "test:protocol-smoke": "node --test tests/protocol-smoke.test.js"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
   }
