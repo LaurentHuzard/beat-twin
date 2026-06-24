@@ -281,480 +281,558 @@ export async function inspectBitwigSession(call = callBitwig) {
   };
 }
 
-function getToolDefinitions() {
-  return [
-      {
-        name: "bitwig_session_inspect",
-        description: "Read-only inspection of Bitwig transport, tracks, scenes, selected device, and remote controls",
-        inputSchema: { type: "object", properties: {} },
+const WRITE_POLICY_ENV = "BITWIG_MCP_WRITE_POLICY";
+const ENABLE_WRITES_ENV = "BITWIG_MCP_ENABLE_WRITES";
+const WRITE_POLICIES = Object.freeze([
+  "transport",
+  "mixer_write",
+  "clip_write",
+  "scene_write",
+  "device_write",
+  "application_write",
+]);
+
+export const TOOL_SPECS = Object.freeze([
+  {
+    name: "bitwig_session_inspect",
+    description:
+      "Read-only inspection of Bitwig transport, tracks, scenes, selected device, and remote controls",
+    inputSchema: { type: "object", properties: {} },
+    policy: "read",
+    execute: ({ call }) => inspectBitwigSession(call),
+  },
+  {
+    name: "transport_play",
+    description: "Start playback in Bitwig",
+    inputSchema: { type: "object", properties: {} },
+    policy: "transport",
+    method: "transport.play",
+  },
+  {
+    name: "transport_stop",
+    description: "Stop playback in Bitwig",
+    inputSchema: { type: "object", properties: {} },
+    policy: "transport",
+    method: "transport.stop",
+  },
+  {
+    name: "transport_restart",
+    description: "Restart playback from the beginning",
+    inputSchema: { type: "object", properties: {} },
+    policy: "transport",
+    method: "transport.restart",
+  },
+  {
+    name: "transport_record",
+    description: "Toggle recording",
+    inputSchema: { type: "object", properties: {} },
+    policy: "transport",
+    method: "transport.record",
+  },
+  {
+    name: "transport_get_tempo",
+    description: "Get the current tempo (BPM)",
+    inputSchema: { type: "object", properties: {} },
+    policy: "read",
+    method: "transport.getTempo",
+  },
+  {
+    name: "transport_set_tempo",
+    description: "Set the tempo (BPM)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bpm: { type: "number", description: "Tempo in Beats Per Minute" },
       },
-      {
-        name: "transport_play",
-        description: "Start playback in Bitwig",
-        inputSchema: { type: "object", properties: {} },
+      required: ["bpm"],
+    },
+    policy: "transport",
+    method: "transport.setTempo",
+    mapArgs: (args) => [args.bpm],
+  },
+  {
+    name: "transport_get_position",
+    description: "Get current playhead position in beats",
+    inputSchema: { type: "object", properties: {} },
+    policy: "read",
+    method: "transport.getPosition",
+  },
+  {
+    name: "transport_set_position",
+    description: "Set playhead position in beats",
+    inputSchema: {
+      type: "object",
+      properties: {
+        beats: { type: "number", description: "Position in beats" },
       },
-      {
-        name: "transport_stop",
-        description: "Stop playback in Bitwig",
-        inputSchema: { type: "object", properties: {} },
+      required: ["beats"],
+    },
+    policy: "transport",
+    method: "transport.setPosition",
+    mapArgs: (args) => [args.beats],
+  },
+  {
+    name: "transport_playing_status",
+    description: "Check if transport is currently playing",
+    inputSchema: { type: "object", properties: {} },
+    policy: "read",
+    method: "transport.getIsPlaying",
+  },
+  {
+    name: "track_bank_get_status",
+    description: "Get status (vol/pan/mute/solo) of all 8 tracks in the current bank window",
+    inputSchema: { type: "object", properties: {} },
+    policy: "read",
+    method: "track.bank.get_status",
+  },
+  {
+    name: "track_bank_set_volume",
+    description: "Set volume for a track in the bank 0-7",
+    inputSchema: {
+      type: "object",
+      properties: {
+        index: { type: "number", description: "Track index 0-7" },
+        value: { type: "number", description: "Volume value 0.0 to 1.0" },
       },
-      {
-        name: "transport_restart",
-        description: "Restart playback from the beginning",
-        inputSchema: { type: "object", properties: {} },
-      },
-      {
-        name: "transport_record",
-        description: "Toggle recording",
-        inputSchema: { type: "object", properties: {} },
-      },
-      {
-        name: "transport_get_tempo",
-        description: "Get the current tempo (BPM)",
-        inputSchema: { type: "object", properties: {} },
-      },
-      {
-        name: "transport_set_tempo",
-        description: "Set the tempo (BPM)",
-        inputSchema: {
-          type: "object",
-          properties: {
-            bpm: { type: "number", description: "Tempo in Beats Per Minute" },
-          },
-          required: ["bpm"],
+      required: ["index", "value"],
+    },
+    policy: "mixer_write",
+    method: "track.bank.volume",
+    mapArgs: (args) => [args.index, args.value],
+  },
+  {
+    name: "track_bank_set_pan",
+    description: "Set pan for a track in the bank 0-7",
+    inputSchema: {
+      type: "object",
+      properties: {
+        index: { type: "number", description: "Track index 0-7" },
+        value: {
+          type: "number",
+          description: "Pan value 0.0 to 1.0 (0.5 is center)",
         },
       },
-      {
-        name: "transport_get_position",
-        description: "Get current playhead position in beats",
-        inputSchema: { type: "object", properties: {} },
-      },
-      {
-        name: "transport_set_position",
-        description: "Set playhead position in beats",
-        inputSchema: {
-          type: "object",
-          properties: {
-            beats: { type: "number", description: "Position in beats" },
-          },
-          required: ["beats"],
+      required: ["index", "value"],
+    },
+    policy: "mixer_write",
+    method: "track.bank.pan",
+    mapArgs: (args) => [args.index, args.value],
+  },
+  {
+    name: "track_bank_set_mute",
+    description: "Set mute for a track in the bank 0-7",
+    inputSchema: {
+      type: "object",
+      properties: {
+        index: { type: "number", description: "Track index 0-7" },
+        state: {
+          type: "boolean",
+          description: "True to mute, False to unmute",
         },
       },
-      {
-        name: "transport_playing_status",
-        description: "Check if transport is currently playing",
-        inputSchema: { type: "object", properties: {} },
-      },
-      // --- Track Bank Tools ---
-      {
-        name: "track_bank_get_status",
-        description: "Get status (vol/pan/mute/solo) of all 8 tracks in the current bank window",
-        inputSchema: { type: "object", properties: {} },
-      },
-      {
-        name: "track_bank_set_volume",
-        description: "Set volume for a track in the bank 0-7",
-        inputSchema: {
-          type: "object",
-          properties: {
-            index: { type: "number", description: "Track index 0-7" },
-            value: { type: "number", description: "Volume value 0.0 to 1.0" },
-          },
-          required: ["index", "value"],
+      required: ["index", "state"],
+    },
+    policy: "mixer_write",
+    method: "track.bank.mute",
+    mapArgs: (args) => [args.index, args.state],
+  },
+  {
+    name: "track_bank_set_solo",
+    description: "Set solo for a track in the bank 0-7",
+    inputSchema: {
+      type: "object",
+      properties: {
+        index: { type: "number", description: "Track index 0-7" },
+        state: {
+          type: "boolean",
+          description: "True to solo, False to unsolo",
         },
       },
-      {
-        name: "track_bank_set_pan",
-        description: "Set pan for a track in the bank 0-7",
-        inputSchema: {
-          type: "object",
-          properties: {
-            index: { type: "number", description: "Track index 0-7" },
-            value: { type: "number", description: "Pan value 0.0 to 1.0 (0.5 is center)" },
-          },
-          required: ["index", "value"],
+      required: ["index", "state"],
+    },
+    policy: "mixer_write",
+    method: "track.bank.solo",
+    mapArgs: (args) => [args.index, args.state],
+  },
+  {
+    name: "track_bank_select",
+    description: "Select a track in the bank 0-7",
+    inputSchema: {
+      type: "object",
+      properties: {
+        index: { type: "number", description: "Track index 0-7" },
+      },
+      required: ["index"],
+    },
+    policy: "mixer_write",
+    method: "track.bank.select",
+    mapArgs: (args) => [args.index],
+  },
+  {
+    name: "clip_launch",
+    description: "Launch a clip in a track's slot",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trackIndex: { type: "number", description: "Track index 0-7" },
+        slotIndex: { type: "number", description: "Slot index 0-7" },
+      },
+      required: ["trackIndex", "slotIndex"],
+    },
+    policy: "clip_write",
+    method: "clip.launch",
+    mapArgs: (args) => [args.trackIndex, args.slotIndex],
+  },
+  {
+    name: "clip_record",
+    description: "Trigger record on a clip slot",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trackIndex: { type: "number", description: "Track index 0-7" },
+        slotIndex: { type: "number", description: "Slot index 0-7" },
+      },
+      required: ["trackIndex", "slotIndex"],
+    },
+    policy: "clip_write",
+    method: "clip.record",
+    mapArgs: (args) => [args.trackIndex, args.slotIndex],
+  },
+  {
+    name: "clip_stop",
+    description: "Stop clips playing on a track",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trackIndex: { type: "number", description: "Track index 0-7" },
+      },
+      required: ["trackIndex"],
+    },
+    policy: "clip_write",
+    method: "clip.stop",
+    mapArgs: (args) => [args.trackIndex],
+  },
+  {
+    name: "scene_launch",
+    description: "Launch a scene (horizontal row of clips)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sceneIndex: { type: "number", description: "Scene index 0-7" },
+      },
+      required: ["sceneIndex"],
+    },
+    policy: "scene_write",
+    method: "scene.launch",
+    mapArgs: (args) => [args.sceneIndex],
+  },
+  {
+    name: "scene_list",
+    description: "List available scenes in the current bank",
+    inputSchema: { type: "object", properties: {} },
+    policy: "read",
+    method: "scene.list",
+  },
+  {
+    name: "scene_create",
+    description: "Create a new empty scene",
+    inputSchema: { type: "object", properties: {} },
+    policy: "scene_write",
+    method: "scene.create",
+  },
+  {
+    name: "clip_create",
+    description: "Create an empty clip in a track slot",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trackIndex: { type: "number", description: "Track index 0-7" },
+        slotIndex: { type: "number", description: "Slot index 0-7" },
+        lengthBeats: {
+          type: "number",
+          description: "Length of clip in beats (e.g., 4, 8, 16)",
         },
       },
-      {
-        name: "track_bank_set_mute",
-        description: "Set mute for a track in the bank 0-7",
-        inputSchema: {
-          type: "object",
-          properties: {
-            index: { type: "number", description: "Track index 0-7" },
-            state: { type: "boolean", description: "True to mute, False to unmute" },
-          },
-          required: ["index", "state"],
-        },
+      required: ["trackIndex", "slotIndex", "lengthBeats"],
+    },
+    policy: "clip_write",
+    method: "clip.create",
+    mapArgs: (args) => [args.trackIndex, args.slotIndex, args.lengthBeats],
+  },
+  {
+    name: "track_selected_get_status",
+    description: "Get status of the currently selected track",
+    inputSchema: { type: "object", properties: {} },
+    policy: "read",
+    method: "track.selected.get_status",
+  },
+  {
+    name: "track_selected_set_volume",
+    description: "Set volume for the selected track",
+    inputSchema: {
+      type: "object",
+      properties: {
+        value: { type: "number", description: "Volume value 0.0 to 1.0" },
       },
-      {
-        name: "track_bank_set_solo",
-        description: "Set solo for a track in the bank 0-7",
-        inputSchema: {
-          type: "object",
-          properties: {
-            index: { type: "number", description: "Track index 0-7" },
-            state: { type: "boolean", description: "True to solo, False to unsolo" },
-          },
-          required: ["index", "state"],
-        },
+      required: ["value"],
+    },
+    policy: "mixer_write",
+    method: "track.selected.volume",
+    mapArgs: (args) => [args.value],
+  },
+  {
+    name: "track_selected_set_pan",
+    description: "Set pan for the selected track",
+    inputSchema: {
+      type: "object",
+      properties: {
+        value: { type: "number", description: "Pan value 0.0 to 1.0" },
       },
-      {
-        name: "track_bank_select",
-        description: "Select a track in the bank 0-7",
-        inputSchema: {
-          type: "object",
-          properties: {
-            index: { type: "number", description: "Track index 0-7" },
-          },
-          required: ["index"],
-        },
+      required: ["value"],
+    },
+    policy: "mixer_write",
+    method: "track.selected.pan",
+    mapArgs: (args) => [args.value],
+  },
+  {
+    name: "track_selected_set_mute",
+    description: "Set mute for the selected track",
+    inputSchema: {
+      type: "object",
+      properties: {
+        state: { type: "boolean", description: "True to mute" },
       },
-      // --- Clip & Scene Tools ---
-      {
-        name: "clip_launch",
-        description: "Launch a clip in a track's slot",
-        inputSchema: {
-          type: "object",
-          properties: {
-            trackIndex: { type: "number", description: "Track index 0-7" },
-            slotIndex: { type: "number", description: "Slot index 0-7" },
-          },
-          required: ["trackIndex", "slotIndex"],
-        },
+      required: ["state"],
+    },
+    policy: "mixer_write",
+    method: "track.selected.mute",
+    mapArgs: (args) => [args.state],
+  },
+  {
+    name: "track_selected_set_solo",
+    description: "Set solo for the selected track",
+    inputSchema: {
+      type: "object",
+      properties: {
+        state: { type: "boolean", description: "True to solo" },
       },
-      {
-        name: "clip_record",
-        description: "Trigger record on a clip slot",
-        inputSchema: {
-          type: "object",
-          properties: {
-            trackIndex: { type: "number", description: "Track index 0-7" },
-            slotIndex: { type: "number", description: "Slot index 0-7" },
-          },
-          required: ["trackIndex", "slotIndex"],
-        },
+      required: ["state"],
+    },
+    policy: "mixer_write",
+    method: "track.selected.solo",
+    mapArgs: (args) => [args.state],
+  },
+  {
+    name: "track_selected_set_arm",
+    description: "Set arm (record enable) for the selected track",
+    inputSchema: {
+      type: "object",
+      properties: {
+        state: { type: "boolean", description: "True to arm" },
       },
-      {
-        name: "clip_stop",
-        description: "Stop clips playing on a track",
-        inputSchema: {
-          type: "object",
-          properties: {
-            trackIndex: { type: "number", description: "Track index 0-7" },
-          },
-          required: ["trackIndex"],
-        },
+      required: ["state"],
+    },
+    policy: "mixer_write",
+    method: "track.selected.arm",
+    mapArgs: (args) => [args.state],
+  },
+  {
+    name: "application_create_instrument_track",
+    description: "Create a new instrument track",
+    inputSchema: { type: "object", properties: {} },
+    policy: "application_write",
+    method: "application.createInstrumentTrack",
+  },
+  {
+    name: "application_create_audio_track",
+    description: "Create a new audio track",
+    inputSchema: { type: "object", properties: {} },
+    policy: "application_write",
+    method: "application.createAudioTrack",
+  },
+  {
+    name: "device_get_status",
+    description: "Get status of the currently selected device",
+    inputSchema: { type: "object", properties: {} },
+    policy: "read",
+    method: "device.get_status",
+  },
+  {
+    name: "device_toggle_window",
+    description: "Toggle the device window",
+    inputSchema: { type: "object", properties: {} },
+    policy: "device_write",
+    method: "device.toggle_window",
+  },
+  {
+    name: "device_toggle_expanded",
+    description: "Toggle the device expanded view",
+    inputSchema: { type: "object", properties: {} },
+    policy: "device_write",
+    method: "device.toggle_expanded",
+  },
+  {
+    name: "device_get_remote_controls",
+    description: "Get the 8 remote control parameters for the current page",
+    inputSchema: { type: "object", properties: {} },
+    policy: "read",
+    method: "device.get_remote_controls",
+  },
+  {
+    name: "device_set_remote_control",
+    description: "Set value for a remote control parameter",
+    inputSchema: {
+      type: "object",
+      properties: {
+        index: { type: "number", description: "Parameter index 0-7" },
+        value: { type: "number", description: "Value 0.0 to 1.0" },
       },
-      {
-        name: "scene_launch",
-        description: "Launch a scene (horizontal row of clips)",
-        inputSchema: {
-          type: "object",
-          properties: {
-            sceneIndex: { type: "number", description: "Scene index 0-7" },
-          },
-          required: ["sceneIndex"],
-        },
-      },
-      {
-        name: "scene_list",
-        description: "List available scenes in the current bank",
-        inputSchema: { type: "object", properties: {} },
-      },
-      {
-        name: "scene_create",
-        description: "Create a new empty scene",
-        inputSchema: { type: "object", properties: {} },
-      },
-      {
-        name: "clip_create",
-        description: "Create an empty clip in a track slot",
-        inputSchema: {
-          type: "object",
-          properties: {
-            trackIndex: { type: "number", description: "Track index 0-7" },
-            slotIndex: { type: "number", description: "Slot index 0-7" },
-            lengthBeats: { type: "number", description: "Length of clip in beats (e.g., 4, 8, 16)" },
-          },
-          required: ["trackIndex", "slotIndex", "lengthBeats"],
-        },
-      },
-      // --- Selected Track Tools ---
-      {
-        name: "track_selected_get_status",
-        description: "Get status of the currently selected track",
-        inputSchema: { type: "object", properties: {} },
-      },
-      {
-        name: "track_selected_set_volume",
-        description: "Set volume for the selected track",
-        inputSchema: {
-          type: "object",
-          properties: {
-            value: { type: "number", description: "Volume value 0.0 to 1.0" },
-          },
-          required: ["value"],
-        },
-      },
-      {
-        name: "track_selected_set_pan",
-        description: "Set pan for the selected track",
-        inputSchema: {
-          type: "object",
-          properties: {
-            value: { type: "number", description: "Pan value 0.0 to 1.0" },
-          },
-          required: ["value"],
-        },
-      },
-      {
-        name: "track_selected_set_mute",
-        description: "Set mute for the selected track",
-        inputSchema: {
-          type: "object",
-          properties: {
-            state: { type: "boolean", description: "True to mute" },
-          },
-          required: ["state"],
-        },
-      },
-      {
-        name: "track_selected_set_solo",
-        description: "Set solo for the selected track",
-        inputSchema: {
-          type: "object",
-          properties: {
-            state: { type: "boolean", description: "True to solo" },
-          },
-          required: ["state"],
-        },
-      },
-      {
-        name: "track_selected_set_arm",
-        description: "Set arm (record enable) for the selected track",
-        inputSchema: {
-          type: "object",
-          properties: {
-            state: { type: "boolean", description: "True to arm" },
-          },
-          required: ["state"],
-        },
-      },
-      // --- Application Tools ---
-      {
-        name: "application_create_instrument_track",
-        description: "Create a new instrument track",
-        inputSchema: { type: "object", properties: {} },
-      },
-      {
-        name: "application_create_audio_track",
-        description: "Create a new audio track",
-        inputSchema: { type: "object", properties: {} },
-      },
-      // --- Device Tools ---
-      {
-        name: "device_get_status",
-        description: "Get status of the currently selected device",
-        inputSchema: { type: "object", properties: {} },
-      },
-      {
-        name: "device_toggle_window",
-        description: "Toggle the device window",
-        inputSchema: { type: "object", properties: {} },
-      },
-      {
-        name: "device_toggle_expanded",
-        description: "Toggle the device expanded view",
-        inputSchema: { type: "object", properties: {} },
-      },
-      {
-        name: "device_get_remote_controls",
-        description: "Get the 8 remote control parameters for the current page",
-        inputSchema: { type: "object", properties: {} },
-      },
-      {
-        name: "device_set_remote_control",
-        description: "Set value for a remote control parameter",
-        inputSchema: {
-          type: "object",
-          properties: {
-            index: { type: "number", description: "Parameter index 0-7" },
-            value: { type: "number", description: "Value 0.0 to 1.0" },
-          },
-          required: ["index", "value"],
-        },
-      },
-      {
-        name: "device_page_next",
-        description: "Select next remote controls page",
-        inputSchema: { type: "object", properties: {} },
-      },
-      {
-        name: "device_page_previous",
-        description: "Select previous remote controls page",
-        inputSchema: { type: "object", properties: {} },
-      },
-    ];
+      required: ["index", "value"],
+    },
+    policy: "device_write",
+    method: "device.set_remote_control",
+    mapArgs: (args) => [args.index, args.value],
+  },
+  {
+    name: "device_page_next",
+    description: "Select next remote controls page",
+    inputSchema: { type: "object", properties: {} },
+    policy: "device_write",
+    method: "device.page_next",
+  },
+  {
+    name: "device_page_previous",
+    description: "Select previous remote controls page",
+    inputSchema: { type: "object", properties: {} },
+    policy: "device_write",
+    method: "device.page_previous",
+  },
+]);
+
+const TOOL_SPEC_MAP = new Map(TOOL_SPECS.map((tool) => [tool.name, tool]));
+
+function parseEnabledWritePolicies(env = process.env) {
+  const allowAllWrites = String(env[ENABLE_WRITES_ENV] ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (["1", "true", "yes", "on", "all"].includes(allowAllWrites)) {
+    return new Set(WRITE_POLICIES);
+  }
+
+  return new Set(
+    String(env[WRITE_POLICY_ENV] ?? "")
+      .split(",")
+      .map((policy) => policy.trim().toLowerCase())
+      .filter((policy) => WRITE_POLICIES.includes(policy)),
+  );
 }
 
-async function handleToolCall(request) {
+function isPolicyEnabled(policy, env = process.env) {
+  return policy === "read" || parseEnabledWritePolicies(env).has(policy);
+}
+
+function serializeToolResult(result) {
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(result, null, 2),
+      },
+    ],
+  };
+}
+
+function serializeToolError(error) {
+  return {
+    isError: true,
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(error, null, 2),
+      },
+    ],
+  };
+}
+
+function buildPolicyBlockedError(tool) {
+  return {
+    error: "policy_blocked",
+    tool: tool.name,
+    policy: tool.policy,
+    message: `Tool ${tool.name} requires the ${tool.policy} write policy before it can call Bitwig.`,
+    required_config: {
+      anyOf: [
+        {
+          env: WRITE_POLICY_ENV,
+          value: tool.policy,
+        },
+        {
+          env: ENABLE_WRITES_ENV,
+          value: "1",
+        },
+      ],
+    },
+  };
+}
+
+function buildToolDefinition(tool) {
+  return {
+    name: tool.name,
+    description: `[policy:${tool.policy}] ${tool.description}`,
+    inputSchema: tool.inputSchema,
+  };
+}
+
+export function getToolDefinitions({ env = process.env } = {}) {
+  return TOOL_SPECS.filter((tool) => isPolicyEnabled(tool.policy, env)).map(
+    buildToolDefinition,
+  );
+}
+
+export async function handleToolCall(
+  request,
+  { call = callBitwig, env = process.env } = {},
+) {
   try {
-    const { name, arguments: args } = request.params;
-    let result;
+    const { name, arguments: args = {} } = request.params;
+    const tool = TOOL_SPEC_MAP.get(name);
 
-    switch (name) {
-      case "bitwig_session_inspect":
-        result = await inspectBitwigSession();
-        break;
-      case "transport_play":
-        result = await callBitwig("transport.play");
-        break;
-      case "transport_stop":
-        result = await callBitwig("transport.stop");
-        break;
-      case "transport_restart":
-        result = await callBitwig("transport.restart");
-        break;
-      case "transport_record":
-        result = await callBitwig("transport.record");
-        break;
-      case "transport_get_tempo":
-        result = await callBitwig("transport.getTempo");
-        break;
-      case "transport_set_tempo":
-        result = await callBitwig("transport.setTempo", [args.bpm]);
-        break;
-      case "transport_get_position":
-        result = await callBitwig("transport.getPosition");
-        break;
-      case "transport_set_position":
-        result = await callBitwig("transport.setPosition", [args.beats]);
-        break;
-      case "transport_playing_status":
-        result = await callBitwig("transport.getIsPlaying");
-        break;
-
-      // --- Track Bank Tools ---
-      case "track_bank_get_status":
-        result = await callBitwig("track.bank.get_status");
-        break;
-      case "track_bank_set_volume":
-        result = await callBitwig("track.bank.volume", [args.index, args.value]);
-        break;
-      case "track_bank_set_pan":
-        result = await callBitwig("track.bank.pan", [args.index, args.value]);
-        break;
-      case "track_bank_set_mute":
-        result = await callBitwig("track.bank.mute", [args.index, args.state]);
-        break;
-      case "track_bank_set_solo":
-        result = await callBitwig("track.bank.solo", [args.index, args.state]);
-        break;
-      case "track_bank_select":
-        result = await callBitwig("track.bank.select", [args.index]);
-        break;
-
-      // --- Clip & Scene Tools ---
-      case "clip_launch":
-        result = await callBitwig("clip.launch", [args.trackIndex, args.slotIndex]);
-        break;
-      case "clip_record":
-        result = await callBitwig("clip.record", [args.trackIndex, args.slotIndex]);
-        break;
-      case "clip_stop":
-        result = await callBitwig("clip.stop", [args.trackIndex]);
-        break;
-      case "scene_launch":
-        result = await callBitwig("scene.launch", [args.sceneIndex]);
-        break;
-      case "scene_list":
-        result = await callBitwig("scene.list");
-        break;
-      case "scene_create":
-        result = await callBitwig("scene.create");
-        break;
-      case "clip_create":
-        result = await callBitwig("clip.create", [args.trackIndex, args.slotIndex, args.lengthBeats]);
-        break;
-
-      // --- Selected Track Tools ---
-      case "track_selected_get_status":
-        result = await callBitwig("track.selected.get_status");
-        break;
-      case "track_selected_set_volume":
-        result = await callBitwig("track.selected.volume", [args.value]);
-        break;
-      case "track_selected_set_pan":
-        result = await callBitwig("track.selected.pan", [args.value]);
-        break;
-      case "track_selected_set_mute":
-        result = await callBitwig("track.selected.mute", [args.state]);
-        break;
-      case "track_selected_set_solo":
-        result = await callBitwig("track.selected.solo", [args.state]);
-        break;
-      case "track_selected_set_arm":
-        result = await callBitwig("track.selected.arm", [args.state]);
-        break;
-
-      // --- Application Tools ---
-      case "application_create_instrument_track":
-        result = await callBitwig("application.createInstrumentTrack");
-        break;
-      case "application_create_audio_track":
-        result = await callBitwig("application.createAudioTrack");
-        break;
-
-      // --- Device Tools ---
-      case "device_get_status":
-        result = await callBitwig("device.get_status");
-        break;
-      case "device_toggle_window":
-        result = await callBitwig("device.toggle_window");
-        break;
-      case "device_toggle_expanded":
-        result = await callBitwig("device.toggle_expanded");
-        break;
-      case "device_get_remote_controls":
-        result = await callBitwig("device.get_remote_controls");
-        break;
-      case "device_set_remote_control":
-        result = await callBitwig("device.set_remote_control", [args.index, args.value]);
-        break;
-      case "device_page_next":
-        result = await callBitwig("device.page_next");
-        break;
-      case "device_page_previous":
-        result = await callBitwig("device.page_previous");
-        break;
-
-      default:
-        throw new Error(`Unknown tool: ${name}`);
+    if (!tool) {
+      throw new Error(`Unknown tool: ${name}`);
     }
 
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(result, null, 2),
-        },
-      ],
-    };
+    if (!isPolicyEnabled(tool.policy, env)) {
+      return serializeToolError(buildPolicyBlockedError(tool));
+    }
+
+    if (tool.execute) {
+      return serializeToolResult(await tool.execute({ args, call }));
+    }
+
+    const params = tool.mapArgs ? tool.mapArgs(args) : [];
+    const result = await call(tool.method, params);
+
+    if (tool.policy === "read") {
+      return serializeToolResult(result);
+    }
+
+    return serializeToolResult({
+      tool: tool.name,
+      policy: tool.policy,
+      method: tool.method,
+      params,
+      result,
+    });
   } catch (error) {
-    return {
-      isError: true,
-      content: [
-        {
-          type: "text",
-          text: `Error: ${error.message}`,
-        },
-      ],
-    };
+    return serializeToolError({
+      error: "tool_call_failed",
+      message: error.message,
+    });
   }
 }
 
-export async function createMcpServer() {
+export async function createMcpServer({ env = process.env, call = callBitwig } = {}) {
   const [
     { Server },
     { StdioServerTransport },
@@ -778,9 +856,11 @@ export async function createMcpServer() {
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: getToolDefinitions(),
+    tools: getToolDefinitions({ env }),
   }));
-  server.setRequestHandler(CallToolRequestSchema, handleToolCall);
+  server.setRequestHandler(CallToolRequestSchema, (request) =>
+    handleToolCall(request, { call, env }),
+  );
 
   return { server, StdioServerTransport };
 }
