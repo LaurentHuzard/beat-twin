@@ -98,3 +98,7 @@ Once connected, you can ask your AI Agent:
 > "Add a new instrument track in Bitwig."
 > "Start playback."
 > "Stop the music."
+
+## Next Validation Surface
+
+The next implementation slice should stay on the Node.js MCP server and Bitwig controller path, not a FastAPI app factory. Use the existing MCP transport and local test scripts as the validation surface, then keep any future test harness bounded to the current `index.js` plus controller-script flow.
