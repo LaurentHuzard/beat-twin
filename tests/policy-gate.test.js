@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
 import {
   TOOL_SPECS,
@@ -9,6 +11,11 @@ import {
 
 function parseToolText(response) {
   return JSON.parse(response.content[0].text);
+}
+
+async function readPolicyFixtures() {
+  const fixturePath = fileURLToPath(new URL("./fixtures/policy-errors.json", import.meta.url));
+  return JSON.parse(await readFile(fixturePath, "utf8"));
 }
 
 test("tool registry keeps bitwig_session_inspect read-only", () => {
@@ -138,4 +145,31 @@ test("tool list exposes only the enabled write classes plus reads", () => {
   assert.ok(names.includes("track_selected_set_arm"));
   assert.ok(!names.includes("clip_launch"));
   assert.ok(!names.includes("application_create_audio_track"));
+});
+
+test("policy fixture scenarios match MCP tool responses", async () => {
+  const fixtures = await readPolicyFixtures();
+
+  for (const scenario of fixtures.scenarios) {
+    const calls = [];
+    const response = await handleToolCall(
+      {
+        params: {
+          name: scenario.request.tool,
+          arguments: scenario.request.arguments ?? {},
+        },
+      },
+      {
+        env: scenario.env ?? {},
+        call: async (method, params) => {
+          calls.push({ method, params });
+          return scenario.bitwig_result;
+        },
+      },
+    );
+
+    assert.equal(response.isError === true, scenario.expected.is_error, scenario.name);
+    assert.deepEqual(parseToolText(response), scenario.expected.payload, scenario.name);
+    assert.equal(calls.length, scenario.expected.bitwig_call_count, scenario.name);
+  }
 });

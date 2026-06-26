@@ -1,0 +1,97 @@
+{
+  "scenarios": [
+    {
+      "name": "write tool blocked by default",
+      "env": {},
+      "request": {
+        "tool": "track_bank_set_volume",
+        "arguments": {
+          "index": 2,
+          "value": 0.75
+        }
+      },
+      "bitwig_result": "should-not-run",
+      "expected": {
+        "is_error": true,
+        "bitwig_call_count": 0,
+        "payload": {
+          "error": "policy_blocked",
+          "tool": "track_bank_set_volume",
+          "policy": "mixer_write",
+          "message": "Tool track_bank_set_volume requires the mixer_write write policy before it can call Bitwig.",
+          "required_config": {
+            "anyOf": [
+              {
+                "env": "BITWIG_MCP_WRITE_POLICY",
+                "value": "mixer_write"
+              },
+              {
+                "env": "BITWIG_MCP_ENABLE_WRITES",
+                "value": "1"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "read tool allowed by default",
+      "env": {},
+      "request": {
+        "tool": "transport_get_tempo",
+        "arguments": {}
+      },
+      "bitwig_result": 128.5,
+      "expected": {
+        "is_error": false,
+        "bitwig_call_count": 1,
+        "payload": 128.5
+      }
+    },
+    {
+      "name": "write tool allowed by explicit policy",
+      "env": {
+        "BITWIG_MCP_WRITE_POLICY": "mixer_write"
+      },
+      "request": {
+        "tool": "track_bank_set_volume",
+        "arguments": {
+          "index": 2,
+          "value": 0.75
+        }
+      },
+      "bitwig_result": "OK",
+      "expected": {
+        "is_error": false,
+        "bitwig_call_count": 1,
+        "payload": {
+          "tool": "track_bank_set_volume",
+          "policy": "mixer_write",
+          "method": "track.bank.volume",
+          "params": [
+            2,
+            0.75
+          ],
+          "result": "OK"
+        }
+      }
+    },
+    {
+      "name": "unknown tool fails before Bitwig call",
+      "env": {},
+      "request": {
+        "tool": "foo_bar_baz",
+        "arguments": {}
+      },
+      "bitwig_result": "should-not-run",
+      "expected": {
+        "is_error": true,
+        "bitwig_call_count": 0,
+        "payload": {
+          "error": "tool_call_failed",
+          "message": "Unknown tool: foo_bar_baz"
+        }
+      }
+    }
+  ]
+}
