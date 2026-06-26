@@ -93,29 +93,71 @@ function init() {
   remoteSocket.setClientConnectCallback(function (remoteConnection) {
     println("Client connected");
     isConnected = true;
+    var receiveBuffer = "";
 
     remoteConnection.setDisconnectCallback(function () {
       println("Client disconnected");
       isConnected = false;
+      receiveBuffer = "";
     });
 
     remoteConnection.setReceiveCallback(function (data) {
-      // data is a byte[]
-      var msgString = "";
-      for (var i = 0; i < data.length; i++) {
-        msgString += String.fromCharCode(data[i]);
-      }
-
-      // Handle JSON-RPC
-      try {
-        var request = JSON.parse(msgString);
-        handleRequest(request, remoteConnection);
-      } catch (e) {
-        println("Error parsing JSON: " + e);
-        sendError(remoteConnection, null, -32700, "Parse error");
-      }
+      receiveBuffer += bytesToString(data);
+      receiveBuffer = drainReceiveBuffer(receiveBuffer, remoteConnection);
     });
   });
+}
+
+function bytesToString(data) {
+  var msgString = "";
+  for (var i = 0; i < data.length; i++) {
+    msgString += String.fromCharCode(data[i]);
+  }
+  return msgString;
+}
+
+function drainReceiveBuffer(buffer, connection) {
+  while (buffer.length > 0) {
+    if (buffer.charAt(0) === "{") {
+      try {
+        handleRequest(JSON.parse(buffer), connection);
+        return "";
+      } catch (rawError) {
+        println("Error parsing raw JSON: " + rawError);
+        sendError(connection, null, -32700, "Parse error");
+        return "";
+      }
+    }
+
+    if (buffer.length < 4) return buffer;
+
+    var bodyLength = (
+      (buffer.charCodeAt(0) << 24) |
+      (buffer.charCodeAt(1) << 16) |
+      (buffer.charCodeAt(2) << 8) |
+      buffer.charCodeAt(3)
+    ) >>> 0;
+
+    if (bodyLength < 1 || bodyLength > 1048576) {
+      println("Invalid frame length: " + bodyLength);
+      sendError(connection, null, -32700, "Parse error");
+      return "";
+    }
+
+    if (buffer.length < bodyLength + 4) return buffer;
+
+    var body = buffer.substring(4, bodyLength + 4);
+    buffer = buffer.substring(bodyLength + 4);
+
+    try {
+      handleRequest(JSON.parse(body), connection);
+    } catch (frameError) {
+      println("Error parsing framed JSON: " + frameError);
+      sendError(connection, null, -32700, "Parse error");
+    }
+  }
+
+  return buffer;
 }
 
 function handleRequest(request, connection) {
