@@ -84,6 +84,7 @@ This keeps the policy class, Bitwig method, and params visible in the MCP respon
 ### Read
 
 - `bitwig_session_inspect`
+- `bitwig_arrangement_plan`
 - `transport_get_tempo`
 - `transport_get_position`
 - `transport_playing_status`

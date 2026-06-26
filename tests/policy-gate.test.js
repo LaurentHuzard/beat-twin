@@ -25,6 +25,7 @@ test("default tool list exposes only read tools", () => {
     tools.map((tool) => tool.name),
     [
       "bitwig_session_inspect",
+      "bitwig_arrangement_plan",
       "transport_get_tempo",
       "transport_get_position",
       "transport_playing_status",

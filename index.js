@@ -281,6 +281,281 @@ export async function inspectBitwigSession(call = callBitwig) {
   };
 }
 
+const DEFAULT_ARRANGEMENT_BARS = 64;
+const MIN_ARRANGEMENT_BARS = 20;
+const ARRANGEMENT_SECTION_TEMPLATES = Object.freeze([
+  {
+    name: "intro",
+    intent: "Establish the core texture with fewer active tracks.",
+    energy: "low",
+  },
+  {
+    name: "groove",
+    intent: "Bring in the main rhythm and harmonic anchor.",
+    energy: "medium",
+  },
+  {
+    name: "variation",
+    intent: "Change density or focus so the loop does not stay static.",
+    energy: "medium",
+  },
+  {
+    name: "peak",
+    intent: "Use the strongest combination of tracks as the main payoff.",
+    energy: "high",
+  },
+  {
+    name: "outro",
+    intent: "Remove elements gradually and leave a clean ending.",
+    energy: "low",
+  },
+]);
+
+function toPositiveInteger(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0
+    ? Math.max(parsed, MIN_ARRANGEMENT_BARS)
+    : fallback;
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function compactName(value, fallback) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || fallback;
+}
+
+function summarizeTracks(trackBank) {
+  const tracks = asArray(trackBank).map((track, index) => ({
+    index: Number.isFinite(track?.index) ? track.index : index,
+    name: compactName(track?.name, `Track ${index + 1}`),
+    mute: Boolean(track?.mute),
+    solo: Boolean(track?.solo),
+    arm: Boolean(track?.arm),
+  }));
+
+  const namedTracks = tracks.filter(
+    (track) => !/^track\s+\d+$/i.test(track.name),
+  );
+
+  return {
+    tracks,
+    creativeTracks: namedTracks.length > 0 ? namedTracks : tracks,
+  };
+}
+
+function summarizeScenes(scenes) {
+  return asArray(scenes).map((scene, index) => ({
+    index: Number.isFinite(scene?.index) ? scene.index : index,
+    name: compactName(scene?.name, `Scene ${index + 1}`),
+  }));
+}
+
+function buildSections(targetLengthBars) {
+  let cursor = 0;
+
+  return ARRANGEMENT_SECTION_TEMPLATES.map((template, index) => {
+    const remainingSections = ARRANGEMENT_SECTION_TEMPLATES.length - index;
+    const remainingBars = targetLengthBars - cursor;
+    const lengthBars = Math.max(4, Math.round(remainingBars / remainingSections));
+    const startBar = cursor + 1;
+    const endBar =
+      index === ARRANGEMENT_SECTION_TEMPLATES.length - 1
+        ? targetLengthBars
+        : Math.min(targetLengthBars, cursor + lengthBars);
+
+    cursor = endBar;
+
+    return {
+      ...template,
+      start_bar: startBar,
+      end_bar: endBar,
+      length_bars: Math.max(1, endBar - startBar + 1),
+    };
+  });
+}
+
+function listReadErrors(readErrors) {
+  return Object.entries(readErrors ?? {})
+    .filter(([, error]) => error)
+    .map(([field, error]) => `${field}: ${error}`);
+}
+
+export function createArrangementPlanFromInspection(inspection, args = {}) {
+  const targetLengthBars = toPositiveInteger(
+    args.targetLengthBars,
+    DEFAULT_ARRANGEMENT_BARS,
+  );
+  const style = compactName(args.style, "balanced");
+  const goal = compactName(
+    args.goal,
+    "Turn the current loop or scene material into a structured arrangement plan.",
+  );
+
+  if (!inspection?.connected) {
+    return {
+      connected: false,
+      scope: "plan-only",
+      goal,
+      style,
+      target_length_bars: targetLengthBars,
+      musical_summary: "No arrangement can be inferred until Beat Twin can read Bitwig.",
+      missing_data: ["connected Bitwig session snapshot"],
+      risks: ["Planning from no session data would be guesswork."],
+      permissions_summary: ["read"],
+      steps: [
+        {
+          id: "bt104-00",
+          title: "Reconnect and inspect",
+          intent:
+            inspection?.setup_hint ??
+            "Start Bitwig, enable the controller, then run inspection again.",
+          permissions_required: ["read"],
+          missing_data: ["transport", "tracks", "scenes", "selected device"],
+          risks: [inspection?.error ?? "Bitwig is not connected."],
+        },
+      ],
+    };
+  }
+
+  const { tracks, creativeTracks } = summarizeTracks(inspection.trackBank);
+  const scenes = summarizeScenes(inspection.scenes);
+  const sections = buildSections(targetLengthBars);
+  const selectedTrackName = compactName(inspection.selectedTrack?.name, null);
+  const selectedDeviceName = compactName(inspection.selectedDevice?.name, null);
+  const readErrors = listReadErrors(inspection.read_errors);
+
+  const missingData = [
+    "clip content names and lengths",
+    "MIDI/audio note content",
+    "arranger timeline regions",
+    "automation lanes",
+    "project key and harmonic analysis",
+  ];
+
+  if (scenes.length === 0) {
+    missingData.push("scene names");
+  }
+
+  if (tracks.length === 0) {
+    missingData.push("track bank");
+  }
+
+  if (readErrors.length > 0) {
+    missingData.push(...readErrors);
+  }
+
+  const risks = [
+    "The plan is based on the visible 8-track and 8-scene controller window only.",
+    "Execution would need explicit write policy approval before touching Bitwig.",
+  ];
+
+  if (inspection.transport?.isRecording) {
+    risks.push("Bitwig appears to be recording; do not execute arrangement writes.");
+  }
+
+  if (creativeTracks.length === 0) {
+    risks.push("No named creative tracks were visible in the current bank.");
+  }
+
+  const trackNames = creativeTracks.map((track) => track.name);
+  const sourceScenes = scenes.length > 0 ? scenes : [{ index: 0, name: "current scene" }];
+  const sectionSteps = sections.map((section, index) => ({
+    id: `bt104-${String(index + 2).padStart(2, "0")}`,
+    title: `Sketch ${section.name}`,
+    section: {
+      name: section.name,
+      start_bar: section.start_bar,
+      end_bar: section.end_bar,
+      energy: section.energy,
+    },
+    intent: section.intent,
+    source_scene: sourceScenes[index % sourceScenes.length],
+    suggested_tracks: trackNames.slice(0, Math.max(1, Math.min(trackNames.length, index + 1))),
+    permissions_required: ["clip_write", "scene_write"],
+    missing_data: ["clip slot contents", "clip lengths"],
+    risks: ["Would create or launch clips/scenes if executed; plan-only here."],
+  }));
+
+  return {
+    connected: true,
+    scope: "plan-only",
+    goal,
+    style,
+    target_length_bars: targetLengthBars,
+    musical_summary: [
+      `Plan a ${targetLengthBars}-bar ${style} arrangement`,
+      `from ${tracks.length} visible tracks`,
+      `and ${scenes.length} visible scenes`,
+      selectedTrackName ? `with "${selectedTrackName}" selected` : null,
+      selectedDeviceName ? `and "${selectedDeviceName}" in focus` : null,
+    ]
+      .filter(Boolean)
+      .join(" "),
+    observed_session: {
+      tempo: inspection.transport?.tempo ?? null,
+      position: inspection.transport?.position ?? null,
+      is_playing: inspection.transport?.isPlaying ?? null,
+      is_recording: inspection.transport?.isRecording ?? null,
+      tracks: creativeTracks,
+      scenes,
+      selected_track: selectedTrackName,
+      selected_device: selectedDeviceName,
+    },
+    missing_data: missingData,
+    risks,
+    permissions_summary: [
+      "read",
+      "clip_write",
+      "scene_write",
+      "mixer_write",
+      "device_write",
+      "transport",
+    ],
+    steps: [
+      {
+        id: "bt104-01",
+        title: "Confirm source material",
+        intent:
+          "Use the read-only snapshot to choose which tracks and scenes are arrangement sources.",
+        permissions_required: ["read"],
+        missing_data: missingData,
+        risks: readErrors,
+      },
+      ...sectionSteps,
+      {
+        id: `bt104-${String(sectionSteps.length + 2).padStart(2, "0")}`,
+        title: "Plan mix focus",
+        intent:
+          "Mark which tracks should lead, support, or drop out in each section before changing levels.",
+        permissions_required: ["mixer_write", "device_write"],
+        missing_data: ["level targets", "device macro intent", "automation shape"],
+        risks: ["Mix and device changes can alter the creative balance."],
+      },
+      {
+        id: `bt104-${String(sectionSteps.length + 3).padStart(2, "0")}`,
+        title: "Preview only after explicit approval",
+        intent:
+          "If the plan is accepted, enable only the minimum write policies needed and preview transport changes.",
+        permissions_required: ["transport"],
+        missing_data: [],
+        risks: ["Playback/transport changes should stay reversible and visible."],
+      },
+    ],
+  };
+}
+
+export async function planBitwigArrangement(args = {}, call = callBitwig) {
+  const inspection = await inspectBitwigSession(call);
+  return createArrangementPlanFromInspection(inspection, args);
+}
+
 const WRITE_POLICY_ENV = "BITWIG_MCP_WRITE_POLICY";
 const ENABLE_WRITES_ENV = "BITWIG_MCP_ENABLE_WRITES";
 const WRITE_POLICIES = Object.freeze([
@@ -300,6 +575,30 @@ export const TOOL_SPECS = Object.freeze([
     inputSchema: { type: "object", properties: {} },
     policy: "read",
     execute: ({ call }) => inspectBitwigSession(call),
+  },
+  {
+    name: "bitwig_arrangement_plan",
+    description:
+      "Plan-only arrangement suggestion from the read-only Bitwig session snapshot",
+    inputSchema: {
+      type: "object",
+      properties: {
+        goal: {
+          type: "string",
+          description: "Creative target for the arrangement plan",
+        },
+        style: {
+          type: "string",
+          description: "Arrangement flavor, e.g. minimal, club, ambient, cinematic",
+        },
+        targetLengthBars: {
+          type: "number",
+          description: "Target arrangement length in bars",
+        },
+      },
+    },
+    policy: "read",
+    execute: ({ args, call }) => planBitwigArrangement(args, call),
   },
   {
     name: "transport_play",
