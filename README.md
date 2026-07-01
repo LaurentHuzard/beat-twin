@@ -102,3 +102,42 @@ Once connected, you can ask your AI Agent:
 ## Next Validation Surface
 
 The next implementation slice should stay on the Node.js MCP server and Bitwig controller path, not a FastAPI app factory. Use the existing MCP transport and local test scripts as the validation surface, then keep any future test harness bounded to the current `index.js` plus controller-script flow.
+
+## Go Work Branch: `dev/go-work`
+
+This branch frames the Go direction for Beat Twin.
+
+### Best Go angle
+
+Extract the Bitwig TCP/JSON-RPC bridge into a small Go daemon while keeping the current Node/MCP surface as the compatibility reference.
+
+Target shape:
+
+```txt
+cmd/beat-twin-daemon/main.go
+internal/bitwig/client.go
+internal/bitwig/protocol.go
+internal/bitwig/reconnect.go
+internal/policy/write_policy.go
+internal/session/inspect.go
+```
+
+### Why Go fits here
+
+- TCP socket lifecycle, timeout handling, reconnect logic, and framing are already central to the project.
+- A Go daemon can ship as one local binary for live/music workflows.
+- The current write-policy idea maps well to explicit Go packages and tests.
+- This is the strongest personal-project proof for a future Go mission: networked local runtime, agent bridge, and real external software control.
+
+### First slice
+
+Build a read-only Go bridge first:
+
+1. connect to the Bitwig controller socket;
+2. send `ping`, transport, track-bank, selected-track, scene, and device inspection calls;
+3. expose a local HTTP `/inspect` endpoint;
+4. keep all write tools disabled until policy tests exist.
+
+### Interview pitch
+
+> I started from a Node MCP proof of concept, then extracted the low-level local daemon into Go because the core problem is TCP lifecycle, explicit policies, observability, and a distributable runtime binary.
