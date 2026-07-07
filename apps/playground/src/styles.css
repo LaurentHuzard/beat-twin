@@ -274,6 +274,38 @@ h2 {
   padding-left: 6px;
 }
 
+.timeline-summary {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 32px;
+  align-items: center;
+}
+
+.timeline-summary span,
+.timeline-summary strong {
+  min-width: 0;
+  min-height: 28px;
+  border: 1px solid #d6ded4;
+  border-radius: 8px;
+  padding: 5px 9px;
+  overflow: hidden;
+  background: #f4f7f2;
+  font-size: 0.76rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-summary strong {
+  max-width: 36ch;
+  border-color: #17201f;
+  color: #ffffff;
+  background: #17201f;
+  font-weight: 800;
+}
+
 .track-lanes {
   display: grid;
   align-content: start;
@@ -287,13 +319,19 @@ h2 {
   gap: 14px;
   align-items: stretch;
   width: 100%;
-  min-height: 64px;
+  min-height: 76px;
   border: 1px solid #dbe4d9;
   border-radius: 8px;
   padding: 10px;
   color: inherit;
   background: #fbfcfa;
   text-align: left;
+}
+
+.track-row.selected {
+  border-color: #8fb9a1;
+  background: #f6faf5;
+  box-shadow: inset 4px 0 0 #d85b40;
 }
 
 .track-row:hover,
@@ -325,7 +363,7 @@ h2 {
 
 .clip-lane {
   position: relative;
-  min-height: 42px;
+  min-height: 54px;
   border-radius: 6px;
   background:
     linear-gradient(90deg, rgb(23 32 31 / 8%) 1px, transparent 1px) 0 0 / 6.25% 100%,
@@ -334,27 +372,67 @@ h2 {
 
 .clip-block {
   position: absolute;
-  top: 7px;
-  display: flex;
-  align-items: center;
-  min-width: 72px;
+  top: 6px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto 8px;
+  gap: 2px 6px;
+  align-content: center;
+  min-width: 96px;
   max-width: 100%;
-  height: 28px;
+  height: 42px;
   overflow: hidden;
   border: 1px solid #2d7f73;
   border-radius: 6px;
-  padding: 0 10px;
+  padding: 5px 8px;
   color: #ffffff;
   background: #2d7f73;
-  font-size: 0.82rem;
   font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .clip-block.selected {
   border-color: #17201f;
   background: #d85b40;
+}
+
+.clip-title,
+.clip-meta {
+  min-width: 0;
+  overflow: hidden;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clip-title {
+  font-size: 0.8rem;
+}
+
+.clip-meta {
+  color: rgb(255 255 255 / 82%);
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.clip-note-map {
+  position: relative;
+  grid-column: 1 / -1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 20%);
+}
+
+.clip-note-marker {
+  position: absolute;
+  top: 1px;
+  height: 4px;
+  border-radius: 999px;
+  background: #f7df8a;
+}
+
+.clip-block.selected .clip-note-marker {
+  background: #ffffff;
 }
 
 .empty-lane {

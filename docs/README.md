@@ -19,6 +19,7 @@ This directory contains the current technical notes for the public Beat Twin pro
 - [`SPRINT-5-PATTERN-TOOLS.md`](SPRINT-5-PATTERN-TOOLS.md): browser pattern duplicate, quantize, transpose commands, and validation commands.
 - [`SPRINT-6-UNDO-REDO.md`](SPRINT-6-UNDO-REDO.md): browser-local command history, undo/redo UI, and validation commands.
 - [`SPRINT-7-KEYBOARD-SHORTCUTS.md`](SPRINT-7-KEYBOARD-SHORTCUTS.md): browser-local keyboard shortcuts and input-safety validation.
+- [`SPRINT-8-TIMELINE-SELECTION.md`](SPRINT-8-TIMELINE-SELECTION.md): visible timeline selection, density summary, and clip note markers.
 - [`../bitwig-api-docs/README.md`](../bitwig-api-docs/README.md): why Bitwig API reference material is not vendored.
 
 ## Documentation Rule

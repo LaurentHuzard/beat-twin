@@ -122,7 +122,11 @@ function App() {
       />
 
       <section className="workspace-grid" aria-label="Beat Twin workspace">
-        <Timeline song={song} selectedClipId={selectedClip?.id ?? null} />
+        <Timeline
+          song={song}
+          selectedTrackId={selectedTrack?.id ?? null}
+          selectedClipId={selectedClip?.id ?? null}
+        />
         <Inspector
           song={song}
           track={selectedTrack}
@@ -430,13 +434,24 @@ function TransportStrip({
 
 type TimelineProps = {
   readonly song: Song | null;
+  readonly selectedTrackId: string | null;
   readonly selectedClipId: string | null;
 };
 
-function Timeline({ song, selectedClipId }: TimelineProps) {
+function Timeline({ song, selectedTrackId, selectedClipId }: TimelineProps) {
   const tracks = song?.tracks ?? [];
   const selectTrack = usePlaygroundStore((state) => state.selectTrack);
   const selectClip = usePlaygroundStore((state) => state.selectClip);
+  const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
+  const selectedClip =
+    selectedTrack?.clips.find((clip) => clip.id === selectedClipId) ?? null;
+  const clipCount = tracks.reduce((total, track) => total + track.clips.length, 0);
+  const noteCount = tracks.reduce(
+    (total, track) =>
+      total +
+      track.clips.reduce((clipTotal, clip) => clipTotal + clip.pattern.notes.length, 0),
+    0,
+  );
 
   return (
     <section className="timeline-surface" aria-label="Timeline">
@@ -450,52 +465,81 @@ function Timeline({ song, selectedClipId }: TimelineProps) {
             <span key={index}>{index + 1}</span>
           ))}
         </div>
+        <div className="timeline-summary" aria-label="Timeline summary">
+          <span>{formatCount(tracks.length, "track")}</span>
+          <span>{formatCount(clipCount, "clip")}</span>
+          <span>{formatCount(noteCount, "note")}</span>
+          <strong>{selectedClip?.name ?? selectedTrack?.name ?? "No selection"}</strong>
+        </div>
       </div>
 
       <div className="track-lanes">
         {tracks.length === 0 ? (
           <div className="empty-lane">Create Demo</div>
         ) : (
-          tracks.map((track) => (
-            <button
-              type="button"
-              className="track-row"
-              key={track.id}
-              onClick={() => selectTrack(track.id)}
-              data-testid="track-row"
-            >
-              <span className="track-name">
-                <span className="track-swatch" style={{ background: track.color }} />
-                {track.name}
-              </span>
-              <span className="clip-lane">
-                {track.clips.map((clip) => (
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    key={clip.id}
-                    className={
-                      clip.id === selectedClipId ? "clip-block selected" : "clip-block"
-                    }
-                    style={clipStyle(clip)}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      selectClip(track.id, clip.id);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
+          tracks.map((track) => {
+            const isSelectedTrack = track.id === selectedTrackId;
+
+            return (
+              <button
+                type="button"
+                className={isSelectedTrack ? "track-row selected" : "track-row"}
+                key={track.id}
+                onClick={() => selectTrack(track.id)}
+                aria-pressed={isSelectedTrack}
+                data-testid="track-row"
+              >
+                <span className="track-name">
+                  <span className="track-swatch" style={{ background: track.color }} />
+                  {track.name}
+                </span>
+                <span className="clip-lane">
+                  {track.clips.map((clip) => (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      key={clip.id}
+                      className={
+                        clip.id === selectedClipId ? "clip-block selected" : "clip-block"
+                      }
+                      style={clipStyle(clip)}
+                      aria-label={`${clip.name}, ${formatCount(
+                        clip.pattern.notes.length,
+                        "note",
+                      )}, starts at beat ${clip.startBeat}`}
+                      data-testid="clip-block"
+                      onClick={(event) => {
                         event.stopPropagation();
                         selectClip(track.id, clip.id);
-                      }
-                    }}
-                  >
-                    {clip.name}
-                  </span>
-                ))}
-              </span>
-            </button>
-          ))
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          selectClip(track.id, clip.id);
+                        }
+                      }}
+                    >
+                      <span className="clip-title">{clip.name}</span>
+                      <span className="clip-meta">
+                        {formatCount(clip.pattern.notes.length, "note")}
+                      </span>
+                      <span className="clip-note-map" aria-hidden="true">
+                        {clip.pattern.notes.map((note) => (
+                          <span
+                            key={note.id}
+                            className="clip-note-marker"
+                            style={noteMarkerStyle(note, clip)}
+                            data-testid="clip-note-marker"
+                          />
+                        ))}
+                      </span>
+                    </span>
+                  ))}
+                </span>
+              </button>
+            );
+          })
         )}
       </div>
     </section>
@@ -510,6 +554,22 @@ function clipStyle(clip: Clip) {
     left: `${Math.min(left, 92)}%`,
     width: `${Math.max(8, Math.min(width, 100 - left))}%`,
   };
+}
+
+function noteMarkerStyle(note: Note, clip: Clip) {
+  const left = clip.lengthBeats > 0 ? (note.startBeat / clip.lengthBeats) * 100 : 0;
+  const width =
+    clip.lengthBeats > 0 ? (note.lengthBeats / clip.lengthBeats) * 100 : 100;
+  const clampedLeft = Math.min(98, Math.max(0, left));
+
+  return {
+    left: `${clampedLeft}%`,
+    width: `${Math.max(3, Math.min(width, 100 - clampedLeft))}%`,
+  };
+}
+
+function formatCount(count: number, singular: string): string {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
 type InspectorProps = {

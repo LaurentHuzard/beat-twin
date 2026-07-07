@@ -11,7 +11,7 @@ It exposes a small local MCP server for agent-assisted music workflows while kee
 - Transport, mixer, clip, scene, device, and application write tools, hidden and blocked by default.
 - A Bitwig controller script that speaks JSON-RPC over a local TCP connection.
 - Offline protocol and policy tests that run without launching Bitwig.
-- A browser Playground for command-first song sketches, Tone.js audition, note editing, pattern tools, keyboard shortcuts, local undo/redo, and JSON save/load.
+- A browser Playground for command-first song sketches, Tone.js audition, note editing, pattern tools, keyboard shortcuts, local undo/redo, JSON save/load, and visible timeline feedback.
 
 ## Architecture
 
@@ -40,6 +40,7 @@ Browser save/load is also local Playground state, not a Bitwig mutation.
 Browser pattern tools are local document edits for duplicate, quantize, and transpose.
 Browser undo/redo restores local Playground command snapshots only.
 Browser keyboard shortcuts invoke existing local Playground actions only.
+Browser timeline feedback is derived from local song state and does not call Bitwig.
 
 ## Requirements
 

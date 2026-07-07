@@ -54,6 +54,26 @@ describe("Playground", () => {
     expect(screen.getByLabelText("Inspector")).toHaveTextContent("Kick Ladder");
   });
 
+  it("shows selected timeline density and note markers", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+
+    const timelineSummary = screen.getByLabelText("Timeline summary");
+    expect(timelineSummary).toHaveTextContent("1 track");
+    expect(timelineSummary).toHaveTextContent("1 clip");
+    expect(timelineSummary).toHaveTextContent("3 notes");
+    expect(timelineSummary).toHaveTextContent("Kick Ladder");
+    expect(screen.getByTestId("track-row")).toHaveClass("selected");
+    expect(
+      screen.getByRole("button", {
+        name: /kick ladder, 3 notes, starts at beat 0/i,
+      }),
+    ).toHaveClass("selected");
+    expect(screen.getAllByTestId("clip-note-marker")).toHaveLength(3);
+  });
+
   it("adds tracks through the command bus", () => {
     mockPreviewAudioEngine();
     render(<App />);

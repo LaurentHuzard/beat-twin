@@ -13,6 +13,8 @@ Sprint 6 local undo/redo boundaries live in
 [`SPRINT-6-UNDO-REDO.md`](SPRINT-6-UNDO-REDO.md).
 Sprint 7 keyboard shortcut boundaries live in
 [`SPRINT-7-KEYBOARD-SHORTCUTS.md`](SPRINT-7-KEYBOARD-SHORTCUTS.md).
+Sprint 8 timeline selection feedback lives in
+[`SPRINT-8-TIMELINE-SELECTION.md`](SPRINT-8-TIMELINE-SELECTION.md).
 
 ## Current Browser Stack
 
@@ -107,6 +109,10 @@ restored song.
 
 Browser keyboard shortcuts invoke existing local Playground actions only, and
 are ignored while focus is inside editable fields.
+
+Browser timeline selection feedback is derived from local `Song` state only. It
+highlights selected tracks and clips, summarizes track/clip/note counts, and
+draws clip-local note markers without adding a new mutation path.
 
 ## Validation
 
