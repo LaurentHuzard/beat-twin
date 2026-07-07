@@ -1,4 +1,4 @@
-# BT-103 Policy Gate Lecture / Ecriture
+# BT-103 Policy Gate
 
 ## Decision
 
@@ -85,6 +85,14 @@ This keeps the policy class, Bitwig method, and params visible in the MCP respon
 
 ## Current classification
 
+> This list mirrors the `policy` field of each entry in `TOOL_SPECS` (`index.js`)
+> and must be updated whenever tools are added or reclassified. It can be
+> regenerated from the source of truth:
+>
+> ```bash
+> node --input-type=module -e "import('./index.js').then(({ TOOL_SPECS }) => { const g = {}; for (const t of TOOL_SPECS) (g[t.policy] ??= []).push(t.name); console.log(JSON.stringify(g, null, 2)); })"
+> ```
+
 ### Read
 
 - `bitwig_session_inspect`
@@ -94,9 +102,13 @@ This keeps the policy class, Bitwig method, and params visible in the MCP respon
 - `transport_playing_status`
 - `track_bank_get_status`
 - `scene_list`
+- `clip_get_info`
 - `track_selected_get_status`
 - `device_get_status`
 - `device_get_remote_controls`
+- `device_list`
+- `browser_get_status`
+- `browser_list_results`
 
 ### Transport
 
@@ -126,6 +138,11 @@ This keeps the policy class, Bitwig method, and params visible in the MCP respon
 - `clip_record`
 - `clip_stop`
 - `clip_create`
+- `clip_select_slot`
+- `clip_show_in_editor`
+- `clip_set_note`
+- `clip_clear_note`
+- `clip_toggle_note`
 
 ### Scene Write
 
@@ -139,6 +156,15 @@ This keeps the policy class, Bitwig method, and params visible in the MCP respon
 - `device_set_remote_control`
 - `device_page_next`
 - `device_page_previous`
+- `device_browse_insert`
+- `device_browse_start`
+- `device_browse_end`
+- `browser_select_result`
+- `browser_select_first_file`
+- `browser_select_next_file`
+- `browser_select_previous_file`
+- `browser_commit`
+- `browser_cancel`
 
 ### Application Write
 
