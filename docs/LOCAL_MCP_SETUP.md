@@ -3,6 +3,10 @@
 This note describes the expected local setup for using Beat Twin from an MCP
 client against a running Bitwig Studio instance.
 
+Coding agents should also read [`AGENT_SETUP.md`](AGENT_SETUP.md), which
+separates automated setup steps from the manual Bitwig UI step that must be
+requested from the user.
+
 ## 1. Install Dependencies
 
 ```bash

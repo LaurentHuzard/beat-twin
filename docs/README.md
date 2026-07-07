@@ -4,6 +4,7 @@ This directory contains the current technical notes for the public Beat Twin pro
 
 ## Current Notes
 
+- [`AGENT_SETUP.md`](AGENT_SETUP.md): what a coding agent can automate and what must be requested from the user in Bitwig.
 - [`BT-101-SESSION-INSPECTOR.md`](BT-101-SESSION-INSPECTOR.md): read-only session snapshot behavior.
 - [`BT-102-PROTOCOL-SMOKE.md`](BT-102-PROTOCOL-SMOKE.md): TCP framing and offline protocol smoke tests.
 - [`BT-103-POLICY-GATE.md`](BT-103-POLICY-GATE.md): write-policy model and current tool classification.

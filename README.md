@@ -131,6 +131,7 @@ Live tests require Bitwig Studio, the controller script, and explicit write perm
 - [`docs/BT-104-ARRANGEMENT-PLAN.md`](docs/BT-104-ARRANGEMENT-PLAN.md)
 - [`docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md`](docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md)
 - [`docs/FUTURE-DIRECTION.md`](docs/FUTURE-DIRECTION.md)
+- [`docs/AGENT_SETUP.md`](docs/AGENT_SETUP.md)
 - [`docs/LOCAL_MCP_SETUP.md`](docs/LOCAL_MCP_SETUP.md)
 
 ## Status
