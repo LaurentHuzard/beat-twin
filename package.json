@@ -1,9 +1,12 @@
 {
-  "name": "bitwig-mcp-poc",
-  "version": "0.0.1",
+  "name": "beat-twin",
+  "version": "0.1.0",
+  "description": "Bitwig Studio MCP bridge for agent-assisted music production experiments.",
   "type": "module",
+  "license": "MIT",
   "scripts": {
-    "test:protocol-smoke": "node --test tests/protocol-smoke.test.js"
+    "test:protocol-smoke": "node --test tests/protocol-smoke.test.js",
+    "test": "npm run test:protocol-smoke"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
