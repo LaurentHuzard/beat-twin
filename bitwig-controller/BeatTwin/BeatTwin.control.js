@@ -8,7 +8,12 @@ var trackBank;
 var sceneBank;
 var cursorTrack;
 var cursorDevice;
+var cursorClip;
 var remoteControlsBank;
+var deviceBanks = [];
+var popupBrowser;
+var browserResultCursor;
+var browserResultBank;
 
 // Connection state
 var isConnected = false;
@@ -35,6 +40,30 @@ function init() {
   cursorTrack.solo().markInterested();
   cursorTrack.arm().markInterested();
   cursorTrack.name().markInterested();
+
+  // --- Cursor Clip Setup ---
+  // Gives MCP a focused step sequencer surface for writing note steps into the
+  // currently selected clip.
+  cursorClip = host.createCursorClip(16, 128);
+  cursorClip.getLoopLength().markInterested();
+  cursorClip.getLoopStart().markInterested();
+  cursorClip.getPlayStart().markInterested();
+  cursorClip.getPlayStop().markInterested();
+  cursorClip.playingStep().markInterested();
+
+  cursorClip.addStepDataObserver(function (x, y, state) {
+    if (isConnected) {
+      // Step events are currently only visible in Bitwig's controller log; the
+      // Node bridge ignores unsolicited messages unless they match a request id.
+      println("Beat Twin clip.step_update " + JSON.stringify({ x: x, y: y, state: state }));
+    }
+  });
+
+  cursorClip.addPlayingStepObserver(function (step) {
+    if (isConnected) {
+      println("Beat Twin clip.play_step " + step);
+    }
+  });
 
   // --- Cursor Device Setup ---
   cursorDevice = cursorTrack.createCursorDevice("MCP_DEVICE", "Cursor Device", 0, CursorDeviceFollowMode.FOLLOW_SELECTION);
@@ -64,6 +93,15 @@ function init() {
     track.arm().markInterested();
     track.name().markInterested();
     track.color().markInterested();
+
+    var deviceBank = track.createDeviceBank(8);
+    for (var d = 0; d < 8; d++) {
+      var device = deviceBank.getItemAt(d);
+      device.exists().markInterested();
+      device.name().markInterested();
+      device.isEnabled().markInterested();
+    }
+    deviceBanks.push(deviceBank);
     
     // Clip Launcher Slots
     var clipLauncher = track.clipLauncherSlotBank();
@@ -82,6 +120,25 @@ function init() {
      var scene = sceneBank.getScene(i);
      scene.name().markInterested();
      scene.sceneIndex().markInterested();
+  }
+
+  // --- Popup Browser Setup ---
+  popupBrowser = host.createPopupBrowser();
+  popupBrowser.exists().markInterested();
+  popupBrowser.title().markInterested();
+  popupBrowser.contentTypeNames().markInterested();
+  popupBrowser.selectedContentTypeIndex().markInterested();
+  popupBrowser.selectedContentTypeName().markInterested();
+  browserResultCursor = popupBrowser.resultsColumn().createCursorItem();
+  browserResultCursor.exists().markInterested();
+  browserResultCursor.name().markInterested();
+  browserResultCursor.isSelected().markInterested();
+  browserResultBank = popupBrowser.resultsColumn().createItemBank(32);
+  for (var r = 0; r < 32; r++) {
+    var browserItem = browserResultBank.getItemAt(r);
+    browserItem.exists().markInterested();
+    browserItem.name().markInterested();
+    browserItem.isSelected().markInterested();
   }
 
   println("Beat Twin Initialized");
@@ -333,6 +390,63 @@ function handleRequest(request, connection) {
         } else throw "Missing parameters (trackIndex, slotIndex, length)";
         break;
 
+      case "clip.select_slot":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          var selectSlot = trackBank.getItemAt(request.params[0]).clipLauncherSlotBank().getItemAt(request.params[1]);
+          selectSlot.select();
+          result = "OK";
+        } else throw "Missing parameters (trackIndex, slotIndex)";
+        break;
+
+      case "clip.show_in_editor":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          var editorSlot = trackBank.getItemAt(request.params[0]).clipLauncherSlotBank().getItemAt(request.params[1]);
+          editorSlot.select();
+          editorSlot.showInEditor();
+          result = "OK";
+        } else throw "Missing parameters (trackIndex, slotIndex)";
+        break;
+
+      case "clip.get_info":
+        result = {
+          loopLength: cursorClip.getLoopLength().get(),
+          loopStart: cursorClip.getLoopStart().get(),
+          playStart: cursorClip.getPlayStart().get(),
+          playStop: cursorClip.getPlayStop().get(),
+          playingStep: cursorClip.playingStep().get()
+        };
+        break;
+
+      case "clip.set_note":
+        if (
+          request.params &&
+          request.params[0] !== undefined &&
+          request.params[1] !== undefined &&
+          request.params[2] !== undefined &&
+          request.params[3] !== undefined
+        ) {
+          // step, pitch, velocity, duration
+          cursorClip.setStep(0, request.params[0], request.params[1], request.params[2], request.params[3]);
+          result = "OK";
+        } else throw "Missing parameters (step, pitch, velocity, duration)";
+        break;
+
+      case "clip.clear_note":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          // step, pitch
+          cursorClip.clearStep(0, request.params[0], request.params[1]);
+          result = "OK";
+        } else throw "Missing parameters (step, pitch)";
+        break;
+
+      case "clip.toggle_note":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          // step, pitch, velocity
+          cursorClip.toggleStep(request.params[0], request.params[1], request.params[2] || 1.0);
+          result = "OK";
+        } else throw "Missing parameters (step, pitch)";
+        break;
+
       // --- Selected Track Control ---
       case "track.selected.get_status":
         result = {
@@ -440,6 +554,114 @@ function handleRequest(request, connection) {
 
       case "device.page_previous":
         remoteControlsBank.selectPreviousPage(true);
+        result = "OK";
+        break;
+
+      case "device.list":
+        if (request.params && request.params[0] !== undefined) {
+          var trackIndex = request.params[0];
+          var devices = [];
+          for (var di = 0; di < 8; di++) {
+            var listedDevice = deviceBanks[trackIndex].getItemAt(di);
+            if (listedDevice.exists().get()) {
+              devices.push({
+                index: di,
+                name: listedDevice.name().get(),
+                enabled: listedDevice.isEnabled().get()
+              });
+            }
+          }
+          result = devices;
+        } else throw "Missing trackIndex parameter";
+        break;
+
+      case "device.browse_insert":
+        if (request.params && request.params[0] !== undefined) {
+          var insertTrackIndex = request.params[0];
+          var insertPosition = request.params[1] !== undefined ? request.params[1] : 0;
+          trackBank.getItemAt(insertTrackIndex).selectInMixer();
+          deviceBanks[insertTrackIndex].browseToInsertDevice(insertPosition);
+          result = "OK";
+        } else throw "Missing parameters (trackIndex, position)";
+        break;
+
+      case "device.browse_start":
+        if (request.params && request.params[0] !== undefined) {
+          var startTrackIndex = request.params[0];
+          var startTrack = trackBank.getItemAt(startTrackIndex);
+          startTrack.selectInMixer();
+          startTrack.startOfDeviceChainInsertionPoint().browse();
+          result = "OK";
+        } else throw "Missing trackIndex parameter";
+        break;
+
+      case "device.browse_end":
+        if (request.params && request.params[0] !== undefined) {
+          var endTrackIndex = request.params[0];
+          var endTrack = trackBank.getItemAt(endTrackIndex);
+          endTrack.selectInMixer();
+          endTrack.endOfDeviceChainInsertionPoint().browse();
+          result = "OK";
+        } else throw "Missing trackIndex parameter";
+        break;
+
+      // --- Browser Control ---
+      case "browser.get_status":
+        result = {
+          exists: popupBrowser.exists().get(),
+          title: popupBrowser.title().get(),
+          contentTypeNames: popupBrowser.contentTypeNames().get(),
+          selectedContentTypeIndex: popupBrowser.selectedContentTypeIndex().get(),
+          selectedContentTypeName: popupBrowser.selectedContentTypeName().get()
+        };
+        break;
+
+      case "browser.list_results":
+        var items = [];
+        for (var bi = 0; bi < 32; bi++) {
+          var item = browserResultBank.getItemAt(bi);
+          var name = item.name().get();
+          if (item.exists().get() || (name && name.length > 0)) {
+            items.push({ index: bi, exists: item.exists().get(), name: name, selected: item.isSelected().get() });
+          }
+        }
+        result = items;
+        break;
+
+      case "browser.select_result":
+        if (request.params && request.params[0] !== undefined) {
+          popupBrowser.selectFirstFile();
+          // In Bitwig 5's popup browser, commit() lands on the previous result
+          // unless we advance one extra step from the first visible item.
+          for (var si = 0; si <= request.params[0]; si++) {
+            popupBrowser.selectNextFile();
+          }
+          result = "OK";
+        } else throw "Missing index parameter";
+        break;
+
+      case "browser.select_first_file":
+        popupBrowser.selectFirstFile();
+        result = "OK";
+        break;
+
+      case "browser.select_next_file":
+        popupBrowser.selectNextFile();
+        result = "OK";
+        break;
+
+      case "browser.select_previous_file":
+        popupBrowser.selectPreviousFile();
+        result = "OK";
+        break;
+
+      case "browser.commit":
+        popupBrowser.commit();
+        result = "OK";
+        break;
+
+      case "browser.cancel":
+        popupBrowser.cancel();
         result = "OK";
         break;
 

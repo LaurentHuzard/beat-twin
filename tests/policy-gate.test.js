@@ -38,9 +38,13 @@ test("default tool list exposes only read tools", () => {
       "transport_playing_status",
       "track_bank_get_status",
       "scene_list",
+      "clip_get_info",
       "track_selected_get_status",
       "device_get_status",
       "device_get_remote_controls",
+      "device_list",
+      "browser_get_status",
+      "browser_list_results",
     ],
   );
   assert.ok(tools.every((tool) => tool.description.startsWith("[policy:read]")));
@@ -144,7 +148,101 @@ test("tool list exposes only the enabled write classes plus reads", () => {
   assert.ok(names.includes("track_bank_set_volume"));
   assert.ok(names.includes("track_selected_set_arm"));
   assert.ok(!names.includes("clip_launch"));
+  assert.ok(!names.includes("clip_set_note"));
+  assert.ok(!names.includes("device_browse_insert"));
+  assert.ok(!names.includes("device_browse_start"));
+  assert.ok(!names.includes("browser_commit"));
   assert.ok(!names.includes("application_create_audio_track"));
+});
+
+test("clip note tools are exposed and mapped only with clip_write policy", async () => {
+  const tools = getToolDefinitions({
+    env: { BITWIG_MCP_WRITE_POLICY: "clip_write" },
+  });
+  const names = tools.map((tool) => tool.name);
+
+  assert.ok(names.includes("clip_get_info"));
+  assert.ok(names.includes("clip_select_slot"));
+  assert.ok(names.includes("clip_show_in_editor"));
+  assert.ok(names.includes("clip_set_note"));
+  assert.ok(names.includes("clip_clear_note"));
+  assert.ok(names.includes("clip_toggle_note"));
+
+  const calls = [];
+  const response = await handleToolCall(
+    {
+      params: {
+        name: "clip_set_note",
+        arguments: { step: 3, pitch: 60, velocity: 108, duration: 1 },
+      },
+    },
+    {
+      env: { BITWIG_MCP_WRITE_POLICY: "clip_write" },
+      call: async (method, params) => {
+        calls.push({ method, params });
+        return "OK";
+      },
+    },
+  );
+
+  assert.equal(response.isError, undefined);
+  assert.deepEqual(parseToolText(response), {
+    tool: "clip_set_note",
+    policy: "clip_write",
+    method: "clip.set_note",
+    params: [3, 60, 108, 1],
+    result: "OK",
+  });
+  assert.deepEqual(calls, [{ method: "clip.set_note", params: [3, 60, 108, 1] }]);
+});
+
+test("device browser tools are exposed and mapped only with device_write policy", async () => {
+  const tools = getToolDefinitions({
+    env: { BITWIG_MCP_WRITE_POLICY: "device_write" },
+  });
+  const names = tools.map((tool) => tool.name);
+
+  assert.ok(names.includes("device_browse_insert"));
+  assert.ok(names.includes("device_browse_start"));
+  assert.ok(names.includes("device_browse_end"));
+  assert.ok(names.includes("browser_select_result"));
+  assert.ok(names.includes("browser_commit"));
+
+  const calls = [];
+  const invoke = (name, args) =>
+    handleToolCall(
+      {
+        params: {
+          name,
+          arguments: args,
+        },
+      },
+      {
+        env: { BITWIG_MCP_WRITE_POLICY: "device_write" },
+        call: async (method, params) => {
+          calls.push({ method, params });
+          return "OK";
+        },
+      },
+    );
+
+  const response = await invoke("device_browse_insert", { trackIndex: 2, position: 0 });
+  assert.equal(response.isError, undefined);
+  assert.deepEqual(parseToolText(response), {
+    tool: "device_browse_insert",
+    policy: "device_write",
+    method: "device.browse_insert",
+    params: [2, 0],
+    result: "OK",
+  });
+
+  await invoke("device_browse_start", { trackIndex: 2 });
+  await invoke("device_browse_end", { trackIndex: 2 });
+  assert.deepEqual(calls, [
+    { method: "device.browse_insert", params: [2, 0] },
+    { method: "device.browse_start", params: [2] },
+    { method: "device.browse_end", params: [2] },
+  ]);
 });
 
 test("policy fixture scenarios match MCP tool responses", async () => {

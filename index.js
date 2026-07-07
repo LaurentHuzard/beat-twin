@@ -859,6 +859,94 @@ export const TOOL_SPECS = Object.freeze([
     mapArgs: (args) => [args.trackIndex, args.slotIndex, args.lengthBeats],
   },
   {
+    name: "clip_get_info",
+    description: "Get loop and playing-step info for the focused cursor clip",
+    inputSchema: { type: "object", properties: {} },
+    policy: "read",
+    method: "clip.get_info",
+  },
+  {
+    name: "clip_select_slot",
+    description: "Select a clip slot so the cursor clip can target it",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trackIndex: { type: "number", description: "Track index 0-7" },
+        slotIndex: { type: "number", description: "Slot index 0-7" },
+      },
+      required: ["trackIndex", "slotIndex"],
+    },
+    policy: "clip_write",
+    method: "clip.select_slot",
+    mapArgs: (args) => [args.trackIndex, args.slotIndex],
+  },
+  {
+    name: "clip_show_in_editor",
+    description: "Select a clip slot and show it in Bitwig's editor",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trackIndex: { type: "number", description: "Track index 0-7" },
+        slotIndex: { type: "number", description: "Slot index 0-7" },
+      },
+      required: ["trackIndex", "slotIndex"],
+    },
+    policy: "clip_write",
+    method: "clip.show_in_editor",
+    mapArgs: (args) => [args.trackIndex, args.slotIndex],
+  },
+  {
+    name: "clip_set_note",
+    description: "Write a MIDI note step into the focused cursor clip",
+    inputSchema: {
+      type: "object",
+      properties: {
+        step: { type: "number", description: "Step index in the cursor clip grid" },
+        pitch: { type: "number", description: "MIDI pitch number, e.g. 60 for C4" },
+        velocity: { type: "number", description: "MIDI velocity 0-127" },
+        duration: { type: "number", description: "Step duration in grid units" },
+      },
+      required: ["step", "pitch", "velocity", "duration"],
+    },
+    policy: "clip_write",
+    method: "clip.set_note",
+    mapArgs: (args) => [args.step, args.pitch, args.velocity, args.duration],
+  },
+  {
+    name: "clip_clear_note",
+    description: "Clear a MIDI note step from the focused cursor clip",
+    inputSchema: {
+      type: "object",
+      properties: {
+        step: { type: "number", description: "Step index in the cursor clip grid" },
+        pitch: { type: "number", description: "MIDI pitch number" },
+      },
+      required: ["step", "pitch"],
+    },
+    policy: "clip_write",
+    method: "clip.clear_note",
+    mapArgs: (args) => [args.step, args.pitch],
+  },
+  {
+    name: "clip_toggle_note",
+    description: "Toggle a MIDI note step in the focused cursor clip",
+    inputSchema: {
+      type: "object",
+      properties: {
+        step: { type: "number", description: "Step index in the cursor clip grid" },
+        pitch: { type: "number", description: "MIDI pitch number" },
+        velocity: {
+          type: "number",
+          description: "MIDI velocity 0-127; defaults to full velocity in Bitwig",
+        },
+      },
+      required: ["step", "pitch"],
+    },
+    policy: "clip_write",
+    method: "clip.toggle_note",
+    mapArgs: (args) => [args.step, args.pitch, args.velocity],
+  },
+  {
     name: "track_selected_get_status",
     description: "Get status of the currently selected track",
     inputSchema: { type: "object", properties: {} },
@@ -978,6 +1066,20 @@ export const TOOL_SPECS = Object.freeze([
     method: "device.get_remote_controls",
   },
   {
+    name: "device_list",
+    description: "List devices on a visible track",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trackIndex: { type: "number", description: "Track index 0-7" },
+      },
+      required: ["trackIndex"],
+    },
+    policy: "read",
+    method: "device.list",
+    mapArgs: (args) => [args.trackIndex],
+  },
+  {
     name: "device_set_remote_control",
     description: "Set value for a remote control parameter",
     inputSchema: {
@@ -1005,6 +1107,112 @@ export const TOOL_SPECS = Object.freeze([
     inputSchema: { type: "object", properties: {} },
     policy: "device_write",
     method: "device.page_previous",
+  },
+  {
+    name: "device_browse_insert",
+    description: "Open Bitwig's browser to insert a device on a visible track",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trackIndex: { type: "number", description: "Track index 0-7" },
+        position: { type: "number", description: "Device bank insert position, usually 0" },
+      },
+      required: ["trackIndex"],
+    },
+    policy: "device_write",
+    method: "device.browse_insert",
+    mapArgs: (args) => [args.trackIndex, args.position ?? 0],
+  },
+  {
+    name: "device_browse_start",
+    description: "Open Bitwig's browser to insert a device at the start of a visible track device chain",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trackIndex: { type: "number", description: "Track index 0-7" },
+      },
+      required: ["trackIndex"],
+    },
+    policy: "device_write",
+    method: "device.browse_start",
+    mapArgs: (args) => [args.trackIndex],
+  },
+  {
+    name: "device_browse_end",
+    description: "Open Bitwig's browser to insert a device at the end of a visible track device chain",
+    inputSchema: {
+      type: "object",
+      properties: {
+        trackIndex: { type: "number", description: "Track index 0-7" },
+      },
+      required: ["trackIndex"],
+    },
+    policy: "device_write",
+    method: "device.browse_end",
+    mapArgs: (args) => [args.trackIndex],
+  },
+  {
+    name: "browser_get_status",
+    description: "Get the Bitwig popup browser status",
+    inputSchema: { type: "object", properties: {} },
+    policy: "read",
+    method: "browser.get_status",
+  },
+  {
+    name: "browser_list_results",
+    description: "List visible results in Bitwig's popup browser",
+    inputSchema: { type: "object", properties: {} },
+    policy: "read",
+    method: "browser.list_results",
+  },
+  {
+    name: "browser_select_result",
+    description: "Select a visible browser result by index",
+    inputSchema: {
+      type: "object",
+      properties: {
+        index: { type: "number", description: "Visible result index" },
+      },
+      required: ["index"],
+    },
+    policy: "device_write",
+    method: "browser.select_result",
+    mapArgs: (args) => [args.index],
+  },
+  {
+    name: "browser_select_first_file",
+    description: "Select the first file in Bitwig's popup browser",
+    inputSchema: { type: "object", properties: {} },
+    policy: "device_write",
+    method: "browser.select_first_file",
+  },
+  {
+    name: "browser_select_next_file",
+    description: "Select the next file in Bitwig's popup browser",
+    inputSchema: { type: "object", properties: {} },
+    policy: "device_write",
+    method: "browser.select_next_file",
+  },
+  {
+    name: "browser_select_previous_file",
+    description: "Select the previous file in Bitwig's popup browser",
+    inputSchema: { type: "object", properties: {} },
+    policy: "device_write",
+    method: "browser.select_previous_file",
+  },
+  {
+    name: "browser_commit",
+    description: "Commit the selected item in Bitwig's popup browser",
+    inputSchema: { type: "object", properties: {} },
+    policy: "device_write",
+    method: "browser.commit",
+  },
+  {
+    name: "browser_cancel",
+    description: "Cancel Bitwig's popup browser",
+    inputSchema: { type: "object", properties: {} },
+    policy: "device_write",
+    method: "browser.cancel",
   },
 ]);
 
