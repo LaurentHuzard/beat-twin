@@ -270,6 +270,271 @@ function resolveEditableClip(
   return track && clip ? { track, clip } : null;
 }
 
+type DraftCommandIntent =
+  | { readonly type: "createDemo"; readonly label: "Create Demo" }
+  | { readonly type: "addTrack"; readonly label: "Add Track" }
+  | { readonly type: "addClip"; readonly label: "Add Clip" }
+  | { readonly type: "playPreview"; readonly label: "Play Preview" }
+  | { readonly type: "stopPreview"; readonly label: "Stop Preview" }
+  | { readonly type: "duplicateClip"; readonly label: "Duplicate Clip" }
+  | {
+      readonly type: "quantizeClip";
+      readonly label: string;
+      readonly gridBeats: number;
+    }
+  | {
+      readonly type: "transposeClip";
+      readonly label: string;
+      readonly semitones: number;
+    }
+  | {
+      readonly type: "setTempo";
+      readonly label: string;
+      readonly bpm: number;
+    }
+  | { readonly type: "saveSong"; readonly label: "Save Song" }
+  | { readonly type: "loadSong"; readonly label: "Load Song" }
+  | { readonly type: "exportSong"; readonly label: "Export Song" }
+  | { readonly type: "undo"; readonly label: "Undo" }
+  | { readonly type: "redo"; readonly label: "Redo" };
+
+type DraftCommandParseResult =
+  | { readonly ok: true; readonly intent: DraftCommandIntent }
+  | { readonly ok: false; readonly error: string };
+
+function parseDraftCommand(draft: string): DraftCommandParseResult {
+  const command = normalizeDraftCommand(draft);
+
+  if (["demo", "create demo", "new demo", "playground demo"].includes(command)) {
+    return { ok: true, intent: { type: "createDemo", label: "Create Demo" } };
+  }
+
+  if (["add track", "new track", "track"].includes(command)) {
+    return { ok: true, intent: { type: "addTrack", label: "Add Track" } };
+  }
+
+  if (["add clip", "new clip", "clip"].includes(command)) {
+    return { ok: true, intent: { type: "addClip", label: "Add Clip" } };
+  }
+
+  if (["play", "preview", "play preview"].includes(command)) {
+    return { ok: true, intent: { type: "playPreview", label: "Play Preview" } };
+  }
+
+  if (["stop", "stop preview"].includes(command)) {
+    return { ok: true, intent: { type: "stopPreview", label: "Stop Preview" } };
+  }
+
+  if (["duplicate", "duplicate clip", "dupe"].includes(command)) {
+    return { ok: true, intent: { type: "duplicateClip", label: "Duplicate Clip" } };
+  }
+
+  if (["save", "save song", "save local", "save locally"].includes(command)) {
+    return { ok: true, intent: { type: "saveSong", label: "Save Song" } };
+  }
+
+  if (["load", "load song", "load local", "load local song"].includes(command)) {
+    return { ok: true, intent: { type: "loadSong", label: "Load Song" } };
+  }
+
+  if (["export", "export song", "export json", "export song json"].includes(command)) {
+    return { ok: true, intent: { type: "exportSong", label: "Export Song" } };
+  }
+
+  if (command === "undo") {
+    return { ok: true, intent: { type: "undo", label: "Undo" } };
+  }
+
+  if (command === "redo") {
+    return { ok: true, intent: { type: "redo", label: "Redo" } };
+  }
+
+  const tempoMatch = command.match(/^(?:tempo|bpm|set tempo|set bpm) ([0-9]{2,3})$/);
+  if (tempoMatch) {
+    const bpm = Number(tempoMatch[1]);
+    if (bpm < 60 || bpm > 180) {
+      return { ok: false, error: "Tempo command expects 60 to 180 BPM." };
+    }
+
+    return {
+      ok: true,
+      intent: { type: "setTempo", label: `Set Tempo ${bpm} BPM`, bpm },
+    };
+  }
+
+  const quantizeMatch = command.match(/^quantize(?: clip)?(?: to)?(?: (.+))?$/);
+  if (quantizeMatch) {
+    const grid = parseQuantizeGrid(quantizeMatch[1] ?? "1/4");
+    if (!grid) {
+      return { ok: false, error: "Quantize command supports 1/4, 1/2, or 1 beat." };
+    }
+
+    return {
+      ok: true,
+      intent: {
+        type: "quantizeClip",
+        label: `Quantize Clip ${grid.label}`,
+        gridBeats: grid.beats,
+      },
+    };
+  }
+
+  const transpose = parseTransposeCommand(command);
+  if (transpose) {
+    return {
+      ok: true,
+      intent: {
+        type: "transposeClip",
+        label: `Transpose Clip ${transpose.label}`,
+        semitones: transpose.semitones,
+      },
+    };
+  }
+
+  return {
+    ok: false,
+    error: "Command not recognized.",
+  };
+}
+
+function normalizeDraftCommand(draft: string): string {
+  return draft
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\s/+.-]/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function parseQuantizeGrid(
+  value: string,
+): { readonly beats: number; readonly label: string } | null {
+  const normalized = value.trim().toLowerCase();
+
+  if (["1/4", "0.25", "quarter", "quarter beat"].includes(normalized)) {
+    return { beats: 0.25, label: "1/4" };
+  }
+
+  if (["1/2", "0.5", "half", "half beat"].includes(normalized)) {
+    return { beats: 0.5, label: "1/2" };
+  }
+
+  if (["1", "1 beat", "beat"].includes(normalized)) {
+    return { beats: 1, label: "1 beat" };
+  }
+
+  return null;
+}
+
+function parseTransposeCommand(
+  command: string,
+): { readonly semitones: number; readonly label: string } | null {
+  const match = command.match(/^transpose(?: clip)?(?: (up|down))?(?: ([+-]?[0-9]{1,2}))?$/);
+  if (!match) {
+    return null;
+  }
+
+  const direction = match[1];
+  const amount = match[2] ? Number(match[2]) : 1;
+  if (!Number.isInteger(amount) || amount === 0 || Math.abs(amount) > 12) {
+    return null;
+  }
+
+  const semitones =
+    direction === "down" ? -Math.abs(amount) : direction === "up" ? Math.abs(amount) : amount;
+  const label = semitones > 0 ? `+${semitones}` : String(semitones);
+  return { semitones, label };
+}
+
+function getDraftCommandBlocker(
+  intent: DraftCommandIntent,
+  state: PlaygroundStore,
+): string | null {
+  const target = resolveEditableClip(
+    state.commandState,
+    state.selectedTrackId,
+    state.selectedClipId,
+  );
+
+  switch (intent.type) {
+    case "addClip":
+      return state.commandState.song?.tracks.length ? null : "Create a track before adding a clip.";
+    case "playPreview":
+      return buildPreviewAudition(
+        state.commandState.song,
+        state.selectedTrackId,
+        state.selectedClipId,
+      )
+        ? null
+        : "Create a playable clip before previewing.";
+    case "stopPreview":
+      return state.preview.phase === "playing" ? null : "Preview is already idle.";
+    case "duplicateClip":
+    case "quantizeClip":
+    case "transposeClip":
+      return target ? null : "Select a clip before editing its pattern.";
+    case "setTempo":
+    case "saveSong":
+    case "exportSong":
+      return state.commandState.song ? null : "Create a song first.";
+    case "loadSong":
+      return state.persistence.hasSavedSong ? null : "No local song is saved yet.";
+    case "undo":
+      return state.undoStack.length > 0 ? null : "Nothing to undo.";
+    case "redo":
+      return state.redoStack.length > 0 ? null : "Nothing to redo.";
+    case "createDemo":
+    case "addTrack":
+      return null;
+  }
+}
+
+function executeDraftCommandIntent(intent: DraftCommandIntent, state: PlaygroundStore): void {
+  switch (intent.type) {
+    case "createDemo":
+      state.createDemo();
+      return;
+    case "addTrack":
+      state.addTrack();
+      return;
+    case "addClip":
+      state.addClipToSelection();
+      return;
+    case "playPreview":
+      void state.playPreview();
+      return;
+    case "stopPreview":
+      void state.stopPreview();
+      return;
+    case "duplicateClip":
+      state.duplicateSelectedClip();
+      return;
+    case "quantizeClip":
+      state.quantizeSelectedClip(intent.gridBeats);
+      return;
+    case "transposeClip":
+      state.transposeSelectedClip(intent.semitones);
+      return;
+    case "setTempo":
+      state.setTempo(intent.bpm);
+      return;
+    case "saveSong":
+      state.saveSong();
+      return;
+    case "loadSong":
+      state.loadSavedSong();
+      return;
+    case "exportSong":
+      state.exportSong();
+      return;
+    case "undo":
+      state.undo();
+      return;
+    case "redo":
+      state.redo();
+      return;
+  }
+}
+
 export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
   commandState: createCommandState(),
   undoStack: [],
@@ -787,12 +1052,43 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       return;
     }
 
+    const parsed = parseDraftCommand(draft);
     set((current) => ({
       draft: "",
       messages: [
         ...current.messages,
         { id: messageId(), role: "draft", text: draft },
-        { id: messageId(), role: "system", text: "Queued as a command draft." },
+      ],
+    }));
+
+    if (!parsed.ok) {
+      set((current) => ({
+        messages: [
+          ...current.messages,
+          { id: messageId(), role: "system", text: parsed.error },
+        ],
+        lastError: parsed.error,
+      }));
+      return;
+    }
+
+    const blocker = getDraftCommandBlocker(parsed.intent, get());
+    if (blocker) {
+      set((current) => ({
+        messages: [
+          ...current.messages,
+          { id: messageId(), role: "system", text: blocker },
+        ],
+        lastError: blocker,
+      }));
+      return;
+    }
+
+    executeDraftCommandIntent(parsed.intent, get());
+    set((current) => ({
+      messages: [
+        ...current.messages,
+        { id: messageId(), role: "system", text: `Executed: ${parsed.intent.label}.` },
       ],
     }));
   },

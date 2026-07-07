@@ -140,6 +140,64 @@ describe("Playground", () => {
     expect(within(dialog).getByRole("option", { name: /duplicate clip/i })).toBeDisabled();
   });
 
+  it("executes recognized command drafts through local actions", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Command draft"), {
+      target: { value: "demo" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send command/i }));
+
+    expect(screen.getByLabelText("Inspector")).toHaveTextContent("Kick Ladder");
+    expect(screen.getByLabelText("Command log")).toHaveTextContent(
+      "Executed: Create Demo.",
+    );
+
+    fireEvent.change(screen.getByLabelText("Command draft"), {
+      target: { value: "tempo 132" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send command/i }));
+
+    expect(screen.getByText("132 BPM")).toBeInTheDocument();
+    expect(screen.getByLabelText("Command log")).toHaveTextContent("TempoSet");
+    expect(screen.getByLabelText("Command log")).toHaveTextContent(
+      "Executed: Set Tempo 132 BPM.",
+    );
+  });
+
+  it("executes contextual command drafts against the selected clip", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    fireEvent.change(screen.getByLabelText("Command draft"), {
+      target: { value: "duplicate clip" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send command/i }));
+
+    expect(screen.getByLabelText("Inspector")).toHaveTextContent("Kick Ladder Copy");
+    expect(screen.getByLabelText("Command log")).toHaveTextContent("ClipDuplicated");
+    expect(screen.getByLabelText("Command log")).toHaveTextContent(
+      "Executed: Duplicate Clip.",
+    );
+  });
+
+  it("reports unrecognized command drafts without mutating song state", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Command draft"), {
+      target: { value: "summon bass fog" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send command/i }));
+
+    expect(screen.getByText("No song loaded")).toBeInTheDocument();
+    expect(screen.getByLabelText("Command log")).toHaveTextContent(
+      "Command not recognized.",
+    );
+  });
+
   it("auditions the selected clip through the preview audio boundary", async () => {
     const engine = mockPreviewAudioEngine();
     render(<App />);

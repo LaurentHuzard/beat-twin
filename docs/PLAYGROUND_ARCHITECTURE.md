@@ -17,6 +17,8 @@ Sprint 8 timeline selection feedback lives in
 [`SPRINT-8-TIMELINE-SELECTION.md`](SPRINT-8-TIMELINE-SELECTION.md).
 Sprint 9 command palette boundaries live in
 [`SPRINT-9-COMMAND-PALETTE.md`](SPRINT-9-COMMAND-PALETTE.md).
+Sprint 10 draft command parser boundaries live in
+[`SPRINT-10-DRAFT-COMMAND-PARSER.md`](SPRINT-10-DRAFT-COMMAND-PARSER.md).
 
 ## Current Browser Stack
 
@@ -119,6 +121,10 @@ draws clip-local note markers without adding a new mutation path.
 Browser command palette actions are another local UI entry point to the same
 Playground store actions. They do not parse chat text, call Bitwig, or bypass
 `BeatTwinCommand` for song mutations.
+
+Browser command drafts use a small deterministic parser for known action
+phrases only. Unknown or context-blocked drafts are reported in the local
+command log instead of being guessed or sent to an external service.
 
 ## Validation
 
