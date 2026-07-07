@@ -12,7 +12,6 @@ var cursorClip;
 var remoteControlsBank;
 var deviceBanks = [];
 var popupBrowser;
-var browserResultCursor;
 var browserResultBank;
 
 // Connection state
@@ -129,10 +128,6 @@ function init() {
   popupBrowser.contentTypeNames().markInterested();
   popupBrowser.selectedContentTypeIndex().markInterested();
   popupBrowser.selectedContentTypeName().markInterested();
-  browserResultCursor = popupBrowser.resultsColumn().createCursorItem();
-  browserResultCursor.exists().markInterested();
-  browserResultCursor.name().markInterested();
-  browserResultCursor.isSelected().markInterested();
   browserResultBank = popupBrowser.resultsColumn().createItemBank(32);
   for (var r = 0; r < 32; r++) {
     var browserItem = browserResultBank.getItemAt(r);
