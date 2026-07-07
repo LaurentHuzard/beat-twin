@@ -16,7 +16,7 @@ From the repository root, the agent can:
 pnpm install
 ```
 
-2. Register the MCP server for Codex:
+2. Register the MCP server for Codex in read-only mode:
 
 ```bash
 codex mcp add beat-twin --env BITWIG_HOST=127.0.0.1 --env BITWIG_PORT=8888 -- node /absolute/path/to/beat-twin/index.js
@@ -87,6 +87,34 @@ BITWIG_MCP_ENABLE_WRITES=1
 
 Only enable write policies after the user explicitly asks for write testing and
 confirms they are using a disposable Bitwig project or a copy of real work.
+
+## Enabling Write Tools
+
+Beat Twin hides write tools from MCP `listTools` until the server process starts
+with an explicit write policy. If an agent cannot see tools such as
+`application_create_instrument_track`, the MCP client is probably still running
+the default read-only server.
+
+To expose every currently implemented write tool for an explicit write test:
+
+```bash
+codex mcp remove beat-twin
+codex mcp add beat-twin --env BITWIG_HOST=127.0.0.1 --env BITWIG_PORT=8888 --env BITWIG_MCP_ENABLE_WRITES=1 -- node /absolute/path/to/beat-twin/index.js
+```
+
+To expose only track-creation tools:
+
+```bash
+codex mcp remove beat-twin
+codex mcp add beat-twin --env BITWIG_HOST=127.0.0.1 --env BITWIG_PORT=8888 --env BITWIG_MCP_WRITE_POLICY=application_write -- node /absolute/path/to/beat-twin/index.js
+```
+
+After changing MCP environment variables, restart or reload the MCP client
+session. Some clients keep the old MCP server and tool list in memory; in that
+case, the updated tools will not appear until a new session starts.
+
+Before calling any write tool, tell the user which write policy is active and
+which Bitwig action will be attempted.
 
 ## Success Criteria
 

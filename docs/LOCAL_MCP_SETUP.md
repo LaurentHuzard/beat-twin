@@ -25,8 +25,26 @@ For generic MCP clients, adapt [`../llm-mcp/mcp.example.json`](../llm-mcp/mcp.ex
 and keep local secrets or machine-specific paths in an untracked file such as
 `llm-mcp/mcp.json`.
 
-Beat Twin is read-only by default. Do not add `BITWIG_MCP_WRITE_POLICY` unless
-you are working in a disposable Bitwig project.
+Beat Twin is read-only by default. Do not add `BITWIG_MCP_WRITE_POLICY` or
+`BITWIG_MCP_ENABLE_WRITES` unless you are working in a disposable Bitwig project.
+
+To expose every implemented write tool for an explicit local test:
+
+```bash
+codex mcp remove beat-twin
+codex mcp add beat-twin --env BITWIG_HOST=127.0.0.1 --env BITWIG_PORT=8888 --env BITWIG_MCP_ENABLE_WRITES=1 -- node /absolute/path/to/beat-twin/index.js
+```
+
+To expose only application-level track creation:
+
+```bash
+codex mcp remove beat-twin
+codex mcp add beat-twin --env BITWIG_HOST=127.0.0.1 --env BITWIG_PORT=8888 --env BITWIG_MCP_WRITE_POLICY=application_write -- node /absolute/path/to/beat-twin/index.js
+```
+
+MCP clients may cache the server process and the `listTools` response. After
+changing these environment variables, restart the MCP client session before
+expecting newly enabled tools to appear.
 
 ## 3. Install The Bitwig Controller
 
@@ -104,4 +122,5 @@ read-error details when Bitwig only returns a partial snapshot.
 - `EPERM` from a sandboxed command: retry the socket check outside the sandbox.
 - Controller not visible in Bitwig: verify the controller file path, then
   restart Bitwig.
-- Mutating tools are missing: expected in default read-only mode.
+- Mutating tools are missing: expected in default read-only mode, or after a
+  policy change if the MCP client has not been restarted.

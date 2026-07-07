@@ -38,6 +38,10 @@ BITWIG_MCP_WRITE_POLICY=transport,mixer_write node index.js
 BITWIG_MCP_ENABLE_WRITES=1 node index.js
 ```
 
+MCP clients usually discover tools when the server starts. If a write policy is
+added after a client session is already running, restart or reload the client
+session before expecting write tools to appear in `listTools`.
+
 ## Blocked tool response
 
 If a write tool is called without the needed policy, Beat Twin returns a structured MCP error payload before any Bitwig call is attempted:
