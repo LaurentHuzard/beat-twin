@@ -1,9 +1,7 @@
 packages:
   - "."
 
-minimumReleaseAgeExclude:
-  - hono@4.12.28
-
+# Pin transitive dependencies of @modelcontextprotocol/sdk
 overrides:
   "@hono/node-server": 1.19.13
   ajv: 8.20.0
