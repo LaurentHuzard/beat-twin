@@ -63,13 +63,12 @@ graph LR
 
 ## Safety model
 
-This repository is built around explicit tool boundaries rather than free-form code execution inside Bitwig.
+This repository is built around explicit tool boundaries rather than broad DAW automation.
 
 The current safety assumptions are:
 
 - local-only transport;
 - explicit MCP tools;
-- no arbitrary script execution through prompts;
 - write operations are intentionally narrow;
 - future destructive actions should require a stronger permission layer.
 
@@ -89,7 +88,7 @@ Install Node.js dependencies from the repository root:
 npm install
 ```
 
-Install the Bitwig controller script by symlinking or copying `bitwig-controller/BitwigPOC` into your Bitwig Controller Scripts directory.
+Install the Bitwig controller script by symlinking or copying `bitwig-controller/BeatTwin` into your Bitwig Controller Scripts directory.
 
 Common locations:
 
@@ -99,7 +98,7 @@ Common locations:
 Example on Linux/macOS:
 
 ```bash
-ln -s "$(pwd)/bitwig-controller/BitwigPOC" "$HOME/Documents/Bitwig Studio/Controller Scripts/"
+ln -s "$(pwd)/bitwig-controller/BeatTwin" "$HOME/Documents/Bitwig Studio/Controller Scripts/"
 ```
 
 Then enable it in Bitwig:
@@ -107,7 +106,7 @@ Then enable it in Bitwig:
 1. Open Bitwig Studio.
 2. Go to **Settings > Controllers**.
 3. Choose **Add controller manually**.
-4. Select **Bitwig POC > Bitwig POC**.
+4. Select **Beat Twin > Beat Twin**.
 5. Start the MCP server and let the controller connect.
 
 ## Usage
@@ -134,14 +133,14 @@ Mute track 2.
 Run the protocol smoke tests:
 
 ```bash
-npm run test:protocol-smoke
+npm test
 ```
 
 The current tests focus on the local protocol boundary: message framing, response parsing, timeouts, malformed responses, and reconnection behavior.
 
 ## Public-readiness notes
 
-This repository is suitable as a small technical showcase, but it is still a POC. The useful review areas are:
+This repository is suitable as a small technical showcase, but it is still a proof of concept. The useful review areas are:
 
 - MCP tool design;
 - local protocol robustness;
@@ -151,9 +150,8 @@ This repository is suitable as a small technical showcase, but it is still a POC
 
 ## Roadmap
 
-- Rename remaining `POC` internals once the control surface stabilizes.
 - Add a clearer permission policy for write/destructive operations.
-- Expand device and clip inspection.
+- Expand read-only device and clip inspection.
 - Add more protocol and controller-script tests.
 - Document a complete MCP client configuration example.
 
