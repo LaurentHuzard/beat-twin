@@ -1,0 +1,434 @@
+loadAPI(10);
+
+host.defineController("Beat Twin", "Beat Twin", "0.1", "761be710-90df-4577-8094-01314323214c", "Laurent Huzard");
+
+var transport;
+var application;
+var trackBank;
+var sceneBank;
+var cursorTrack;
+var cursorDevice;
+var remoteControlsBank;
+
+var isConnected = false;
+
+function init() {
+  transport = host.createTransport();
+
+  transport.tempo().value().markInterested();
+  transport.getPosition().markInterested();
+  transport.isPlaying().markInterested();
+  transport.isArrangerRecordEnabled().markInterested();
+
+  application = host.createApplication();
+
+  cursorTrack = host.createCursorTrack("BEAT_TWIN_CURSOR", "Beat Twin Cursor Track", 0, 0, true);
+  cursorTrack.volume().markInterested();
+  cursorTrack.pan().markInterested();
+  cursorTrack.mute().markInterested();
+  cursorTrack.solo().markInterested();
+  cursorTrack.arm().markInterested();
+  cursorTrack.name().markInterested();
+
+  cursorDevice = cursorTrack.createCursorDevice("BEAT_TWIN_DEVICE", "Beat Twin Cursor Device", 0, CursorDeviceFollowMode.FOLLOW_SELECTION);
+  cursorDevice.name().markInterested();
+  cursorDevice.isWindowOpen().markInterested();
+  cursorDevice.isExpanded().markInterested();
+
+  remoteControlsBank = cursorDevice.createCursorRemoteControlsPage(8);
+  for (var i = 0; i < 8; i++) {
+    var param = remoteControlsBank.getParameter(i);
+    param.name().markInterested();
+    param.value().markInterested();
+    param.setIndication(true);
+  }
+
+  trackBank = host.createMainTrackBank(8, 0, 8);
+  for (var i = 0; i < 8; i++) {
+    var track = trackBank.getItemAt(i);
+    track.volume().markInterested();
+    track.pan().markInterested();
+    track.mute().markInterested();
+    track.solo().markInterested();
+    track.arm().markInterested();
+    track.name().markInterested();
+    track.color().markInterested();
+
+    var clipLauncher = track.clipLauncherSlotBank();
+    for (var j = 0; j < 8; j++) {
+      var slot = clipLauncher.getItemAt(j);
+      slot.hasContent().markInterested();
+      slot.isPlaying().markInterested();
+      slot.isRecording().markInterested();
+      slot.isPlaybackQueued().markInterested();
+    }
+  }
+
+  sceneBank = host.createSceneBank(8);
+  for (var i = 0; i < 8; i++) {
+    var scene = sceneBank.getScene(i);
+    scene.name().markInterested();
+  }
+
+  println("Beat Twin controller initialized");
+
+  var remoteSocket = host.createRemoteConnection("BeatTwinMCP", 8888);
+
+  remoteSocket.setClientConnectCallback(function (remoteConnection) {
+    println("Beat Twin client connected");
+    isConnected = true;
+    var receiveBuffer = "";
+
+    remoteConnection.setDisconnectCallback(function () {
+      println("Beat Twin client disconnected");
+      isConnected = false;
+      receiveBuffer = "";
+    });
+
+    remoteConnection.setReceiveCallback(function (data) {
+      receiveBuffer += bytesToString(data);
+      receiveBuffer = drainReceiveBuffer(receiveBuffer, remoteConnection);
+    });
+  });
+}
+
+function bytesToString(data) {
+  var msgString = "";
+  for (var i = 0; i < data.length; i++) {
+    msgString += String.fromCharCode(data[i]);
+  }
+  return msgString;
+}
+
+function drainReceiveBuffer(buffer, connection) {
+  while (buffer.length > 0) {
+    if (buffer.charAt(0) === "{") {
+      try {
+        handleRequest(JSON.parse(buffer), connection);
+        return "";
+      } catch (rawError) {
+        println("Error parsing raw JSON: " + rawError);
+        sendError(connection, null, -32700, "Parse error");
+        return "";
+      }
+    }
+
+    if (buffer.length < 4) return buffer;
+
+    var bodyLength = (
+      (buffer.charCodeAt(0) << 24) |
+      (buffer.charCodeAt(1) << 16) |
+      (buffer.charCodeAt(2) << 8) |
+      buffer.charCodeAt(3)
+    ) >>> 0;
+
+    if (bodyLength < 1 || bodyLength > 1048576) {
+      println("Invalid frame length: " + bodyLength);
+      sendError(connection, null, -32700, "Parse error");
+      return "";
+    }
+
+    if (buffer.length < bodyLength + 4) return buffer;
+
+    var body = buffer.substring(4, bodyLength + 4);
+    buffer = buffer.substring(bodyLength + 4);
+
+    try {
+      handleRequest(JSON.parse(body), connection);
+    } catch (frameError) {
+      println("Error parsing framed JSON: " + frameError);
+      sendError(connection, null, -32700, "Parse error");
+    }
+  }
+
+  return buffer;
+}
+
+function handleRequest(request, connection) {
+  if (!request.method) {
+    sendError(connection, request.id, -32600, "Invalid Request");
+    return;
+  }
+
+  var result;
+  try {
+    switch (request.method) {
+      case "transport.play":
+        transport.play();
+        result = "OK";
+        break;
+      case "transport.stop":
+        transport.stop();
+        result = "OK";
+        break;
+      case "transport.restart":
+        transport.restart();
+        result = "OK";
+        break;
+      case "transport.record":
+        transport.record();
+        result = "OK";
+        break;
+      case "transport.getTempo":
+        result = transport.tempo().value().getRaw();
+        break;
+      case "transport.setTempo":
+        if (request.params && request.params[0]) {
+          transport.tempo().value().setRaw(request.params[0]);
+          result = "OK";
+        } else {
+          throw "Missing tempo parameter";
+        }
+        break;
+      case "transport.getPosition":
+        result = transport.getPosition().get();
+        break;
+      case "transport.setPosition":
+        if (request.params && request.params[0]) {
+          transport.getPosition().set(request.params[0]);
+          result = "OK";
+        } else {
+          throw "Missing position parameter";
+        }
+        break;
+      case "transport.getIsPlaying":
+        result = transport.isPlaying().get();
+        break;
+      case "transport.getIsRecording":
+        result = transport.isArrangerRecordEnabled().get();
+        break;
+
+      case "track.bank.get_status":
+        var tracks = [];
+        for (var i = 0; i < 8; i++) {
+          var t = trackBank.getItemAt(i);
+          tracks.push({
+            index: i,
+            name: t.name().get(),
+            volume: t.volume().get(),
+            pan: t.pan().get(),
+            mute: t.mute().get(),
+            solo: t.solo().get(),
+            arm: t.arm().get(),
+            color: {
+              red: t.color().red(),
+              green: t.color().green(),
+              blue: t.color().blue()
+            }
+          });
+        }
+        result = tracks;
+        break;
+      case "track.bank.volume":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          trackBank.getItemAt(request.params[0]).volume().set(request.params[1]);
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+      case "track.bank.pan":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          trackBank.getItemAt(request.params[0]).pan().set(request.params[1]);
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+      case "track.bank.mute":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          trackBank.getItemAt(request.params[0]).mute().set(request.params[1]);
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+      case "track.bank.solo":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          trackBank.getItemAt(request.params[0]).solo().set(request.params[1]);
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+      case "track.bank.select":
+        if (request.params && request.params[0] !== undefined) {
+          trackBank.getItemAt(request.params[0]).selectInMixer();
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+
+      case "clip.launch":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          trackBank.getItemAt(request.params[0]).clipLauncherSlotBank().getItemAt(request.params[1]).launch();
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+      case "clip.record":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          trackBank.getItemAt(request.params[0]).clipLauncherSlotBank().getItemAt(request.params[1]).record();
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+      case "clip.stop":
+        if (request.params && request.params[0] !== undefined) {
+          trackBank.getItemAt(request.params[0]).stop();
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+
+      case "scene.launch":
+        if (request.params && request.params[0] !== undefined) {
+          sceneBank.getScene(request.params[0]).launch();
+          result = "OK";
+        } else throw "Missing parameters";
+        break;
+      case "scene.list":
+        var scenes = [];
+        for (var i = 0; i < 8; i++) {
+          var s = sceneBank.getScene(i);
+          scenes.push({ index: i, name: s.name().get() });
+        }
+        result = scenes;
+        break;
+      case "scene.create":
+        sceneBank.createScene();
+        result = "OK";
+        break;
+      case "clip.create":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined && request.params[2] !== undefined) {
+          trackBank.getItemAt(request.params[0]).clipLauncherSlotBank().getItemAt(request.params[1]).createEmptyClip(request.params[2]);
+          result = "OK";
+        } else throw "Missing parameters (trackIndex, slotIndex, length)";
+        break;
+
+      case "track.selected.get_status":
+        result = {
+          name: cursorTrack.name().get(),
+          volume: cursorTrack.volume().get(),
+          pan: cursorTrack.pan().get(),
+          mute: cursorTrack.mute().get(),
+          solo: cursorTrack.solo().get(),
+          arm: cursorTrack.arm().get()
+        };
+        break;
+      case "track.selected.volume":
+        if (request.params && request.params[0] !== undefined) {
+          cursorTrack.volume().set(request.params[0]);
+          result = "OK";
+        } else throw "Missing parameter";
+        break;
+      case "track.selected.pan":
+        if (request.params && request.params[0] !== undefined) {
+          cursorTrack.pan().set(request.params[0]);
+          result = "OK";
+        } else throw "Missing parameter";
+        break;
+      case "track.selected.mute":
+        if (request.params && request.params[0] !== undefined) {
+          cursorTrack.mute().set(request.params[0]);
+          result = "OK";
+        } else throw "Missing parameter";
+        break;
+      case "track.selected.solo":
+        if (request.params && request.params[0] !== undefined) {
+          cursorTrack.solo().set(request.params[0]);
+          result = "OK";
+        } else throw "Missing parameter";
+        break;
+      case "track.selected.arm":
+        if (request.params && request.params[0] !== undefined) {
+          cursorTrack.arm().set(request.params[0]);
+          result = "OK";
+        } else throw "Missing parameter";
+        break;
+
+      case "ping":
+        result = "pong";
+        break;
+      case "application.createInstrumentTrack":
+        application.createInstrumentTrack(-1);
+        result = "OK";
+        break;
+      case "application.createAudioTrack":
+        application.createAudioTrack(-1);
+        result = "OK";
+        break;
+
+      case "device.get_status":
+        result = {
+          name: cursorDevice.name().get(),
+          isWindowOpen: cursorDevice.isWindowOpen().get(),
+          isExpanded: cursorDevice.isExpanded().get()
+        };
+        break;
+      case "device.toggle_window":
+        cursorDevice.isWindowOpen().toggle();
+        result = "OK";
+        break;
+      case "device.toggle_expanded":
+        cursorDevice.isExpanded().toggle();
+        result = "OK";
+        break;
+      case "device.get_remote_controls":
+        var controls = [];
+        for (var i = 0; i < 8; i++) {
+          var param = remoteControlsBank.getParameter(i);
+          controls.push({
+            index: i,
+            name: param.name().get(),
+            value: param.value().get()
+          });
+        }
+        result = controls;
+        break;
+      case "device.set_remote_control":
+        if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          remoteControlsBank.getParameter(request.params[0]).value().set(request.params[1]);
+          result = "OK";
+        } else throw "Missing parameters (index, value)";
+        break;
+      case "device.page_next":
+        remoteControlsBank.selectNextPage(true);
+        result = "OK";
+        break;
+      case "device.page_previous":
+        remoteControlsBank.selectPreviousPage(true);
+        result = "OK";
+        break;
+      default:
+        sendError(connection, request.id, -32601, "Method not found: " + request.method);
+        return;
+    }
+
+    sendResponse(connection, request.id, result);
+  } catch (e) {
+    sendError(connection, request.id, -32603, "Internal error: " + e);
+  }
+}
+
+function sendResponse(connection, id, result) {
+  sendJSON(connection, {
+    jsonrpc: "2.0",
+    id: id,
+    result: result
+  });
+}
+
+function sendError(connection, id, code, message) {
+  sendJSON(connection, {
+    jsonrpc: "2.0",
+    id: id,
+    error: {
+      code: code,
+      message: message
+    }
+  });
+}
+
+function sendJSON(connection, data) {
+  var str = JSON.stringify(data) + "\n";
+  var bytes = [];
+  for (var i = 0; i < str.length; i++) {
+    bytes.push(str.charCodeAt(i));
+  }
+  connection.send(bytes);
+}
+
+function flush() {}
+
+function exit() {
+  println("Beat Twin controller exited");
+}
