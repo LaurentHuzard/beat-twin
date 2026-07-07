@@ -12,6 +12,8 @@ afterEach(() => {
   const initialState = usePlaygroundStore.getInitialState();
   usePlaygroundStore.setState({
     commandState: initialState.commandState,
+    undoStack: [],
+    redoStack: [],
     messages: [],
     draft: "",
     songJsonDraft: "",
@@ -235,5 +237,40 @@ describe("Playground", () => {
     expect(localStorage.getItem(PLAYGROUND_SONG_STORAGE_KEY)).toContain(
       "Kick Ladder Copy",
     );
+  });
+
+  it("undos and redos local command history", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: /^undo$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^redo$/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    fireEvent.change(screen.getByLabelText("Note pitch"), { target: { value: "48" } });
+    fireEvent.change(screen.getByLabelText("Note beat"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("Note length"), { target: { value: "0.5" } });
+    fireEvent.click(screen.getByRole("button", { name: /add note/i }));
+
+    expect(screen.getByRole("button", { name: /edit note 48 at beat 1/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /^undo$/i })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /^undo$/i }));
+
+    expect(screen.queryByRole("button", { name: /edit note 48 at beat 1/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /^redo$/i })).toBeEnabled();
+    expect(localStorage.getItem(PLAYGROUND_SONG_STORAGE_KEY)).not.toContain("\"pitch\": 48");
+
+    fireEvent.click(screen.getByRole("button", { name: /^redo$/i }));
+
+    expect(screen.getByRole("button", { name: /edit note 48 at beat 1/i })).toBeEnabled();
+    expect(localStorage.getItem(PLAYGROUND_SONG_STORAGE_KEY)).toContain("\"pitch\": 48");
+
+    fireEvent.click(screen.getByRole("button", { name: /^undo$/i }));
+    fireEvent.change(screen.getByLabelText("Note pitch"), { target: { value: "52" } });
+    fireEvent.click(screen.getByRole("button", { name: /add note/i }));
+
+    expect(screen.getByRole("button", { name: /^redo$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /edit note 52 at beat 0/i })).toBeEnabled();
   });
 });

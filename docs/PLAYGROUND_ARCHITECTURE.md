@@ -9,6 +9,8 @@ Sprint 4 browser-local save/load boundaries live in
 [`SPRINT-4-SAVE-LOAD.md`](SPRINT-4-SAVE-LOAD.md).
 Sprint 5 pattern tool boundaries live in
 [`SPRINT-5-PATTERN-TOOLS.md`](SPRINT-5-PATTERN-TOOLS.md).
+Sprint 6 local undo/redo boundaries live in
+[`SPRINT-6-UNDO-REDO.md`](SPRINT-6-UNDO-REDO.md).
 
 ## Current Browser Stack
 
@@ -25,6 +27,7 @@ User gesture or command draft
   -> BeatTwinCommand
   -> executeCommand()
   -> immutable Song state
+  -> optional local CommandState history snapshot
   -> React/Zustand render
   -> optional browser-local serializeSong() persistence
 ```
@@ -95,6 +98,10 @@ imports with `deserializeSong()` before replacing the Playground document.
 
 Browser pattern tools follow the same rule. Duplicate, quantize, and transpose
 operate on local immutable `Song` state through command events only.
+
+Browser undo/redo stays local too. It restores previous `CommandState` snapshots
+inside the Playground store, then reuses the existing local save path for the
+restored song.
 
 ## Validation
 

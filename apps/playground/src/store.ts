@@ -67,6 +67,8 @@ const defaultPersistenceState: PersistenceState = {
 
 type PlaygroundStore = {
   readonly commandState: CommandState;
+  readonly undoStack: readonly CommandState[];
+  readonly redoStack: readonly CommandState[];
   readonly messages: readonly CommandMessage[];
   readonly draft: string;
   readonly songJsonDraft: string;
@@ -78,6 +80,8 @@ type PlaygroundStore = {
   readonly preview: PreviewState;
   readonly lastError: string | null;
   readonly dispatch: (command: BeatTwinCommand) => void;
+  readonly undo: () => void;
+  readonly redo: () => void;
   readonly createDemo: () => void;
   readonly addTrack: () => void;
   readonly addClipToSelection: () => void;
@@ -207,6 +211,39 @@ function autosaveSong(song: Song | null): PersistenceState | null {
   }
 }
 
+function persistCommandStateSnapshot(
+  state: CommandState,
+  label: string,
+): {
+  readonly songJsonDraft: string;
+  readonly persistence: PersistenceState;
+} {
+  try {
+    if (!state.song) {
+      clearSongFromStorage();
+      return {
+        songJsonDraft: "",
+        persistence: persistenceStatus("cleared", label, "No song loaded"),
+      };
+    }
+
+    const songJsonDraft = saveSongToStorage(state.song);
+    return {
+      songJsonDraft,
+      persistence: persistenceStatus("saved", label, state.song.title),
+    };
+  } catch (error) {
+    return {
+      songJsonDraft: state.song ? exportSongJson(state.song) : "",
+      persistence: persistenceStatus(
+        "error",
+        `${label} autosave failed`,
+        error instanceof Error ? error.message : String(error),
+      ),
+    };
+  }
+}
+
 function resolveEditableClip(
   state: CommandState,
   selectedTrackId: string | null,
@@ -235,6 +272,8 @@ function resolveEditableClip(
 
 export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
   commandState: createCommandState(),
+  undoStack: [],
+  redoStack: [],
   messages: [],
   draft: "",
   songJsonDraft: "",
@@ -256,8 +295,54 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       const persistence = autosaveSong(result.state.song);
       return {
         commandState: result.state,
+        undoStack: [...current.undoStack, current.commandState],
+        redoStack: [],
         ...deriveSelection(result.state),
         persistence: persistence ?? current.persistence,
+        lastError: null,
+      };
+    });
+  },
+
+  undo: () => {
+    void previewAudioEngine.stop();
+    set((current) => {
+      const previousState = current.undoStack.at(-1);
+      if (!previousState) {
+        return { lastError: "Nothing to undo." };
+      }
+
+      return {
+        commandState: previousState,
+        undoStack: current.undoStack.slice(0, -1),
+        redoStack: [current.commandState, ...current.redoStack],
+        ...deriveSelection(previousState),
+        ...persistCommandStateSnapshot(previousState, "Undo saved"),
+        editingNoteId: null,
+        noteDraft: defaultNoteDraft,
+        preview: idlePreviewState,
+        lastError: null,
+      };
+    });
+  },
+
+  redo: () => {
+    void previewAudioEngine.stop();
+    set((current) => {
+      const nextState = current.redoStack[0];
+      if (!nextState) {
+        return { lastError: "Nothing to redo." };
+      }
+
+      return {
+        commandState: nextState,
+        undoStack: [...current.undoStack, current.commandState],
+        redoStack: current.redoStack.slice(1),
+        ...deriveSelection(nextState),
+        ...persistCommandStateSnapshot(nextState, "Redo saved"),
+        editingNoteId: null,
+        noteDraft: defaultNoteDraft,
+        preview: idlePreviewState,
         lastError: null,
       };
     });
@@ -316,6 +401,8 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       const persistence = autosaveSong(result.state.song);
       return {
         commandState: result.state,
+        undoStack: result.error ? current.undoStack : [...current.undoStack, current.commandState],
+        redoStack: result.error ? current.redoStack : [],
         ...deriveSelection(result.state),
         songJsonDraft: result.state.song ? exportSongJson(result.state.song) : current.songJsonDraft,
         persistence: persistence ?? current.persistence,
@@ -511,6 +598,8 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
 
       set({
         commandState: createCommandState(song),
+        undoStack: [...get().undoStack, get().commandState],
+        redoStack: [],
         ...deriveSongSelection(song),
         songJsonDraft: exportSongJson(song),
         persistence: persistenceStatus("loaded", "Loaded local song", song.title),
@@ -555,6 +644,8 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       saveSongToStorage(song);
       set({
         commandState: createCommandState(song),
+        undoStack: [...get().undoStack, get().commandState],
+        redoStack: [],
         ...deriveSongSelection(song),
         persistence: persistenceStatus("loaded", "Imported song", song.title),
         editingNoteId: null,

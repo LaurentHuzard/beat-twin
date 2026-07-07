@@ -13,6 +13,7 @@ import {
   Play,
   Plus,
   RotateCcw,
+  Redo2,
   Save,
   Send,
   SlidersHorizontal,
@@ -21,6 +22,7 @@ import {
   Square,
   TimerReset,
   Trash2,
+  Undo2,
   Upload,
   Volume2,
   Waves,
@@ -40,6 +42,8 @@ const beatColumns = 16;
 function App() {
   const song = usePlaygroundStore((state) => state.commandState.song);
   const events = usePlaygroundStore((state) => state.commandState.log);
+  const canUndo = usePlaygroundStore((state) => state.undoStack.length > 0);
+  const canRedo = usePlaygroundStore((state) => state.redoStack.length > 0);
   const messages = usePlaygroundStore((state) => state.messages);
   const draft = usePlaygroundStore((state) => state.draft);
   const songJsonDraft = usePlaygroundStore((state) => state.songJsonDraft);
@@ -50,6 +54,8 @@ function App() {
   const selectedClipId = usePlaygroundStore((state) => state.selectedClipId);
   const preview = usePlaygroundStore((state) => state.preview);
   const lastError = usePlaygroundStore((state) => state.lastError);
+  const undo = usePlaygroundStore((state) => state.undo);
+  const redo = usePlaygroundStore((state) => state.redo);
   const createDemo = usePlaygroundStore((state) => state.createDemo);
   const addTrack = usePlaygroundStore((state) => state.addTrack);
   const addClipToSelection = usePlaygroundStore((state) => state.addClipToSelection);
@@ -87,6 +93,10 @@ function App() {
         song={song}
         preview={preview}
         canPreview={canPreview}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={undo}
+        onRedo={redo}
         onCreateDemo={createDemo}
         onAddTrack={addTrack}
         onAddClip={addClipToSelection}
@@ -138,6 +148,10 @@ type TransportStripProps = {
   readonly song: Song | null;
   readonly preview: PreviewState;
   readonly canPreview: boolean;
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  readonly onUndo: () => void;
+  readonly onRedo: () => void;
   readonly onCreateDemo: () => void;
   readonly onAddTrack: () => void;
   readonly onAddClip: () => void;
@@ -150,6 +164,10 @@ function TransportStrip({
   song,
   preview,
   canPreview,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
   onCreateDemo,
   onAddTrack,
   onAddClip,
@@ -206,6 +224,26 @@ function TransportStrip({
       </div>
 
       <div className="transport-actions">
+        <button
+          type="button"
+          className="icon-button"
+          onClick={onUndo}
+          disabled={!canUndo}
+          aria-label="Undo"
+          title="Undo"
+        >
+          <Undo2 size={18} />
+        </button>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={onRedo}
+          disabled={!canRedo}
+          aria-label="Redo"
+          title="Redo"
+        >
+          <Redo2 size={18} />
+        </button>
         <button
           type="button"
           className="icon-button"
