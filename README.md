@@ -105,7 +105,9 @@ for local verification commands and troubleshooting.
 
 ## Safety Model
 
-Beat Twin is read-only by default. Write tools are not listed by MCP clients and are blocked if called directly.
+Beat Twin is read-only by default. At the MCP entry point, write tools are not listed by MCP clients and are blocked if called through the MCP server without an enabling policy.
+
+This gate is enforced by the Node MCP server only. The Bitwig controller's TCP bridge (default `127.0.0.1:8888`) is unauthenticated and executes any JSON-RPC command it receives. It does not apply the write policy. Anything able to reach that port can drive Bitwig regardless of the MCP write policy, so the MCP gate is not a barrier at the DAW itself. As a known limitation of this local proof of concept, treat the bridge as trusted-local-only: firewall the port and do not expose it on untrusted networks.
 
 To enable a narrow write class:
 
