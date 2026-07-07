@@ -18,6 +18,7 @@ This directory contains the current technical notes for the public Beat Twin pro
 - [`SPRINT-4-SAVE-LOAD.md`](SPRINT-4-SAVE-LOAD.md): browser-local Playground save/load, JSON import/export, and validation commands.
 - [`SPRINT-5-PATTERN-TOOLS.md`](SPRINT-5-PATTERN-TOOLS.md): browser pattern duplicate, quantize, transpose commands, and validation commands.
 - [`SPRINT-6-UNDO-REDO.md`](SPRINT-6-UNDO-REDO.md): browser-local command history, undo/redo UI, and validation commands.
+- [`SPRINT-7-KEYBOARD-SHORTCUTS.md`](SPRINT-7-KEYBOARD-SHORTCUTS.md): browser-local keyboard shortcuts and input-safety validation.
 - [`../bitwig-api-docs/README.md`](../bitwig-api-docs/README.md): why Bitwig API reference material is not vendored.
 
 ## Documentation Rule

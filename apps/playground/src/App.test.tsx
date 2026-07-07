@@ -273,4 +273,62 @@ describe("Playground", () => {
     expect(screen.getByRole("button", { name: /^redo$/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /edit note 52 at beat 0/i })).toBeEnabled();
   });
+
+  it("runs keyboard shortcuts for edit history and preview actions", async () => {
+    const engine = mockPreviewAudioEngine();
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    fireEvent.change(screen.getByLabelText("Note pitch"), { target: { value: "55" } });
+    fireEvent.change(screen.getByLabelText("Note beat"), { target: { value: "1.37" } });
+    fireEvent.change(screen.getByLabelText("Note length"), { target: { value: "0.5" } });
+
+    fireEvent.keyDown(window, { key: "n" });
+
+    expect(screen.getByRole("button", { name: /edit note 55 at beat 1.37/i })).toBeEnabled();
+
+    fireEvent.keyDown(window, { key: "q" });
+    expect(screen.getByRole("button", { name: /edit note 55 at beat 1.25/i })).toBeEnabled();
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(screen.getByRole("button", { name: /edit note 55 at beat 1.37/i })).toBeEnabled();
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(screen.queryByRole("button", { name: /edit note 55 at beat 1.37/i })).toBeNull();
+
+    fireEvent.keyDown(window, { key: "y", ctrlKey: true });
+    expect(screen.getByRole("button", { name: /edit note 55 at beat 1.37/i })).toBeEnabled();
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true, shiftKey: true });
+    expect(screen.getByRole("button", { name: /edit note 55 at beat 1.25/i })).toBeEnabled();
+
+    fireEvent.keyDown(window, { key: "d" });
+    expect(screen.getByLabelText("Inspector")).toHaveTextContent("Kick Ladder Copy");
+
+    vi.mocked(engine.stop).mockClear();
+    fireEvent.keyDown(window, { key: " ", code: "Space" });
+    await waitFor(() => expect(engine.play).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("Auditioning Kick Ladder Copy")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: " ", code: "Space" });
+    await waitFor(() => expect(engine.stop).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("Preview idle")).toBeInTheDocument();
+  });
+
+  it("does not trigger keyboard shortcuts while editing text fields", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    fireEvent.change(screen.getByLabelText("Command draft"), {
+      target: { value: "n dq z" },
+    });
+    fireEvent.keyDown(screen.getByLabelText("Command draft"), { key: "n" });
+    fireEvent.keyDown(screen.getByLabelText("Command draft"), { key: "d" });
+    fireEvent.keyDown(screen.getByLabelText("Command draft"), { key: "z", ctrlKey: true });
+
+    expect(screen.queryByRole("button", { name: /edit note 60 at beat 0/i })).toBeNull();
+    expect(screen.getByLabelText("Inspector")).toHaveTextContent("Kick Ladder");
+    expect(screen.getByLabelText("Inspector")).not.toHaveTextContent("Kick Ladder Copy");
+  });
 });

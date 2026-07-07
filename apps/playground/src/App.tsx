@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 import {
   ArrowDown,
   ArrowUp,
@@ -86,6 +88,20 @@ function App() {
     selectedTrack?.clips[0] ??
     null;
   const canPreview = Boolean(buildPreviewAudition(song, selectedTrackId, selectedClipId));
+  const isPlayingPreview = preview.phase === "playing";
+
+  useKeyboardShortcuts({
+    canPreview,
+    isPlayingPreview,
+    onUndo: undo,
+    onRedo: redo,
+    onPlayPreview: playPreview,
+    onStopPreview: stopPreview,
+    onCommitNote: commitNoteDraft,
+    onCancelNoteEdit: cancelNoteEdit,
+    onDuplicateClip: duplicateSelectedClip,
+    onQuantizeClip: quantizeSelectedClip,
+  });
 
   return (
     <main className="app-shell">
@@ -141,6 +157,128 @@ function App() {
         onClearSavedSong={clearSavedSong}
       />
     </main>
+  );
+}
+
+type KeyboardShortcutOptions = {
+  readonly canPreview: boolean;
+  readonly isPlayingPreview: boolean;
+  readonly onUndo: () => void;
+  readonly onRedo: () => void;
+  readonly onPlayPreview: () => Promise<void>;
+  readonly onStopPreview: () => Promise<void>;
+  readonly onCommitNote: () => void;
+  readonly onCancelNoteEdit: () => void;
+  readonly onDuplicateClip: () => void;
+  readonly onQuantizeClip: (gridBeats: number) => void;
+};
+
+function useKeyboardShortcuts({
+  canPreview,
+  isPlayingPreview,
+  onUndo,
+  onRedo,
+  onPlayPreview,
+  onStopPreview,
+  onCommitNote,
+  onCancelNoteEdit,
+  onDuplicateClip,
+  onQuantizeClip,
+}: KeyboardShortcutOptions): void {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isEditableTarget(event.target)) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const hasCommandModifier = event.metaKey || event.ctrlKey;
+
+      if (hasCommandModifier && key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          onRedo();
+          return;
+        }
+
+        onUndo();
+        return;
+      }
+
+      if (hasCommandModifier && key === "y") {
+        event.preventDefault();
+        onRedo();
+        return;
+      }
+
+      if (hasCommandModifier || event.altKey) {
+        return;
+      }
+
+      if (event.key === " " || event.code === "Space") {
+        event.preventDefault();
+        if (isPlayingPreview) {
+          void onStopPreview();
+          return;
+        }
+
+        if (canPreview) {
+          void onPlayPreview();
+        }
+        return;
+      }
+
+      if (key === "n") {
+        event.preventDefault();
+        onCommitNote();
+        return;
+      }
+
+      if (key === "escape") {
+        event.preventDefault();
+        onCancelNoteEdit();
+        return;
+      }
+
+      if (key === "d") {
+        event.preventDefault();
+        onDuplicateClip();
+        return;
+      }
+
+      if (key === "q") {
+        event.preventDefault();
+        onQuantizeClip(0.25);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    canPreview,
+    isPlayingPreview,
+    onCancelNoteEdit,
+    onCommitNote,
+    onDuplicateClip,
+    onPlayPreview,
+    onQuantizeClip,
+    onRedo,
+    onStopPreview,
+    onUndo,
+  ]);
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  const tagName = target.tagName.toLowerCase();
+  return (
+    tagName === "input" ||
+    tagName === "textarea" ||
+    tagName === "select" ||
+    target.isContentEditable
   );
 }
 
@@ -230,7 +368,7 @@ function TransportStrip({
           onClick={onUndo}
           disabled={!canUndo}
           aria-label="Undo"
-          title="Undo"
+          title="Undo (Ctrl/Cmd+Z)"
         >
           <Undo2 size={18} />
         </button>
@@ -240,7 +378,7 @@ function TransportStrip({
           onClick={onRedo}
           disabled={!canRedo}
           aria-label="Redo"
-          title="Redo"
+          title="Redo (Ctrl/Cmd+Shift+Z)"
         >
           <Redo2 size={18} />
         </button>
@@ -252,7 +390,7 @@ function TransportStrip({
           }}
           disabled={!canPreview || isPlayingPreview}
           aria-label="Play preview"
-          title="Play preview"
+          title="Play preview (Space)"
         >
           <Play size={19} />
         </button>
@@ -264,7 +402,7 @@ function TransportStrip({
           }}
           disabled={!isPlayingPreview}
           aria-label="Stop preview"
-          title="Stop preview"
+          title="Stop preview (Space)"
         >
           <Square size={18} />
         </button>
@@ -489,7 +627,7 @@ function PatternTools({
         onClick={onDuplicateClip}
         disabled={disabled}
         aria-label="Duplicate clip"
-        title="Duplicate clip"
+        title="Duplicate clip (D)"
       >
         <Copy size={18} />
       </button>
@@ -501,7 +639,7 @@ function PatternTools({
           onClick={() => onQuantizeClip(0.25)}
           disabled={disabled}
           aria-label="Quantize clip to quarter beat"
-          title="Quantize clip to quarter beat"
+          title="Quantize clip to quarter beat (Q)"
         >
           1/4
         </button>
@@ -676,7 +814,7 @@ function NoteEditor({
           onClick={onCommit}
           disabled={disabled}
           aria-label={isEditing ? "Save note" : "Add note"}
-          title={isEditing ? "Save note" : "Add note"}
+          title={isEditing ? "Save note (N)" : "Add note (N)"}
         >
           {isEditing ? <Save size={18} /> : <Plus size={18} />}
         </button>
@@ -686,7 +824,7 @@ function NoteEditor({
           onClick={onCancel}
           disabled={disabled || !isEditing}
           aria-label="Cancel note edit"
-          title="Cancel note edit"
+          title="Cancel note edit (Esc)"
         >
           <RotateCcw size={18} />
         </button>

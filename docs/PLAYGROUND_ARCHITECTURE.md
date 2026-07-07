@@ -11,6 +11,8 @@ Sprint 5 pattern tool boundaries live in
 [`SPRINT-5-PATTERN-TOOLS.md`](SPRINT-5-PATTERN-TOOLS.md).
 Sprint 6 local undo/redo boundaries live in
 [`SPRINT-6-UNDO-REDO.md`](SPRINT-6-UNDO-REDO.md).
+Sprint 7 keyboard shortcut boundaries live in
+[`SPRINT-7-KEYBOARD-SHORTCUTS.md`](SPRINT-7-KEYBOARD-SHORTCUTS.md).
 
 ## Current Browser Stack
 
@@ -102,6 +104,9 @@ operate on local immutable `Song` state through command events only.
 Browser undo/redo stays local too. It restores previous `CommandState` snapshots
 inside the Playground store, then reuses the existing local save path for the
 restored song.
+
+Browser keyboard shortcuts invoke existing local Playground actions only, and
+are ignored while focus is inside editable fields.
 
 ## Validation
 
