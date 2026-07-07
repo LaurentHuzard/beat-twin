@@ -4,7 +4,11 @@
       "command": "node",
       "args": [
         "/path/to/beat-twin/index.js"
-      ]
+      ],
+      "env": {
+        "BITWIG_HOST": "127.0.0.1",
+        "BITWIG_PORT": "8888"
+      }
     }
   }
 }

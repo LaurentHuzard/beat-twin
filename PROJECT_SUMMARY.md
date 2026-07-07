@@ -11,7 +11,7 @@ It exposes selected Bitwig controls through a local MCP server so an AI agent ca
 - Local TCP JSON-RPC bridge between MCP server and Bitwig.
 - Read-only defaults with explicit write-policy gates.
 - Offline tests for protocol framing, policy behavior, session inspection, and arrangement planning.
-- Bitwig API reference material under `bitwig-api-docs/`.
+- Copyright-safe Bitwig API placeholder note under `bitwig-api-docs/`.
 
 ## What Is Real
 

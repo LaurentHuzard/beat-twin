@@ -16,7 +16,7 @@ git@github.com:LaurentHuzard/beat-twin.git
 - Bitwig controller script: `bitwig-controller/BeatTwin/BeatTwin.control.js`
 - Offline tests: `tests/*.test.js`
 - Manual live checklist: `docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md`
-- Bitwig API reference: `bitwig-api-docs/`
+- Bitwig API placeholder note: `bitwig-api-docs/README.md`
 
 ## Verification Baseline
 

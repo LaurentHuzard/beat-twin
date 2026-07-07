@@ -44,14 +44,27 @@ node index.js
 
 Configure your MCP client to run that command from this repository. A portable example lives in [`llm-mcp/mcp.example.json`](llm-mcp/mcp.example.json).
 
-## Install The Bitwig Controller
-
-Install or symlink the controller folder into your Bitwig controller scripts directory.
-
-Linux/macOS example:
+Codex example:
 
 ```bash
-ln -s "$(pwd)/bitwig-controller/BeatTwin" "$HOME/Documents/Bitwig Studio/Controller Scripts/BeatTwin"
+codex mcp add beat-twin --env BITWIG_HOST=127.0.0.1 --env BITWIG_PORT=8888 -- node /absolute/path/to/beat-twin/index.js
+```
+
+## Install The Bitwig Controller
+
+Copy the controller script into your Bitwig controller scripts directory.
+
+Linux example:
+
+```bash
+mkdir -p "$HOME/Bitwig Studio/Controller Scripts/BeatTwin"
+cp bitwig-controller/BeatTwin/BeatTwin.control.js "$HOME/Bitwig Studio/Controller Scripts/BeatTwin/BeatTwin.control.js"
+```
+
+macOS users commonly use:
+
+```text
+$HOME/Documents/Bitwig Studio/Controller Scripts/
 ```
 
 Windows users can copy `bitwig-controller/BeatTwin` into:
@@ -65,6 +78,10 @@ Then open Bitwig Studio and add the controller manually:
 ```text
 Beat Twin -> Beat Twin
 ```
+
+If Bitwig was already open before installing the file, restart Bitwig or reload
+the controller settings before testing the bridge. See [`docs/LOCAL_MCP_SETUP.md`](docs/LOCAL_MCP_SETUP.md)
+for local verification commands and troubleshooting.
 
 ## Safety Model
 
@@ -114,6 +131,7 @@ Live tests require Bitwig Studio, the controller script, and explicit write perm
 - [`docs/BT-104-ARRANGEMENT-PLAN.md`](docs/BT-104-ARRANGEMENT-PLAN.md)
 - [`docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md`](docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md)
 - [`docs/FUTURE-DIRECTION.md`](docs/FUTURE-DIRECTION.md)
+- [`docs/LOCAL_MCP_SETUP.md`](docs/LOCAL_MCP_SETUP.md)
 
 ## Status
 
