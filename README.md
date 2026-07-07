@@ -46,7 +46,7 @@ Browser command drafts parse known local phrases only; they are not an AI chat p
 
 ## Requirements
 
-- Node.js 26.4.0 or newer
+- Node.js 20 or newer
 - pnpm 11.10.0 or newer
 - Bitwig Studio for live/manual verification
 
