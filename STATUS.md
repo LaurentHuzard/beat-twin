@@ -2,38 +2,41 @@
 
 ## Current State
 
-Restored locally after reformat and renamed from the previous `llm2Bitwig` checkout to `beat-twin`.
+Beat Twin is a public-ready proof of concept for bridging Bitwig Studio with the Model Context Protocol.
 
-The local repository is ready to push to:
+The repository currently contains:
 
-```text
-git@github.com:LaurentHuzard/beat-twin.git
-```
-
-That GitHub repository does not exist yet at the time of this status note.
-
-## Working Surfaces
-
-- MCP server entrypoint: `index.js`
-- Bitwig controller script: `bitwig-controller/BitwigPOC`
-- API reference: `bitwig-api-docs/`
-- Agent workflow notes: `agents-team/`
+- a Node.js MCP server entrypoint in `index.js`;
+- a Bitwig controller script under `bitwig-controller/`;
+- a local TCP bridge between the MCP server and Bitwig;
+- protocol smoke tests under `tests/`;
+- public documentation for setup, roadmap, and agent-assisted workflow notes.
 
 ## Verification Baseline
 
-No full runtime verification has been run after restore because Bitwig Studio integration requires the local DAW/controller environment.
-
-Recommended first checks after dependency install:
+Automated protocol smoke tests can be run with:
 
 ```bash
-npm install
-node index.js
+npm test
 ```
 
-Then enable the Bitwig controller script from Bitwig and verify transport read/write operations manually.
+Full runtime verification still requires a local Bitwig Studio installation with the controller script enabled.
 
-## Open Risks
+Suggested manual checks:
 
-- GitHub repo `LaurentHuzard/beat-twin` still needs to be created.
-- Runtime behavior depends on Bitwig Studio and local controller script installation.
-- Current README still reflects the proof-of-concept posture and should be expanded before claiming product maturity.
+1. Install dependencies with `npm install`.
+2. Start the MCP server with `node index.js`.
+3. Enable the Bitwig controller script in Bitwig Studio.
+4. Verify transport controls and selected-track status through an MCP client.
+
+## Current Risks
+
+- Runtime behavior depends on Bitwig Studio and local controller-script installation.
+- The MCP tool surface should stay conservative until permission boundaries are stronger.
+- Device, clip, and arrangement workflows are intentionally out of scope for the current baseline.
+
+## Public Release Posture
+
+This repository is suitable to read as a technical showcase and proof of concept.
+
+It should not be presented as a finished product or production-hardened Bitwig integration yet.
