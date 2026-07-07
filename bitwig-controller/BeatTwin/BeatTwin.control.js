@@ -217,6 +217,13 @@ function drainReceiveBuffer(buffer, connection) {
   return buffer;
 }
 
+function resolveCursorClipStep(step) {
+  var stepNumber = Math.max(0, Math.floor(step));
+  var pageStart = Math.floor(stepNumber / 16) * 16;
+  cursorClip.scrollToStep(pageStart);
+  return stepNumber - pageStart;
+}
+
 function handleRequest(request, connection) {
   if (!request.method) {
     sendError(connection, request.id, -32600, "Invalid Request");
@@ -426,7 +433,7 @@ function handleRequest(request, connection) {
           request.params[3] !== undefined
         ) {
           // step, pitch, velocity, duration
-          cursorClip.setStep(0, request.params[0], request.params[1], request.params[2], request.params[3]);
+          cursorClip.setStep(0, resolveCursorClipStep(request.params[0]), request.params[1], request.params[2], request.params[3]);
           result = "OK";
         } else throw "Missing parameters (step, pitch, velocity, duration)";
         break;
@@ -434,7 +441,7 @@ function handleRequest(request, connection) {
       case "clip.clear_note":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
           // step, pitch
-          cursorClip.clearStep(0, request.params[0], request.params[1]);
+          cursorClip.clearStep(0, resolveCursorClipStep(request.params[0]), request.params[1]);
           result = "OK";
         } else throw "Missing parameters (step, pitch)";
         break;
@@ -442,7 +449,7 @@ function handleRequest(request, connection) {
       case "clip.toggle_note":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
           // step, pitch, velocity
-          cursorClip.toggleStep(request.params[0], request.params[1], request.params[2] || 1.0);
+          cursorClip.toggleStep(resolveCursorClipStep(request.params[0]), request.params[1], request.params[2] || 127);
           result = "OK";
         } else throw "Missing parameters (step, pitch)";
         break;
