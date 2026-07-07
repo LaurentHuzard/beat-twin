@@ -1,3 +1,4 @@
+// Live-only test: requires Bitwig Studio + write policy; run via `pnpm test:live`.
 import { TestClient } from "./TestClient.js";
 import assert from "assert";
 
@@ -12,16 +13,18 @@ async function run() {
         // 1. Create a Scene
         console.log("Testing scene_create...");
         const sceneRes = await client.callTool("scene_create");
-        assert.strictEqual(sceneRes, "OK");
+        const sceneOk = sceneRes && sceneRes.result !== undefined ? sceneRes.result : sceneRes;
+        assert.strictEqual(sceneOk, "OK");
 
         // 2. Create a Clip (Track 0, Slot 3, 4 beats)
         console.log("Testing clip_create (Track 0, Slot 3, 4 beats)...");
         const clipRes = await client.callTool("clip_create", { 
             trackIndex: 0, 
             slotIndex: 3, 
-            lengthBeats: 4 
+            lengthBeats: 4
         });
-        assert.strictEqual(clipRes, "OK");
+        const clipOk = clipRes && clipRes.result !== undefined ? clipRes.result : clipRes;
+        assert.strictEqual(clipOk, "OK");
 
         console.log("=== Creation Tools Tests Passed ===");
 
