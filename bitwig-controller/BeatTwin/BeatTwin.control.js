@@ -224,6 +224,10 @@ function resolveCursorClipStep(step) {
   return stepNumber - pageStart;
 }
 
+function isValidTrackIndex(index) {
+  return typeof index === "number" && index >= 0 && index < 8 && Math.floor(index) === index;
+}
+
 function handleRequest(request, connection) {
   if (!request.method) {
     sendError(connection, request.id, -32600, "Invalid Request");
@@ -568,6 +572,7 @@ function handleRequest(request, connection) {
       case "device.list":
         if (request.params && request.params[0] !== undefined) {
           var trackIndex = request.params[0];
+          if (!isValidTrackIndex(trackIndex)) throw "Invalid trackIndex (expected integer 0-7)";
           var devices = [];
           for (var di = 0; di < 8; di++) {
             var listedDevice = deviceBanks[trackIndex].getItemAt(di);
@@ -586,6 +591,7 @@ function handleRequest(request, connection) {
       case "device.browse_insert":
         if (request.params && request.params[0] !== undefined) {
           var insertTrackIndex = request.params[0];
+          if (!isValidTrackIndex(insertTrackIndex)) throw "Invalid trackIndex (expected integer 0-7)";
           var insertPosition = request.params[1] !== undefined ? request.params[1] : 0;
           trackBank.getItemAt(insertTrackIndex).selectInMixer();
           deviceBanks[insertTrackIndex].browseToInsertDevice(insertPosition);
@@ -596,6 +602,7 @@ function handleRequest(request, connection) {
       case "device.browse_start":
         if (request.params && request.params[0] !== undefined) {
           var startTrackIndex = request.params[0];
+          if (!isValidTrackIndex(startTrackIndex)) throw "Invalid trackIndex (expected integer 0-7)";
           var startTrack = trackBank.getItemAt(startTrackIndex);
           startTrack.selectInMixer();
           startTrack.startOfDeviceChainInsertionPoint().browse();
@@ -606,6 +613,7 @@ function handleRequest(request, connection) {
       case "device.browse_end":
         if (request.params && request.params[0] !== undefined) {
           var endTrackIndex = request.params[0];
+          if (!isValidTrackIndex(endTrackIndex)) throw "Invalid trackIndex (expected integer 0-7)";
           var endTrack = trackBank.getItemAt(endTrackIndex);
           endTrack.selectInMixer();
           endTrack.endOfDeviceChainInsertionPoint().browse();
