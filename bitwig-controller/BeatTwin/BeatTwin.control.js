@@ -257,7 +257,7 @@ function handleRequest(request, connection) {
         result = transport.tempo().value().getRaw();
         break;
       case "transport.setTempo":
-        if (request.params && request.params[0]) {
+        if (request.params && request.params[0] !== undefined) {
           transport.tempo().value().setRaw(request.params[0]);
           result = "OK";
         } else {
@@ -268,7 +268,7 @@ function handleRequest(request, connection) {
         result = transport.getPosition().get();
         break;
       case "transport.setPosition":
-        if (request.params && request.params[0]) {
+        if (request.params && request.params[0] !== undefined) {
           transport.getPosition().set(request.params[0]);
           result = "OK";
         } else {
