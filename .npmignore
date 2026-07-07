@@ -6,3 +6,8 @@ node_modules/
 coverage/
 *.log
 beat-twin-*.tgz
+tests/
+docs/
+scripts/
+.github/
+*.test.js

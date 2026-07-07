@@ -1,4 +1,9 @@
 node_modules/
+dist/
+*.tsbuildinfo
+.pnpm-home/
+.pnpm-state/
+.pnpm-store/
 .DS_Store
 .env
 .env.*

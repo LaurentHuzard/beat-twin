@@ -11,6 +11,7 @@ export class TestClient {
         this.transport = new StdioClientTransport({
             command: "node",
             args: ["index.js"],
+            env: { ...process.env },
         });
 
         this.client = new Client(

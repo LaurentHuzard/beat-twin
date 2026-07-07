@@ -12,7 +12,6 @@ var cursorClip;
 var remoteControlsBank;
 var deviceBanks = [];
 var popupBrowser;
-var browserResultCursor;
 var browserResultBank;
 
 // Connection state
@@ -129,10 +128,6 @@ function init() {
   popupBrowser.contentTypeNames().markInterested();
   popupBrowser.selectedContentTypeIndex().markInterested();
   popupBrowser.selectedContentTypeName().markInterested();
-  browserResultCursor = popupBrowser.resultsColumn().createCursorItem();
-  browserResultCursor.exists().markInterested();
-  browserResultCursor.name().markInterested();
-  browserResultCursor.isSelected().markInterested();
   browserResultBank = popupBrowser.resultsColumn().createItemBank(32);
   for (var r = 0; r < 32; r++) {
     var browserItem = browserResultBank.getItemAt(r);
@@ -230,6 +225,10 @@ function invalidParams(message) {
   return err;
 }
 
+function isValidTrackIndex(index) {
+  return typeof index === "number" && index >= 0 && index < 8 && Math.floor(index) === index;
+}
+
 function handleRequest(request, connection) {
   if (!request.method) {
     sendError(connection, request.id, -32600, "Invalid Request");
@@ -263,7 +262,7 @@ function handleRequest(request, connection) {
         result = transport.tempo().value().getRaw();
         break;
       case "transport.setTempo":
-        if (request.params && request.params[0]) {
+        if (request.params && request.params[0] !== undefined) {
           transport.tempo().value().setRaw(request.params[0]);
           result = "OK";
         } else {
@@ -274,7 +273,7 @@ function handleRequest(request, connection) {
         result = transport.getPosition().get();
         break;
       case "transport.setPosition":
-        if (request.params && request.params[0]) {
+        if (request.params && request.params[0] !== undefined) {
           transport.getPosition().set(request.params[0]);
           result = "OK";
         } else {
@@ -455,7 +454,8 @@ function handleRequest(request, connection) {
       case "clip.toggle_note":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
           // step, pitch, velocity
-          cursorClip.toggleStep(resolveCursorClipStep(request.params[0]), request.params[1], request.params[2] || 127);
+          var toggleVelocity = request.params[2] !== undefined ? request.params[2] : 127;
+          cursorClip.toggleStep(resolveCursorClipStep(request.params[0]), request.params[1], toggleVelocity);
           result = "OK";
         } else throw invalidParams("Missing parameters (step, pitch)");
         break;
@@ -573,6 +573,7 @@ function handleRequest(request, connection) {
       case "device.list":
         if (request.params && request.params[0] !== undefined) {
           var trackIndex = request.params[0];
+          if (!isValidTrackIndex(trackIndex)) throw invalidParams("Invalid trackIndex (expected integer 0-7)");
           var devices = [];
           for (var di = 0; di < 8; di++) {
             var listedDevice = deviceBanks[trackIndex].getItemAt(di);
@@ -591,6 +592,7 @@ function handleRequest(request, connection) {
       case "device.browse_insert":
         if (request.params && request.params[0] !== undefined) {
           var insertTrackIndex = request.params[0];
+          if (!isValidTrackIndex(insertTrackIndex)) throw invalidParams("Invalid trackIndex (expected integer 0-7)");
           var insertPosition = request.params[1] !== undefined ? request.params[1] : 0;
           trackBank.getItemAt(insertTrackIndex).selectInMixer();
           deviceBanks[insertTrackIndex].browseToInsertDevice(insertPosition);
@@ -601,6 +603,7 @@ function handleRequest(request, connection) {
       case "device.browse_start":
         if (request.params && request.params[0] !== undefined) {
           var startTrackIndex = request.params[0];
+          if (!isValidTrackIndex(startTrackIndex)) throw invalidParams("Invalid trackIndex (expected integer 0-7)");
           var startTrack = trackBank.getItemAt(startTrackIndex);
           startTrack.selectInMixer();
           startTrack.startOfDeviceChainInsertionPoint().browse();
@@ -611,6 +614,7 @@ function handleRequest(request, connection) {
       case "device.browse_end":
         if (request.params && request.params[0] !== undefined) {
           var endTrackIndex = request.params[0];
+          if (!isValidTrackIndex(endTrackIndex)) throw invalidParams("Invalid trackIndex (expected integer 0-7)");
           var endTrack = trackBank.getItemAt(endTrackIndex);
           endTrack.selectInMixer();
           endTrack.endOfDeviceChainInsertionPoint().browse();

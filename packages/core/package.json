@@ -1,0 +1,18 @@
+{
+  "name": "@beat-twin/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure musical document model for Beat Twin.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.ts"
+  }
+}
