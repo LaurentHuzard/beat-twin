@@ -1,3 +1,4 @@
+// Live-only test: requires Bitwig Studio + write policy; run via `pnpm test:live`.
 import { TestClient } from "./TestClient.js";
 import assert from "assert";
 
