@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "types": ["vitest/globals"],
+    "paths": {
+      "@beat-twin/audio-tone": ["../../packages/audio-tone/src/index.ts"],
+      "@beat-twin/core": ["../../packages/core/src/index.ts"],
+      "@beat-twin/commands": ["../../packages/commands/src/index.ts"]
+    }
+  },
+  "include": [
+    "src",
+    "../../packages/audio-tone/src/**/*.ts",
+    "../../packages/core/src/**/*.ts",
+    "../../packages/commands/src/**/*.ts"
+  ]
+}

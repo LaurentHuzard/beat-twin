@@ -9,9 +9,12 @@
     "beat-twin": "./index.js"
   },
   "scripts": {
-    "test": "node --test tests/session-inspect.test.js tests/policy-gate.test.js tests/arrangement-plan.test.js tests/protocol-smoke.test.js",
+    "test": "node --test packages/core/test/*.test.ts packages/commands/test/*.test.ts packages/audio-tone/test/*.test.ts tests/session-inspect.test.js tests/policy-gate.test.js tests/arrangement-plan.test.js tests/protocol-smoke.test.js",
+    "test:unit": "node --test packages/core/test/*.test.ts packages/commands/test/*.test.ts packages/audio-tone/test/*.test.ts tests/session-inspect.test.js tests/policy-gate.test.js tests/arrangement-plan.test.js",
     "test:protocol-smoke": "node --test tests/protocol-smoke.test.js",
-    "test:live": "node scripts/run-live-tests.js"
+    "test:live": "node scripts/run-live-tests.js",
+    "test:playground": "pnpm --filter @beat-twin/playground test",
+    "playground:dev": "pnpm --filter @beat-twin/playground dev"
   },
   "engines": {
     "node": ">=26.4.0",

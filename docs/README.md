@@ -12,6 +12,11 @@ This directory contains the current technical notes for the public Beat Twin pro
 - [`BITWIG_MANUAL_SMOKE_CHECKLIST.md`](BITWIG_MANUAL_SMOKE_CHECKLIST.md): manual live verification with Bitwig Studio.
 - [`FUTURE-DIRECTION.md`](FUTURE-DIRECTION.md): conservative direction for arrangement assistance.
 - [`LOCAL_MCP_SETUP.md`](LOCAL_MCP_SETUP.md): local MCP and Bitwig controller setup.
+- [`PLAYGROUND_ARCHITECTURE.md`](PLAYGROUND_ARCHITECTURE.md): browser-first architecture, package map, and compatibility boundary.
+- [`SPRINT-2-BROWSER-AUDITION.md`](SPRINT-2-BROWSER-AUDITION.md): browser playback/audition boundary, Bitwig safety rules, and validation commands.
+- [`SPRINT-3-NOTE-EDITOR.md`](SPRINT-3-NOTE-EDITOR.md): browser note editing commands, units, safety boundary, and validation commands.
+- [`SPRINT-4-SAVE-LOAD.md`](SPRINT-4-SAVE-LOAD.md): browser-local Playground save/load, JSON import/export, and validation commands.
+- [`SPRINT-5-PATTERN-TOOLS.md`](SPRINT-5-PATTERN-TOOLS.md): browser pattern duplicate, quantize, transpose commands, and validation commands.
 - [`../bitwig-api-docs/README.md`](../bitwig-api-docs/README.md): why Bitwig API reference material is not vendored.
 
 ## Documentation Rule
