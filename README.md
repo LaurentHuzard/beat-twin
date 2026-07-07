@@ -26,7 +26,7 @@ The Node process is the MCP server. It connects to the Bitwig controller on dema
 
 ## Requirements
 
-- Node.js 26.4.0 or newer
+- Node.js 20 or newer
 - pnpm 11.10.0 or newer
 - Bitwig Studio for live/manual verification
 
