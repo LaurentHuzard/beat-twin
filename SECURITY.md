@@ -9,6 +9,12 @@ Beat Twin is an experimental local MCP bridge for Bitwig Studio. It should be tr
 - Read-only MCP tools enabled by default.
 - Write tools enabled only through explicit environment variables.
 
+## Known Limitations
+
+- The TCP bridge between the MCP server and the Bitwig controller is unauthenticated.
+- The write-policy gate is not defense-in-depth: it lives in the MCP server, not in the controller. Anything that can reach the bridge port can drive Bitwig regardless of the MCP write policy.
+- Run Beat Twin only on a trusted machine and firewall the bridge port. Do not expose it to untrusted networks.
+
 ## Reporting Issues
 
 Please open a GitHub issue for security-relevant behavior such as:
