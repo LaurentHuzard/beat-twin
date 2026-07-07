@@ -1,8 +1,8 @@
 # Bitwig Manual Smoke Checklist
 
-Scope: live manual verification notes for Beat Twin with Bitwig Studio.
+Date: 2026-07-07
 
-This is not an automated test. The offline protocol smoke remains `npm test`.
+Scope: live manual verification notes for Beat Twin with Bitwig Studio. Do not treat this as an automated test. The offline protocol smoke remains `pnpm run test:protocol-smoke`.
 
 ## Preconditions
 
@@ -10,7 +10,7 @@ This is not an automated test. The offline protocol smoke remains `npm test`.
 - The Beat Twin controller script is available from `bitwig-controller/BeatTwin/BeatTwin.control.js`.
 - Node dependencies are installed for the MCP server.
 - No important recording session is armed or running.
-- Live write checks are performed only in a disposable Bitwig project.
+- The operator understands that write tools are blocked by default unless policy env vars are set.
 
 ## Before Launch
 
@@ -18,17 +18,18 @@ Run the offline checks first:
 
 ```bash
 node --check index.js
-npm test
+pnpm test
 ```
 
 Expected:
 
+- Unit tests pass.
 - Protocol smoke passes against the mock TCP server.
 - No Bitwig instance is required for these checks.
 
 ## Start MCP Server
 
-Default mode:
+Default read-only mode:
 
 ```bash
 node index.js
@@ -36,22 +37,31 @@ node index.js
 
 Expected:
 
-- Server starts on stdio for MCP clients.
-- Server attempts to connect to the Bitwig controller bridge.
+- Server runs on stdio for MCP clients.
+- Only read tools are listed by MCP clients.
+- Mutating tools remain hidden and blocked.
+
+Optional write-gated mode for transport-only smoke:
+
+```bash
+BITWIG_MCP_WRITE_POLICY=transport node index.js
+```
+
+Use this only after read-only inspection succeeds.
 
 ## Activate Bitwig Controller
 
 In Bitwig:
 
 1. Open a disposable project or a copy of a real project.
-2. Add/enable the `Beat Twin` controller.
+2. Add or enable the `Beat Twin` controller.
 3. Confirm that the controller listens on `127.0.0.1:8888`.
 4. Keep transport stopped before the first tool call.
 
 Expected:
 
 - Controller logs a client connection when the MCP server connects.
-- Transport remains stopped until explicitly controlled.
+- If parsing fails immediately, stop the smoke and inspect the TCP/framing logs.
 
 ## Read-Only Inspector Smoke
 
@@ -91,7 +101,7 @@ Suggested args:
 
 ```json
 {
-  "goal": "Turn the current loop into a safe arrangement draft",
+  "goal": "Turn the current loop into a safe arrangement outline",
   "style": "club",
   "targetLengthBars": 64
 }
@@ -117,6 +127,12 @@ Must not happen:
 
 Only run after read-only checks pass and only in a disposable project.
 
+Start MCP with:
+
+```bash
+BITWIG_MCP_WRITE_POLICY=transport node index.js
+```
+
 Call sequence:
 
 1. `transport_get_tempo`
@@ -128,6 +144,7 @@ Expected:
 - Read returns the current tempo.
 - Play starts transport.
 - Stop stops transport.
+- Returned payload wraps write calls with `tool`, `policy`, `method`, `params`, and `result`.
 
 Rollback:
 
@@ -139,5 +156,6 @@ Rollback:
 
 - Connection refused: Bitwig controller is not listening or port differs from `BITWIG_PORT`.
 - Timeout: controller accepted the socket but did not respond with newline-delimited JSON.
-- Parse error: inspect the frame parser or malformed payload.
+- Parse error: inspect the controller log and protocol framing.
+- Policy blocked: expected unless the required `BITWIG_MCP_WRITE_POLICY` is enabled.
 - Partial read errors: acceptable for inspection if the response is explicit and no mutation occurred.

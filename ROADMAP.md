@@ -1,32 +1,21 @@
 # Beat Twin Roadmap
 
-Beat Twin should stay focused on a small, inspectable MCP-to-Bitwig control loop before expanding into broader music-production automation.
-
 ## Now
 
-- Keep README, status, and setup instructions aligned with the current code.
-- Maintain protocol smoke tests for the local MCP-to-controller bridge.
-- Verify transport and selected-track workflows manually inside Bitwig Studio.
-- Keep the public MCP tool surface conservative.
+- Keep the default MCP surface read-only.
+- Keep offline policy and protocol tests passing.
+- Validate the Beat Twin controller manually in Bitwig Studio.
+- Document only behavior that exists or is directly testable.
 
 ## Next
 
-- Separate read-only inspection tools from mutating tools in the documentation and implementation.
-- Add clearer permission metadata for each MCP tool.
-- Add a small controller-installation troubleshooting guide.
-- Add more protocol tests around errors, reconnect behavior, and malformed messages.
-- Rename remaining `POC` internals once the Bitwig controller surface stabilizes.
+- Improve connection diagnostics for the Bitwig TCP bridge.
+- Add a smaller live smoke path for read-only inspection.
+- Expand policy tests when new tools are added.
+- Keep arrangement assistance plan-only until write flows have stronger previews and rollback guidance.
 
 ## Later
 
-- Explore device and clip inspection after transport and track tools are stable.
-- Add session recipes that keep the human as the creative owner.
-- Investigate arrangement workflows only after stronger preview, undo, and permission boundaries exist.
-- Decide whether Beat Twin remains a lab or becomes a maintained Bitwig integration.
-
-## Non-goals for now
-
-- No network-exposed bridge.
-- No unattended destructive DAW operations.
-- No broad arbitrary control surface.
-- No claim of production readiness.
+- Explore a small Go daemon for the Bitwig TCP/JSON-RPC bridge.
+- Add richer clip/device inspection before adding more write tools.
+- Package the controller and MCP server for easier local installation.

@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "bitwig-mcp": {
+    "beat-twin": {
       "command": "node",
       "args": [
-        "/home/taenia/Code/bitwig-mcp-poc/index.js"
+        "/path/to/beat-twin/index.js"
       ]
     }
   }

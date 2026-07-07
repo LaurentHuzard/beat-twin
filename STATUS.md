@@ -2,41 +2,35 @@
 
 ## Current State
 
-Beat Twin is a public-ready proof of concept for bridging Bitwig Studio with the Model Context Protocol.
+Beat Twin is a local Bitwig Studio + MCP proof of concept.
 
-The repository currently contains:
+The repository has been renamed and cleaned for public open-source release under:
 
-- a Node.js MCP server entrypoint in `index.js`;
-- a Bitwig controller script under `bitwig-controller/BeatTwin/`;
-- a local TCP bridge between the MCP server and Bitwig;
-- protocol smoke tests under `tests/`;
-- public documentation for setup, roadmap, and agent-assisted workflow notes.
+```text
+git@github.com:LaurentHuzard/beat-twin.git
+```
+
+## Working Surfaces
+
+- MCP server entrypoint: `index.js`
+- Bitwig controller script: `bitwig-controller/BeatTwin/BeatTwin.control.js`
+- Offline tests: `tests/*.test.js`
+- Manual live checklist: `docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md`
+- Bitwig API reference: `bitwig-api-docs/`
 
 ## Verification Baseline
 
-Automated protocol smoke tests can be run with:
+Offline validation should pass without Bitwig Studio:
 
 ```bash
-npm test
+pnpm test
+node --check index.js
 ```
 
-Full runtime verification still requires a local Bitwig Studio installation with the Beat Twin controller script enabled.
+Manual live validation still requires Bitwig Studio, the Beat Twin controller, and a disposable project.
 
-Suggested manual checks:
-
-1. Install dependencies with `npm install`.
-2. Start the MCP server with `node index.js`.
-3. Enable the Beat Twin controller script in Bitwig Studio.
-4. Verify transport controls and selected-track status through an MCP client.
-
-## Current Risks
+## Open Risks
 
 - Runtime behavior depends on Bitwig Studio and local controller-script installation.
-- The MCP tool surface should stay conservative until permission boundaries are stronger.
-- Device, clip, and arrangement workflows are intentionally out of scope for the current baseline.
-
-## Public Release Posture
-
-This repository is suitable to read as a technical showcase and proof of concept.
-
-It should not be presented as a finished product or production-hardened Bitwig integration yet.
+- Write tools can change DAW state and must remain explicitly policy-gated.
+- This is still an experimental integration, not a mature product.

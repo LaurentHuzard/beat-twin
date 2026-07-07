@@ -5,4 +5,4 @@ node_modules/
 .idea/
 coverage/
 *.log
-llm-mcp/mcp.json
+beat-twin-*.tgz

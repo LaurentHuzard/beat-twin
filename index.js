@@ -226,7 +226,7 @@ export async function inspectBitwigSession(call = callBitwig) {
     return {
       connected: false,
       setup_hint:
-        "Start the MCP server, open Bitwig Studio, enable the BitwigPOC controller, then retry inspection.",
+        "Start the MCP server, open Bitwig Studio, enable the Beat Twin controller, then retry inspection.",
       error: ping.error,
     };
   }

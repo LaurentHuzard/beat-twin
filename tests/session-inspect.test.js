@@ -60,5 +60,5 @@ test("session inspector returns setup guidance when Bitwig is disconnected", asy
 
   assert.equal(result.connected, false);
   assert.match(result.error, /Could not connect/);
-  assert.match(result.setup_hint, /enable the BitwigPOC controller/);
+  assert.match(result.setup_hint, /enable the Beat Twin controller/);
 });

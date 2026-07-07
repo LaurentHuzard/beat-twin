@@ -1,33 +1,32 @@
 # Beat Twin Project Summary
 
-Beat Twin is a Bitwig Studio + MCP proof of concept for agent-assisted music production workflows.
+Beat Twin is a Bitwig Studio + MCP proof of concept for agent-assisted music production.
 
-It exposes a small set of Bitwig controls through a local MCP server so an AI agent can inspect and operate parts of the DAW while keeping the human producer in charge of creative decisions.
+It exposes selected Bitwig controls through a local MCP server so an AI agent can inspect and, when explicitly authorized, operate parts of the DAW.
 
 ## Current Shape
 
 - Node.js MCP server in `index.js`.
-- Bitwig controller script under `bitwig-controller/`.
-- Local TCP bridge between MCP server and Bitwig.
-- Protocol smoke tests under `tests/`.
-- Agent workflow notes under `agents-team/`.
+- Bitwig controller script under `bitwig-controller/BeatTwin/`.
+- Local TCP JSON-RPC bridge between MCP server and Bitwig.
+- Read-only defaults with explicit write-policy gates.
+- Offline tests for protocol framing, policy behavior, session inspection, and arrangement planning.
+- Bitwig API reference material under `bitwig-api-docs/`.
 
-## Implemented Surface
+## What Is Real
 
-- Transport controls: play, stop, restart, record, tempo, and position.
-- Track and mixer controls: bank status, selected-track status, volume, pan, mute, solo, arm, and selection.
-- Local protocol checks for framing, response parsing, timeout, malformed responses, and reconnect behavior.
+- Transport read/write tools exist.
+- Track, mixer, clip, scene, device, and application tools exist.
+- Write tools are blocked unless an explicit policy environment variable enables them.
+- `bitwig_session_inspect` gives a read-only snapshot of the visible Bitwig session.
+- `bitwig_arrangement_plan` creates a plan-only arrangement outline without mutating Bitwig.
 
-## Design Posture
+## Current Risk
 
-Beat Twin is intentionally conservative:
-
-- local-first;
-- explicit MCP tools;
-- narrow write operations;
-- no broad automation surface;
-- no claim of production readiness.
+- This is still a proof of concept, not a hardened creative production tool.
+- Live verification requires Bitwig Studio and a local controller installation.
+- Tool exposure must stay conservative because DAW control can quickly become too broad for agents.
 
 ## Direction
 
-Keep Beat Twin focused on safe, inspectable Bitwig control. Expand only when preview, permission, and rollback boundaries are clear enough for agent-assisted creative workflows.
+Keep Beat Twin focused on safe, inspectable Bitwig control. The near-term goal is reliability and clear policy boundaries, not autonomous music production.

@@ -1,11 +1,11 @@
 # BT-102 Protocol Smoke
 
-## Framing contract used by `index.js`
+## Framing Contract
 
-Between the Node MCP process and the Bitwig-side controller, `index.js` sends:
+Between the Node MCP process and the Bitwig-side controller, Beat Twin sends:
 
 1. a 4-byte unsigned big-endian length header;
-2. followed immediately by one UTF-8 JSON-RPC request body.
+2. the UTF-8 JSON-RPC request body.
 
 Example payload on the wire:
 
@@ -19,9 +19,9 @@ Responses expected by the Node side are newline-delimited UTF-8 JSON objects:
 {"jsonrpc":"2.0","id":0,"result":128.5}
 ```
 
-The trailing `\n` is the record delimiter. Response chunks may arrive split across multiple TCP packets; the Node parser buffers until a newline is seen.
+The trailing newline is the record delimiter. Response chunks may arrive split across multiple TCP packets; the Node parser buffers until a newline is seen.
 
-## Offline smoke scope
+## Offline Smoke Scope
 
 The offline smoke harness lives in `tests/protocol-smoke.test.js` and verifies:
 
@@ -33,16 +33,8 @@ The offline smoke harness lives in `tests/protocol-smoke.test.js` and verifies:
 
 It runs against a local mock TCP server only. No Bitwig launch is required.
 
-## Controller compatibility
+## Controller Compatibility
 
-The current Beat Twin controller script is located at:
+The current controller script at `bitwig-controller/BeatTwin/BeatTwin.control.js` parses the 4-byte length prefix and replies with newline-delimited JSON-RPC responses.
 
-```text
-bitwig-controller/BeatTwin/BeatTwin.control.js
-```
-
-It supports both raw JSON payloads and the length-prefixed JSON framing used by `index.js`.
-
-## Status
-
-The offline smoke test validates the Node-side protocol boundary. Live verification still requires Bitwig Studio with the Beat Twin controller enabled.
+The offline smoke proves the Node framing and parser behavior. Full compatibility with Bitwig Studio still requires the manual smoke checklist because it depends on the local DAW/controller environment.
