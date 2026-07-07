@@ -113,8 +113,9 @@ h2 {
 }
 
 .transport-meters {
-  justify-content: center;
-  gap: 12px;
+  justify-content: start;
+  flex-wrap: wrap;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -131,6 +132,7 @@ h2 {
 }
 
 .tempo-control {
+  flex: 1 1 180px;
   min-width: 180px;
 }
 
@@ -140,7 +142,9 @@ h2 {
 }
 
 .preview-status {
+  flex: 1 1 170px;
   gap: 8px;
+  min-width: 170px;
   max-width: 280px;
   min-height: 38px;
   padding: 0 12px;
@@ -783,7 +787,13 @@ h2 {
   }
 
   .beat-ruler {
-    overflow: hidden;
+    grid-template-columns: repeat(16, minmax(18px, 1fr));
+    overflow: visible;
+    font-size: 0.68rem;
+  }
+
+  .beat-ruler span {
+    padding-left: 4px;
   }
 
   .storage-panel {
