@@ -28,7 +28,7 @@ If the initial `ping` fails, the tool returns a structured object:
 ```json
 {
   "connected": false,
-  "setup_hint": "Start the MCP server, open Bitwig Studio, enable the BitwigPOC controller, then retry inspection.",
+  "setup_hint": "Start the MCP server, open Bitwig Studio, enable the Beat Twin controller, then retry inspection.",
   "error": "..."
 }
 ```

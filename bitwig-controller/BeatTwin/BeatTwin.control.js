@@ -1,6 +1,6 @@
 loadAPI(10);
 
-host.defineController("BitwigPOC", "BitwigPOC", "0.1", "761be710-90df-4577-8094-01314323214c", "Laurent Huzard");
+host.defineController("Beat Twin", "Beat Twin", "0.1", "761be710-90df-4577-8094-01314323214c", "Laurent Huzard");
 
 var transport;
 var application;
@@ -84,7 +84,7 @@ function init() {
      scene.sceneIndex().markInterested();
   }
 
-  println("BitwigPOC Initialized");
+  println("Beat Twin Initialized");
 
   // Create a TCP server on port 8888 for the Node.js MCP server to connect to.
   // host.createRemoteConnection returns a RemoteSocket.
@@ -496,5 +496,5 @@ function flush() {
 }
 
 function exit() {
-  println("BitwigPOC Exited");
+  println("Beat Twin Exited");
 }

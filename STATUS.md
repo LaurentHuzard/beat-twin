@@ -2,38 +2,35 @@
 
 ## Current State
 
-Restored locally after reformat and renamed from the previous `llm2Bitwig` checkout to `beat-twin`.
+Beat Twin is a local Bitwig Studio + MCP proof of concept.
 
-The local repository is ready to push to:
+The repository has been renamed and cleaned for public open-source release under:
 
 ```text
 git@github.com:LaurentHuzard/beat-twin.git
 ```
 
-That GitHub repository does not exist yet at the time of this status note.
-
 ## Working Surfaces
 
 - MCP server entrypoint: `index.js`
-- Bitwig controller script: `bitwig-controller/BitwigPOC`
-- API reference: `bitwig-api-docs/`
-- Agent workflow notes: `agents-team/`
+- Bitwig controller script: `bitwig-controller/BeatTwin/BeatTwin.control.js`
+- Offline tests: `tests/*.test.js`
+- Manual live checklist: `docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md`
+- Bitwig API reference: `bitwig-api-docs/`
 
 ## Verification Baseline
 
-No full runtime verification has been run after restore because Bitwig Studio integration requires the local DAW/controller environment.
-
-Recommended first checks after dependency install:
+Offline validation should pass without Bitwig Studio:
 
 ```bash
-npm install
-node index.js
+pnpm test
+node --check index.js
 ```
 
-Then enable the Bitwig controller script from Bitwig and verify transport read/write operations manually.
+Manual live validation still requires Bitwig Studio, the Beat Twin controller, and a disposable project.
 
 ## Open Risks
 
-- GitHub repo `LaurentHuzard/beat-twin` still needs to be created.
-- Runtime behavior depends on Bitwig Studio and local controller script installation.
-- Current README still reflects the proof-of-concept posture and should be expanded before claiming product maturity.
+- Runtime behavior depends on Bitwig Studio and local controller-script installation.
+- Write tools can change DAW state and must remain explicitly policy-gated.
+- This is still an experimental integration, not a mature product.

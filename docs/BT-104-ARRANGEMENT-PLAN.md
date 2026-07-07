@@ -84,6 +84,6 @@ Each step lists its own `permissions_required`, `missing_data`, and `risks`.
 ## Validation
 
 ```bash
-rtk node --check index.js
-rtk node --test tests/session-inspect.test.js tests/policy-gate.test.js tests/arrangement-plan.test.js
+pnpm test
+node --check index.js
 ```

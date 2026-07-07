@@ -2,29 +2,31 @@
 
 Beat Twin is a Bitwig Studio + MCP proof of concept for agent-assisted music production.
 
-It exposes selected Bitwig controls through a local MCP server so an AI agent can inspect and operate parts of the DAW without owning the creative process.
+It exposes selected Bitwig controls through a local MCP server so an AI agent can inspect and, when explicitly authorized, operate parts of the DAW.
 
 ## Current Shape
 
 - Node.js MCP server in `index.js`.
-- Bitwig controller script under `bitwig-controller/`.
-- Local TCP bridge between MCP server and Bitwig.
+- Bitwig controller script under `bitwig-controller/BeatTwin/`.
+- Local TCP JSON-RPC bridge between MCP server and Bitwig.
+- Read-only defaults with explicit write-policy gates.
+- Offline tests for protocol framing, policy behavior, session inspection, and arrangement planning.
 - Bitwig API reference material under `bitwig-api-docs/`.
-- Agent/team notes under `agents-team/`.
 
 ## What Is Real
 
-- Transport tools exist for play, stop, restart, record, tempo, and position.
-- Track and mixer tools exist for bank and selected-track operations.
-- The controller script can be installed into Bitwig's controller scripts directory.
-- The project has a substantial Bitwig API knowledge base checked in for local reference.
+- Transport read/write tools exist.
+- Track, mixer, clip, scene, device, and application tools exist.
+- Write tools are blocked unless an explicit policy environment variable enables them.
+- `bitwig_session_inspect` gives a read-only snapshot of the visible Bitwig session.
+- `bitwig_arrangement_plan` creates a plan-only arrangement outline without mutating Bitwig.
 
 ## Current Risk
 
 - This is still a proof of concept, not a hardened creative production tool.
+- Live verification requires Bitwig Studio and a local controller installation.
 - Tool exposure must stay conservative because DAW control can quickly become too broad for agents.
-- The repository was restored locally from the previous `llm2Bitwig` remote and is being renamed to `beat-twin`.
 
 ## Direction
 
-Keep Beat Twin focused on safe, inspectable Bitwig control and music-production workflows. It should remain an audio/MCP lab unless it graduates into a maintained Bitwig integration.
+Keep Beat Twin focused on safe, inspectable Bitwig control. The near-term goal is reliability and clear policy boundaries, not autonomous music production.

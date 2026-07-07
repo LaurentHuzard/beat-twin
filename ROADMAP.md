@@ -2,20 +2,20 @@
 
 ## Now
 
-- Create `LaurentHuzard/beat-twin` on GitHub.
-- Push the restored local repository.
-- Confirm whether the previous `LaurentHuzard/llm2Bitwig` remote should be archived or kept as a redirect/reference.
-- Run a local smoke with Bitwig Studio open and the controller script enabled.
+- Keep the default MCP surface read-only.
+- Keep offline policy and protocol tests passing.
+- Validate the Beat Twin controller manually in Bitwig Studio.
+- Document only behavior that exists or is directly testable.
 
 ## Next
 
-- Define a conservative MCP tool policy for DAW operations.
-- Add a small smoke script for transport and selected-track status.
-- Document controller installation paths for Linux.
-- Separate safe read-only tools from mutating tools.
+- Improve connection diagnostics for the Bitwig TCP bridge.
+- Add a smaller live smoke path for read-only inspection.
+- Expand policy tests when new tools are added.
+- Keep arrangement assistance plan-only until write flows have stronger previews and rollback guidance.
 
 ## Later
 
-- Explore clip/device/mixer workflows only after transport and track tools are stable.
-- Add music-session recipes that keep the human as creative owner.
-- Decide whether Beat Twin remains a lab or becomes a maintained audio agent integration.
+- Explore a small Go daemon for the Bitwig TCP/JSON-RPC bridge.
+- Add richer clip/device inspection before adding more write tools.
+- Package the controller and MCP server for easier local installation.

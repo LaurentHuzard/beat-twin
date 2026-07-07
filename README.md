@@ -1,143 +1,124 @@
 # Beat Twin
 
-**A proof of concept bridging [Bitwig Studio](https://www.bitwig.com/) with the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/).**
+Beat Twin is a proof-of-concept bridge between Bitwig Studio and the Model Context Protocol (MCP).
 
-## 🎯 Goal
-The goal of this project is to demonstrate how an AI Agent can control a Digital Audio Workstation (DAW) like Bitwig Studio. By exposing Bitwig's API through an MCP Server, Large Language Models (LLMs) can directly interact with the music production environment to perform tasks like:
-- Creating tracks
-- Controlling transport (Play, Stop, Restart)
-- *(Future)* Modifying devices, arranging clips, and mixing.
+It exposes a small local MCP server for agent-assisted music workflows while keeping DAW mutations behind explicit write-policy gates. The default mode is read-only.
 
-## 🏗 Architecture
-The project consists of two main components communicating over a local TCP socket:
+## What Works
 
-1.  **MCP Server (`index.js`)**
-    - A Node.js application that implements the Model Context Protocol.
-    - It listens for instructions from an MCP Client (like an AI Assistant).
-    - It acts as a TCP Server on port `8888` to relay commands to Bitwig.
+- Read-only session inspection for transport, tracks, scenes, selected device, and remote controls.
+- Plan-only arrangement suggestions based on the current read-only Bitwig snapshot.
+- Transport, mixer, clip, scene, device, and application write tools, hidden and blocked by default.
+- A Bitwig controller script that speaks JSON-RPC over a local TCP connection.
+- Offline protocol and policy tests that run without launching Bitwig.
 
-2.  **Bitwig Controller Script (`BitwigPOC.control.js`)**
-    - A Java/JavaScript extension running inside Bitwig Studio.
-    - It connects to the MCP Server via TCP.
-    - It executes the API commands (e.g., `application.createInstrumentTrack()`) received from the server.
+## Architecture
 
-```mermaid
-graph LR
-    A[AI Agent / MCP Client] -->|MCP Protocol| B[Node.js MCP Server]
-    B -->|TCP :8888| C[Bitwig Controller Script]
-    C -->|Bitwig API| D[Bitwig Studio]
+```text
+MCP client
+  -> Node.js MCP server (index.js)
+  -> local TCP JSON-RPC bridge on 127.0.0.1:8888
+  -> Bitwig controller script
+  -> Bitwig Studio
 ```
 
-## ✨ Features / Tools
-The following MCP tools are currently implemented:
+The Node process is the MCP server. It connects to the Bitwig controller on demand through `BITWIG_HOST` and `BITWIG_PORT`.
 
-### Transport
-- `transport_play`: Start playback
-- `transport_stop`: Stop playback
-- `transport_restart`: Restart playback
-- `transport_record`: Toggle recording
-- `transport_get_tempo` / `transport_set_tempo`: Manage BPM
-- `transport_get_position` / `transport_set_position`: Manage playhead position
+## Requirements
 
-### Track & Mixer
-- `track_bank_get_status`: Get info (name/vol/pan/mute/solo) for 8 tracks
-- `track_bank_set_volume`, `_pan`, `_mute`, `_solo`: Control tracks by bank index
-- `track_bank_select`: Select a track in the bank
-- `track_selected_get_status`: Get info for the currently selected track
-- `track_selected_set_volume`, `_pan`, `_mute`, `_solo`, `_arm`: Control the selected track
+- Node.js 26.4.0 or newer
+- pnpm 11.10.0 or newer
+- Bitwig Studio for live/manual verification
 
-## 🚀 Installation
-
-### 1. Prerequisites
-- [Node.js](https://nodejs.org/) (v16 or higher)
-- [Bitwig Studio](https://www.bitwig.com/) installed
-
-### 2. Install Dependencies
-Clone this repository and install the Node.js dependencies:
-```bash
-npm install
-```
-
-### 3. Install Bitwig Controller Script
-You need to install the controller script so Bitwig can load it.
-
-**Option A: Symbol Link (Recommended for development)**
-Symlink the `bitwig-controller/BitwigPOC` folder into your Bitwig Controller Scripts directory.
-*Likely location on Linux/Mac:* `~/Documents/Bitwig Studio/Controller Scripts/`
-*Likely location on Windows:* `%USERPROFILE%\Documents\Bitwig Studio\Controller Scripts\`
+## Install
 
 ```bash
-# Example for Linux/Mac
-ln -s "$(pwd)/bitwig-controller/BitwigPOC" "$HOME/Documents/Bitwig Studio/Controller Scripts/"
+pnpm install
 ```
 
-**Option B: Manual Copy**
-Copy the `bitwig-controller/BitwigPOC` folder into your Bitwig Controller Scripts directory.
-
-### 4. Enable in Bitwig
-1. Open Bitwig Studio.
-2. Go to **Settings** > **Controllers**.
-3. Choose **Add controller manually**.
-4. Select **Bitwig POC** > **Bitwig POC**.
-5. The script should load and attempt to connect to the server (it will retry if the server isn't running).
-
-## 💻 Usage
-
-### 1. Start the MCP Server
-Run the Node.js server. It will start listening on the standard input/output for MCP and on TCP port 19561 for Bitwig.
+## Run
 
 ```bash
 node index.js
 ```
 
-### 2. Connect your AI Agent
-Configure your MCP Client (e.g., Claude Desktop, Zed, or other MCP-compliant tools) to run the command above.
+Configure your MCP client to run that command from this repository. A portable example lives in [`llm-mcp/mcp.example.json`](llm-mcp/mcp.example.json).
 
-### 3. Example Prompts
-Once connected, you can ask your AI Agent:
-> "Add a new instrument track in Bitwig."
-> "Start playback."
-> "Stop the music."
+## Install The Bitwig Controller
 
-## Next Validation Surface
+Install or symlink the controller folder into your Bitwig controller scripts directory.
 
-The next implementation slice should stay on the Node.js MCP server and Bitwig controller path, not a FastAPI app factory. Use the existing MCP transport and local test scripts as the validation surface, then keep any future test harness bounded to the current `index.js` plus controller-script flow.
+Linux/macOS example:
 
-## Go Work Branch: `dev/go-work`
-
-This branch frames the Go direction for Beat Twin.
-
-### Best Go angle
-
-Extract the Bitwig TCP/JSON-RPC bridge into a small Go daemon while keeping the current Node/MCP surface as the compatibility reference.
-
-Target shape:
-
-```txt
-cmd/beat-twin-daemon/main.go
-internal/bitwig/client.go
-internal/bitwig/protocol.go
-internal/bitwig/reconnect.go
-internal/policy/write_policy.go
-internal/session/inspect.go
+```bash
+ln -s "$(pwd)/bitwig-controller/BeatTwin" "$HOME/Documents/Bitwig Studio/Controller Scripts/BeatTwin"
 ```
 
-### Why Go fits here
+Windows users can copy `bitwig-controller/BeatTwin` into:
 
-- TCP socket lifecycle, timeout handling, reconnect logic, and framing are already central to the project.
-- A Go daemon can ship as one local binary for live/music workflows.
-- The current write-policy idea maps well to explicit Go packages and tests.
-- This is the strongest personal-project proof for a future Go mission: networked local runtime, agent bridge, and real external software control.
+```text
+%USERPROFILE%\Documents\Bitwig Studio\Controller Scripts\
+```
 
-### First slice
+Then open Bitwig Studio and add the controller manually:
 
-Build a read-only Go bridge first:
+```text
+Beat Twin -> Beat Twin
+```
 
-1. connect to the Bitwig controller socket;
-2. send `ping`, transport, track-bank, selected-track, scene, and device inspection calls;
-3. expose a local HTTP `/inspect` endpoint;
-4. keep all write tools disabled until policy tests exist.
+## Safety Model
 
-### Interview pitch
+Beat Twin is read-only by default. Write tools are not listed by MCP clients and are blocked if called directly.
 
-> I started from a Node MCP proof of concept, then extracted the low-level local daemon into Go because the core problem is TCP lifecycle, explicit policies, observability, and a distributable runtime binary.
+To enable a narrow write class:
+
+```bash
+BITWIG_MCP_WRITE_POLICY=transport node index.js
+```
+
+To enable multiple write classes:
+
+```bash
+BITWIG_MCP_WRITE_POLICY=transport,mixer_write node index.js
+```
+
+To enable every write class for disposable test sessions only:
+
+```bash
+BITWIG_MCP_ENABLE_WRITES=1 node index.js
+```
+
+Use write mode only in a disposable Bitwig project or a copy of real work.
+
+## Tests
+
+Run the offline checks:
+
+```bash
+pnpm test
+```
+
+Run a syntax check:
+
+```bash
+node --check index.js
+```
+
+Live tests require Bitwig Studio, the controller script, and explicit write permissions. They are intentionally separate from the default test suite.
+
+## Useful Docs
+
+- [`docs/BT-101-SESSION-INSPECTOR.md`](docs/BT-101-SESSION-INSPECTOR.md)
+- [`docs/BT-102-PROTOCOL-SMOKE.md`](docs/BT-102-PROTOCOL-SMOKE.md)
+- [`docs/BT-103-POLICY-GATE.md`](docs/BT-103-POLICY-GATE.md)
+- [`docs/BT-104-ARRANGEMENT-PLAN.md`](docs/BT-104-ARRANGEMENT-PLAN.md)
+- [`docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md`](docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md)
+- [`docs/FUTURE-DIRECTION.md`](docs/FUTURE-DIRECTION.md)
+
+## Status
+
+Beat Twin is an experimental local integration, not a hardened production tool. It is published as an open-source foundation for safe, inspectable DAW control experiments.
+
+## License
+
+MIT

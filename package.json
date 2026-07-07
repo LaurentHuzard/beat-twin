@@ -1,11 +1,39 @@
 {
-  "name": "bitwig-mcp-poc",
+  "name": "beat-twin",
   "version": "0.0.1",
+  "description": "Local Bitwig Studio bridge for MCP-based music workflow experiments.",
+  "license": "MIT",
   "type": "module",
-  "scripts": {
-    "test:protocol-smoke": "node --test tests/protocol-smoke.test.js"
+  "packageManager": "pnpm@11.10.0",
+  "bin": {
+    "beat-twin": "./index.js"
   },
+  "scripts": {
+    "test": "node --test tests/session-inspect.test.js tests/policy-gate.test.js tests/arrangement-plan.test.js tests/protocol-smoke.test.js",
+    "test:protocol-smoke": "node --test tests/protocol-smoke.test.js",
+    "test:live": "node scripts/run-live-tests.js"
+  },
+  "engines": {
+    "node": ">=26.4.0",
+    "npm": ">=11.18.0",
+    "pnpm": ">=11.10.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/LaurentHuzard/beat-twin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LaurentHuzard/beat-twin/issues"
+  },
+  "homepage": "https://github.com/LaurentHuzard/beat-twin#readme",
+  "keywords": [
+    "bitwig",
+    "mcp",
+    "music",
+    "daw",
+    "json-rpc"
+  ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.29.0"
   }
 }
