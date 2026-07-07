@@ -449,7 +449,8 @@ function handleRequest(request, connection) {
       case "clip.toggle_note":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
           // step, pitch, velocity
-          cursorClip.toggleStep(resolveCursorClipStep(request.params[0]), request.params[1], request.params[2] || 127);
+          var toggleVelocity = request.params[2] !== undefined ? request.params[2] : 127;
+          cursorClip.toggleStep(resolveCursorClipStep(request.params[0]), request.params[1], toggleVelocity);
           result = "OK";
         } else throw "Missing parameters (step, pitch)";
         break;
