@@ -219,6 +219,12 @@ function resolveCursorClipStep(step) {
   return stepNumber - pageStart;
 }
 
+function invalidParams(message) {
+  var err = new Error(message);
+  err.jsonrpcCode = -32602;
+  return err;
+}
+
 function isValidTrackIndex(index) {
   return typeof index === "number" && index >= 0 && index < 8 && Math.floor(index) === index;
 }
@@ -260,7 +266,7 @@ function handleRequest(request, connection) {
           transport.tempo().value().setRaw(request.params[0]);
           result = "OK";
         } else {
-          throw "Missing tempo parameter";
+          throw invalidParams("Missing tempo parameter");
         }
         break;
       case "transport.getPosition":
@@ -271,7 +277,7 @@ function handleRequest(request, connection) {
           transport.getPosition().set(request.params[0]);
           result = "OK";
         } else {
-          throw "Missing position parameter";
+          throw invalidParams("Missing position parameter");
         }
         break;
       case "transport.getIsPlaying":
@@ -308,35 +314,35 @@ function handleRequest(request, connection) {
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
           trackBank.getItemAt(request.params[0]).volume().set(request.params[1]);
           result = "OK";
-        } else throw "Missing parameters";
+        } else throw invalidParams("Missing parameters");
         break;
 
       case "track.bank.pan":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
           trackBank.getItemAt(request.params[0]).pan().set(request.params[1]);
           result = "OK";
-        } else throw "Missing parameters";
+        } else throw invalidParams("Missing parameters");
         break;
 
       case "track.bank.mute":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
           trackBank.getItemAt(request.params[0]).mute().set(request.params[1]);
           result = "OK";
-        } else throw "Missing parameters";
+        } else throw invalidParams("Missing parameters");
         break;
 
       case "track.bank.solo":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
           trackBank.getItemAt(request.params[0]).solo().set(request.params[1]);
           result = "OK";
-        } else throw "Missing parameters";
+        } else throw invalidParams("Missing parameters");
         break;
 
       case "track.bank.select":
         if (request.params && request.params[0] !== undefined) {
           trackBank.getItemAt(request.params[0]).selectInMixer();
           result = "OK";
-        } else throw "Missing parameters";
+        } else throw invalidParams("Missing parameters");
         break;
 
       // --- Clip Launcher ---
@@ -345,7 +351,7 @@ function handleRequest(request, connection) {
           // track index, slot index
           trackBank.getItemAt(request.params[0]).clipLauncherSlotBank().getItemAt(request.params[1]).launch();
           result = "OK";
-        } else throw "Missing parameters";
+        } else throw invalidParams("Missing parameters");
         break;
 
       case "clip.record":
@@ -353,7 +359,7 @@ function handleRequest(request, connection) {
           // track index, slot index
           trackBank.getItemAt(request.params[0]).clipLauncherSlotBank().getItemAt(request.params[1]).record();
           result = "OK";
-        } else throw "Missing parameters";
+        } else throw invalidParams("Missing parameters");
         break;
 
       case "clip.stop":
@@ -361,14 +367,14 @@ function handleRequest(request, connection) {
             // track index
             trackBank.getItemAt(request.params[0]).stop();
             result = "OK";
-         } else throw "Missing parameters";
+         } else throw invalidParams("Missing parameters");
          break;
 
       case "scene.launch":
         if (request.params && request.params[0] !== undefined) {
           sceneBank.getScene(request.params[0]).launch();
           result = "OK";
-        } else throw "Missing parameters";
+        } else throw invalidParams("Missing parameters");
         break;
 
       case "scene.list":
@@ -393,7 +399,7 @@ function handleRequest(request, connection) {
           // track index, slot index, length in beats
           trackBank.getItemAt(request.params[0]).clipLauncherSlotBank().getItemAt(request.params[1]).createEmptyClip(request.params[2]);
           result = "OK";
-        } else throw "Missing parameters (trackIndex, slotIndex, length)";
+        } else throw invalidParams("Missing parameters (trackIndex, slotIndex, length)");
         break;
 
       case "clip.select_slot":
@@ -401,7 +407,7 @@ function handleRequest(request, connection) {
           var selectSlot = trackBank.getItemAt(request.params[0]).clipLauncherSlotBank().getItemAt(request.params[1]);
           selectSlot.select();
           result = "OK";
-        } else throw "Missing parameters (trackIndex, slotIndex)";
+        } else throw invalidParams("Missing parameters (trackIndex, slotIndex)");
         break;
 
       case "clip.show_in_editor":
@@ -410,7 +416,7 @@ function handleRequest(request, connection) {
           editorSlot.select();
           editorSlot.showInEditor();
           result = "OK";
-        } else throw "Missing parameters (trackIndex, slotIndex)";
+        } else throw invalidParams("Missing parameters (trackIndex, slotIndex)");
         break;
 
       case "clip.get_info":
@@ -434,7 +440,7 @@ function handleRequest(request, connection) {
           // step, pitch, velocity, duration
           cursorClip.setStep(0, resolveCursorClipStep(request.params[0]), request.params[1], request.params[2], request.params[3]);
           result = "OK";
-        } else throw "Missing parameters (step, pitch, velocity, duration)";
+        } else throw invalidParams("Missing parameters (step, pitch, velocity, duration)");
         break;
 
       case "clip.clear_note":
@@ -442,7 +448,7 @@ function handleRequest(request, connection) {
           // step, pitch
           cursorClip.clearStep(0, resolveCursorClipStep(request.params[0]), request.params[1]);
           result = "OK";
-        } else throw "Missing parameters (step, pitch)";
+        } else throw invalidParams("Missing parameters (step, pitch)");
         break;
 
       case "clip.toggle_note":
@@ -451,7 +457,7 @@ function handleRequest(request, connection) {
           var toggleVelocity = request.params[2] !== undefined ? request.params[2] : 127;
           cursorClip.toggleStep(resolveCursorClipStep(request.params[0]), request.params[1], toggleVelocity);
           result = "OK";
-        } else throw "Missing parameters (step, pitch)";
+        } else throw invalidParams("Missing parameters (step, pitch)");
         break;
 
       // --- Selected Track Control ---
@@ -470,35 +476,35 @@ function handleRequest(request, connection) {
         if (request.params && request.params[0] !== undefined) {
           cursorTrack.volume().set(request.params[0]);
           result = "OK";
-        } else throw "Missing parameter";
+        } else throw invalidParams("Missing parameter");
         break;
 
       case "track.selected.pan":
         if (request.params && request.params[0] !== undefined) {
           cursorTrack.pan().set(request.params[0]);
           result = "OK";
-        } else throw "Missing parameter";
+        } else throw invalidParams("Missing parameter");
         break;
 
       case "track.selected.mute":
         if (request.params && request.params[0] !== undefined) {
           cursorTrack.mute().set(request.params[0]);
           result = "OK";
-        } else throw "Missing parameter";
+        } else throw invalidParams("Missing parameter");
         break;
 
       case "track.selected.solo":
         if (request.params && request.params[0] !== undefined) {
           cursorTrack.solo().set(request.params[0]);
           result = "OK";
-        } else throw "Missing parameter";
+        } else throw invalidParams("Missing parameter");
         break;
 
       case "track.selected.arm":
         if (request.params && request.params[0] !== undefined) {
           cursorTrack.arm().set(request.params[0]);
           result = "OK";
-        } else throw "Missing parameter";
+        } else throw invalidParams("Missing parameter");
         break;
 
       case "ping":
@@ -551,7 +557,7 @@ function handleRequest(request, connection) {
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
           remoteControlsBank.getParameter(request.params[0]).value().set(request.params[1]);
           result = "OK";
-        } else throw "Missing parameters (index, value)";
+        } else throw invalidParams("Missing parameters (index, value)");
         break;
 
       case "device.page_next":
@@ -567,7 +573,7 @@ function handleRequest(request, connection) {
       case "device.list":
         if (request.params && request.params[0] !== undefined) {
           var trackIndex = request.params[0];
-          if (!isValidTrackIndex(trackIndex)) throw "Invalid trackIndex (expected integer 0-7)";
+          if (!isValidTrackIndex(trackIndex)) throw invalidParams("Invalid trackIndex (expected integer 0-7)");
           var devices = [];
           for (var di = 0; di < 8; di++) {
             var listedDevice = deviceBanks[trackIndex].getItemAt(di);
@@ -580,40 +586,40 @@ function handleRequest(request, connection) {
             }
           }
           result = devices;
-        } else throw "Missing trackIndex parameter";
+        } else throw invalidParams("Missing trackIndex parameter");
         break;
 
       case "device.browse_insert":
         if (request.params && request.params[0] !== undefined) {
           var insertTrackIndex = request.params[0];
-          if (!isValidTrackIndex(insertTrackIndex)) throw "Invalid trackIndex (expected integer 0-7)";
+          if (!isValidTrackIndex(insertTrackIndex)) throw invalidParams("Invalid trackIndex (expected integer 0-7)");
           var insertPosition = request.params[1] !== undefined ? request.params[1] : 0;
           trackBank.getItemAt(insertTrackIndex).selectInMixer();
           deviceBanks[insertTrackIndex].browseToInsertDevice(insertPosition);
           result = "OK";
-        } else throw "Missing parameters (trackIndex, position)";
+        } else throw invalidParams("Missing parameters (trackIndex, position)");
         break;
 
       case "device.browse_start":
         if (request.params && request.params[0] !== undefined) {
           var startTrackIndex = request.params[0];
-          if (!isValidTrackIndex(startTrackIndex)) throw "Invalid trackIndex (expected integer 0-7)";
+          if (!isValidTrackIndex(startTrackIndex)) throw invalidParams("Invalid trackIndex (expected integer 0-7)");
           var startTrack = trackBank.getItemAt(startTrackIndex);
           startTrack.selectInMixer();
           startTrack.startOfDeviceChainInsertionPoint().browse();
           result = "OK";
-        } else throw "Missing trackIndex parameter";
+        } else throw invalidParams("Missing trackIndex parameter");
         break;
 
       case "device.browse_end":
         if (request.params && request.params[0] !== undefined) {
           var endTrackIndex = request.params[0];
-          if (!isValidTrackIndex(endTrackIndex)) throw "Invalid trackIndex (expected integer 0-7)";
+          if (!isValidTrackIndex(endTrackIndex)) throw invalidParams("Invalid trackIndex (expected integer 0-7)");
           var endTrack = trackBank.getItemAt(endTrackIndex);
           endTrack.selectInMixer();
           endTrack.endOfDeviceChainInsertionPoint().browse();
           result = "OK";
-        } else throw "Missing trackIndex parameter";
+        } else throw invalidParams("Missing trackIndex parameter");
         break;
 
       // --- Browser Control ---
@@ -648,7 +654,7 @@ function handleRequest(request, connection) {
             popupBrowser.selectNextFile();
           }
           result = "OK";
-        } else throw "Missing index parameter";
+        } else throw invalidParams("Missing index parameter");
         break;
 
       case "browser.select_first_file":
@@ -685,7 +691,10 @@ function handleRequest(request, connection) {
     sendResponse(connection, request.id, result);
 
   } catch (e) {
-    sendError(connection, request.id, -32603, "Internal error: " + e);
+    var code = (e && e.jsonrpcCode) ? e.jsonrpcCode : -32603;
+    var message = (e && e.message) ? e.message : String(e);
+    var prefix = code === -32602 ? "Invalid params: " : "Internal error: ";
+    sendError(connection, request.id, code, prefix + message);
   }
 }
 
