@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Beat-Twin_logo.png" alt="Beat Twin logo" width="240">
+</p>
+
 # Beat Twin
 
 Beat Twin is a proof-of-concept bridge between Bitwig Studio and the Model Context Protocol (MCP).
