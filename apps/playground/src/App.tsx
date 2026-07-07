@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   ArrowDown,
   ArrowUp,
   CircleDot,
   Clock3,
+  Command as CommandIcon,
   Copy,
   Download,
   FolderOpen,
@@ -17,6 +18,7 @@ import {
   RotateCcw,
   Redo2,
   Save,
+  Search,
   Send,
   SlidersHorizontal,
   Sparkles,
@@ -28,6 +30,7 @@ import {
   Upload,
   Volume2,
   Waves,
+  X,
 } from "lucide-react";
 
 import type { Clip, Note, Song, Track } from "@beat-twin/core";
@@ -80,6 +83,7 @@ function App() {
   const setSongJsonDraft = usePlaygroundStore((state) => state.setSongJsonDraft);
   const setDraft = usePlaygroundStore((state) => state.setDraft);
   const submitDraft = usePlaygroundStore((state) => state.submitDraft);
+  const [isCommandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   const selectedTrack =
     song?.tracks.find((track) => track.id === selectedTrackId) ?? song?.tracks[0] ?? null;
@@ -101,7 +105,165 @@ function App() {
     onCancelNoteEdit: cancelNoteEdit,
     onDuplicateClip: duplicateSelectedClip,
     onQuantizeClip: quantizeSelectedClip,
+    onOpenCommandPalette: () => setCommandPaletteOpen(true),
   });
+
+  const commandPaletteActions = useMemo<readonly PaletteAction[]>(
+    () => [
+      {
+        id: "create-demo",
+        label: "Create Demo",
+        detail: "Song sketch",
+        status: song ? "Replace" : "New",
+        icon: <Sparkles size={18} />,
+        run: createDemo,
+      },
+      {
+        id: "add-track",
+        label: "Add Track",
+        detail: "Command bus",
+        status: song ? "Track" : "Song + track",
+        icon: <Plus size={18} />,
+        run: addTrack,
+      },
+      {
+        id: "add-clip",
+        label: "Add Clip",
+        detail: selectedTrack?.name ?? "No track",
+        status: selectedTrack ? "Clip" : "Blocked",
+        icon: <ListMusic size={18} />,
+        disabled: !selectedTrack,
+        run: addClipToSelection,
+      },
+      {
+        id: "play-preview",
+        label: "Play Preview",
+        detail: selectedClip?.name ?? "No clip",
+        status: canPreview && !isPlayingPreview ? "Audio" : "Blocked",
+        icon: <Play size={18} />,
+        disabled: !canPreview || isPlayingPreview,
+        run: () => {
+          void playPreview();
+        },
+      },
+      {
+        id: "stop-preview",
+        label: "Stop Preview",
+        detail: preview.label,
+        status: isPlayingPreview ? "Audio" : "Idle",
+        icon: <Square size={18} />,
+        disabled: !isPlayingPreview,
+        run: () => {
+          void stopPreview();
+        },
+      },
+      {
+        id: "duplicate-clip",
+        label: "Duplicate Clip",
+        detail: selectedClip?.name ?? "No clip",
+        status: selectedClip ? "Pattern" : "Blocked",
+        icon: <Copy size={18} />,
+        disabled: !selectedClip,
+        run: duplicateSelectedClip,
+      },
+      {
+        id: "quantize-clip",
+        label: "Quantize Clip",
+        detail: selectedClip?.name ?? "No clip",
+        status: "1/4",
+        icon: <Grid3X3 size={18} />,
+        disabled: !selectedClip,
+        run: () => quantizeSelectedClip(0.25),
+      },
+      {
+        id: "transpose-up",
+        label: "Transpose Up",
+        detail: selectedClip?.name ?? "No clip",
+        status: "+1",
+        icon: <ArrowUp size={18} />,
+        disabled: !selectedClip,
+        run: () => transposeSelectedClip(1),
+      },
+      {
+        id: "transpose-down",
+        label: "Transpose Down",
+        detail: selectedClip?.name ?? "No clip",
+        status: "-1",
+        icon: <ArrowDown size={18} />,
+        disabled: !selectedClip,
+        run: () => transposeSelectedClip(-1),
+      },
+      {
+        id: "save-song",
+        label: "Save Song",
+        detail: song?.title ?? "No song",
+        status: song ? "Local" : "Blocked",
+        icon: <Save size={18} />,
+        disabled: !song,
+        run: saveSong,
+      },
+      {
+        id: "load-song",
+        label: "Load Song",
+        detail: persistence.hasSavedSong ? "Stored song" : "No local save",
+        status: persistence.hasSavedSong ? "Local" : "Blocked",
+        icon: <FolderOpen size={18} />,
+        disabled: !persistence.hasSavedSong,
+        run: loadSavedSong,
+      },
+      {
+        id: "export-song",
+        label: "Export Song",
+        detail: song?.title ?? "No song",
+        status: song ? "JSON" : "Blocked",
+        icon: <Download size={18} />,
+        disabled: !song,
+        run: exportSong,
+      },
+      {
+        id: "undo",
+        label: "Undo",
+        detail: "History",
+        status: canUndo ? "Ready" : "Empty",
+        icon: <Undo2 size={18} />,
+        disabled: !canUndo,
+        run: undo,
+      },
+      {
+        id: "redo",
+        label: "Redo",
+        detail: "History",
+        status: canRedo ? "Ready" : "Empty",
+        icon: <Redo2 size={18} />,
+        disabled: !canRedo,
+        run: redo,
+      },
+    ],
+    [
+      addClipToSelection,
+      addTrack,
+      canPreview,
+      canRedo,
+      canUndo,
+      createDemo,
+      duplicateSelectedClip,
+      exportSong,
+      isPlayingPreview,
+      loadSavedSong,
+      persistence.hasSavedSong,
+      playPreview,
+      preview.label,
+      quantizeSelectedClip,
+      redo,
+      saveSong,
+      selectedClip,
+      selectedTrack,
+      song,
+      stopPreview,
+      transposeSelectedClip,
+      undo,
+    ],
+  );
 
   return (
     <main className="app-shell">
@@ -119,6 +281,7 @@ function App() {
         onTempoChange={setTempo}
         onPlayPreview={playPreview}
         onStopPreview={stopPreview}
+        onOpenCommandPalette={() => setCommandPaletteOpen(true)}
       />
 
       <section className="workspace-grid" aria-label="Beat Twin workspace">
@@ -160,6 +323,12 @@ function App() {
         onImportSong={importSong}
         onClearSavedSong={clearSavedSong}
       />
+
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        actions={commandPaletteActions}
+        onClose={() => setCommandPaletteOpen(false)}
+      />
     </main>
   );
 }
@@ -175,6 +344,7 @@ type KeyboardShortcutOptions = {
   readonly onCancelNoteEdit: () => void;
   readonly onDuplicateClip: () => void;
   readonly onQuantizeClip: (gridBeats: number) => void;
+  readonly onOpenCommandPalette: () => void;
 };
 
 function useKeyboardShortcuts({
@@ -188,6 +358,7 @@ function useKeyboardShortcuts({
   onCancelNoteEdit,
   onDuplicateClip,
   onQuantizeClip,
+  onOpenCommandPalette,
 }: KeyboardShortcutOptions): void {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -197,6 +368,12 @@ function useKeyboardShortcuts({
 
       const key = event.key.toLowerCase();
       const hasCommandModifier = event.metaKey || event.ctrlKey;
+
+      if (hasCommandModifier && key === "k") {
+        event.preventDefault();
+        onOpenCommandPalette();
+        return;
+      }
 
       if (hasCommandModifier && key === "z") {
         event.preventDefault();
@@ -264,6 +441,7 @@ function useKeyboardShortcuts({
     onCancelNoteEdit,
     onCommitNote,
     onDuplicateClip,
+    onOpenCommandPalette,
     onPlayPreview,
     onQuantizeClip,
     onRedo,
@@ -300,6 +478,7 @@ type TransportStripProps = {
   readonly onTempoChange: (bpm: number) => void;
   readonly onPlayPreview: () => Promise<void>;
   readonly onStopPreview: () => Promise<void>;
+  readonly onOpenCommandPalette: () => void;
 };
 
 function TransportStrip({
@@ -316,6 +495,7 @@ function TransportStrip({
   onTempoChange,
   onPlayPreview,
   onStopPreview,
+  onOpenCommandPalette,
 }: TransportStripProps) {
   const bpm = song?.transport.bpm ?? 120;
   const isPlayingPreview = preview.phase === "playing";
@@ -385,6 +565,15 @@ function TransportStrip({
           title="Redo (Ctrl/Cmd+Shift+Z)"
         >
           <Redo2 size={18} />
+        </button>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={onOpenCommandPalette}
+          aria-label="Open command palette"
+          title="Open command palette (Ctrl/Cmd+K)"
+        >
+          <CommandIcon size={18} />
         </button>
         <button
           type="button"
@@ -570,6 +759,187 @@ function noteMarkerStyle(note: Note, clip: Clip) {
 
 function formatCount(count: number, singular: string): string {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
+}
+
+type PaletteAction = {
+  readonly id: string;
+  readonly label: string;
+  readonly detail: string;
+  readonly status: string;
+  readonly icon: ReactNode;
+  readonly disabled?: boolean;
+  readonly run: () => void;
+};
+
+type CommandPaletteProps = {
+  readonly isOpen: boolean;
+  readonly actions: readonly PaletteAction[];
+  readonly onClose: () => void;
+};
+
+function CommandPalette({ isOpen, actions, onClose }: CommandPaletteProps) {
+  const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const filteredActions = useMemo(() => filterPaletteActions(actions, query), [actions, query]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setQuery("");
+    setActiveIndex(firstEnabledActionIndex(actions));
+    window.setTimeout(() => searchInputRef.current?.focus(), 0);
+  }, [actions, isOpen]);
+
+  useEffect(() => {
+    setActiveIndex(firstEnabledActionIndex(filteredActions));
+  }, [filteredActions]);
+
+  if (!isOpen) {
+    return null;
+  }
+
+  const executeAction = (action: PaletteAction | undefined) => {
+    if (!action || action.disabled) {
+      return;
+    }
+
+    onClose();
+    action.run();
+  };
+
+  return (
+    <div
+      className="palette-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <section
+        className="command-palette"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
+      >
+        <div className="palette-search">
+          <Search size={18} aria-hidden="true" />
+          <input
+            ref={searchInputRef}
+            aria-label="Command palette search"
+            value={query}
+            onChange={(event) => setQuery(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                onClose();
+                return;
+              }
+
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setActiveIndex((index) => nextEnabledActionIndex(filteredActions, index, 1));
+                return;
+              }
+
+              if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setActiveIndex((index) => nextEnabledActionIndex(filteredActions, index, -1));
+                return;
+              }
+
+              if (event.key === "Enter") {
+                event.preventDefault();
+                executeAction(filteredActions[activeIndex]);
+              }
+            }}
+            placeholder="Search actions"
+          />
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onClose}
+            aria-label="Close command palette"
+            title="Close command palette"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="palette-list" role="listbox" aria-label="Command palette actions">
+          {filteredActions.length === 0 ? (
+            <div className="palette-empty">No command</div>
+          ) : (
+            filteredActions.map((action, index) => (
+              <button
+                type="button"
+                role="option"
+                key={action.id}
+                className={
+                  index === activeIndex ? "palette-action active" : "palette-action"
+                }
+                aria-selected={index === activeIndex}
+                disabled={action.disabled}
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => executeAction(action)}
+              >
+                <span className="palette-action-icon">{action.icon}</span>
+                <span className="palette-action-copy">
+                  <strong>{action.label}</strong>
+                  <small>{action.detail}</small>
+                </span>
+                <span className="palette-action-status">{action.status}</span>
+              </button>
+            ))
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function filterPaletteActions(
+  actions: readonly PaletteAction[],
+  query: string,
+): readonly PaletteAction[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return actions;
+  }
+
+  return actions.filter((action) =>
+    `${action.label} ${action.detail} ${action.status}`
+      .toLowerCase()
+      .includes(normalizedQuery),
+  );
+}
+
+function firstEnabledActionIndex(actions: readonly PaletteAction[]): number {
+  const index = actions.findIndex((action) => !action.disabled);
+  return index === -1 ? 0 : index;
+}
+
+function nextEnabledActionIndex(
+  actions: readonly PaletteAction[],
+  currentIndex: number,
+  direction: 1 | -1,
+): number {
+  if (actions.length === 0) {
+    return 0;
+  }
+
+  for (let offset = 1; offset <= actions.length; offset += 1) {
+    const index = (currentIndex + offset * direction + actions.length) % actions.length;
+    if (!actions[index]?.disabled) {
+      return index;
+    }
+  }
+
+  return currentIndex;
 }
 
 type InspectorProps = {

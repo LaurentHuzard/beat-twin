@@ -1,4 +1,12 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
@@ -83,6 +91,53 @@ describe("Playground", () => {
 
     expect(screen.getAllByTestId("track-row")).toHaveLength(2);
     expect(screen.getByLabelText("Command log")).toHaveTextContent("TrackCreated");
+  });
+
+  it("opens the command palette and runs filtered actions", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /open command palette/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /command palette/i });
+    fireEvent.change(within(dialog).getByLabelText("Command palette search"), {
+      target: { value: "demo" },
+    });
+    fireEvent.click(within(dialog).getByRole("option", { name: /create demo/i }));
+
+    expect(screen.queryByRole("dialog", { name: /command palette/i })).toBeNull();
+    expect(screen.getByLabelText("Inspector")).toHaveTextContent("Kick Ladder");
+    expect(screen.getByLabelText("Command log")).toHaveTextContent("SongCreated");
+  });
+
+  it("opens the command palette from the keyboard and executes the active action", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+
+    const dialog = screen.getByRole("dialog", { name: /command palette/i });
+    const search = within(dialog).getByLabelText("Command palette search");
+    fireEvent.change(search, { target: { value: "add track" } });
+    fireEvent.keyDown(search, { key: "Enter" });
+
+    expect(screen.getAllByTestId("track-row")).toHaveLength(1);
+    expect(screen.queryByRole("dialog", { name: /command palette/i })).toBeNull();
+    expect(screen.getByLabelText("Command log")).toHaveTextContent("TrackCreated");
+  });
+
+  it("keeps unavailable command palette actions disabled", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /open command palette/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /command palette/i });
+    fireEvent.change(within(dialog).getByLabelText("Command palette search"), {
+      target: { value: "duplicate" },
+    });
+
+    expect(within(dialog).getByRole("option", { name: /duplicate clip/i })).toBeDisabled();
   });
 
   it("auditions the selected clip through the preview audio boundary", async () => {

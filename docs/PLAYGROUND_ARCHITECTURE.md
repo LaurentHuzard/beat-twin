@@ -15,6 +15,8 @@ Sprint 7 keyboard shortcut boundaries live in
 [`SPRINT-7-KEYBOARD-SHORTCUTS.md`](SPRINT-7-KEYBOARD-SHORTCUTS.md).
 Sprint 8 timeline selection feedback lives in
 [`SPRINT-8-TIMELINE-SELECTION.md`](SPRINT-8-TIMELINE-SELECTION.md).
+Sprint 9 command palette boundaries live in
+[`SPRINT-9-COMMAND-PALETTE.md`](SPRINT-9-COMMAND-PALETTE.md).
 
 ## Current Browser Stack
 
@@ -113,6 +115,10 @@ are ignored while focus is inside editable fields.
 Browser timeline selection feedback is derived from local `Song` state only. It
 highlights selected tracks and clips, summarizes track/clip/note counts, and
 draws clip-local note markers without adding a new mutation path.
+
+Browser command palette actions are another local UI entry point to the same
+Playground store actions. They do not parse chat text, call Bitwig, or bypass
+`BeatTwinCommand` for song mutations.
 
 ## Validation
 
