@@ -97,7 +97,17 @@ Expected result after the controller is active:
 Connection to 127.0.0.1 8888 port [tcp/*] succeeded!
 ```
 
-Then run a read-only inspection from the repository:
+For a shorter agent-friendly live check, run:
+
+```bash
+pnpm smoke:read-only
+```
+
+This first checks TCP connectivity, then runs a read-only session inspection.
+It exits `0` when the bridge is reachable and the inspection reports
+`scope: "read-only"`. It exits `2` when Bitwig/controller setup is incomplete.
+
+You can also run a direct read-only inspection from the repository:
 
 ```bash
 node --input-type=module -e "import('./index.js').then(async m => { const r = await m.inspectBitwigSession(); console.log(JSON.stringify(r, null, 2)); process.exit(r.connected ? 0 : 2); })"
@@ -119,6 +129,10 @@ read-error details when Bitwig only returns a partial snapshot.
 
 - `ECONNREFUSED` or `Connection refused`: Bitwig is running, but the Beat Twin
   controller is not loaded or not enabled.
+- `pnpm smoke:read-only` fails in `tcp-connectivity`: fix the Bitwig controller
+  setup before debugging MCP tool calls.
+- `pnpm smoke:read-only` reaches `read-only-inspection` but reports
+  `read_errors`: the bridge is alive, but one or more read surfaces failed.
 - `EPERM` from a sandboxed command: retry the socket check outside the sandbox.
 - Controller not visible in Bitwig: verify the controller file path, then
   restart Bitwig.

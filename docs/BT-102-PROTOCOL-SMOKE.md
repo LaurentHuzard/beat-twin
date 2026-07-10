@@ -30,6 +30,8 @@ The offline smoke harness lives in `tests/protocol-smoke.test.js` and verifies:
 - timeout when the controller stays silent;
 - malformed newline-delimited response handling;
 - reconnect after remote close.
+- TCP connectivity diagnostics for a listening bridge and a refused
+  controller connection.
 
 It runs against a local mock TCP server only. No Bitwig launch is required.
 
@@ -37,4 +39,6 @@ It runs against a local mock TCP server only. No Bitwig launch is required.
 
 The current controller script at `bitwig-controller/BeatTwin/BeatTwin.control.js` parses the 4-byte length prefix and replies with newline-delimited JSON-RPC responses.
 
-The offline smoke proves the Node framing and parser behavior. Full compatibility with Bitwig Studio still requires the manual smoke checklist because it depends on the local DAW/controller environment.
+The offline smoke proves the Node framing, parser behavior, and diagnostic
+classification. Full compatibility with Bitwig Studio still requires the manual
+smoke checklist because it depends on the local DAW/controller environment.

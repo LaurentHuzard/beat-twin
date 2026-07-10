@@ -44,13 +44,22 @@ If that directory does not exist, check these common locations:
 nc -vz 127.0.0.1 8888
 ```
 
-5. Run a read-only session inspection:
+5. Run the short read-only smoke:
+
+```bash
+pnpm smoke:read-only
+```
+
+This returns JSON with a `tcp-connectivity` phase when the controller is not
+reachable, or a compact `read-only-inspection` summary when the bridge is live.
+
+6. Run a full read-only session inspection when deeper session detail is needed:
 
 ```bash
 node --input-type=module -e "import('./index.js').then(async m => { const r = await m.inspectBitwigSession(); console.log(JSON.stringify(r, null, 2)); process.exit(r.connected ? 0 : 2); })"
 ```
 
-6. Run a plan-only arrangement smoke:
+7. Run a plan-only arrangement smoke:
 
 ```bash
 node --input-type=module -e "import('./index.js').then(async m => { const r = await m.planBitwigArrangement({ goal: 'Turn the current loop into a safe arrangement outline', style: 'club', targetLengthBars: 64 }); console.log(JSON.stringify(r, null, 2)); process.exit(r.scope === 'plan-only' ? 0 : 2); })"

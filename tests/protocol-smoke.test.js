@@ -1,13 +1,35 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import net from "net";
+import { EventEmitter } from "node:events";
 
-import { BitwigProtocolClient } from "../index.js";
+import {
+  BitwigProtocolClient,
+  diagnoseBitwigConnection,
+} from "../index.js";
 
 function createSilentLogger() {
   return {
     error() {},
   };
+}
+
+class FakeSocket extends EventEmitter {
+  constructor(connectBehavior) {
+    super();
+    this.connectBehavior = connectBehavior;
+    this.destroyed = false;
+  }
+
+  setTimeout() {}
+
+  connect(port, host) {
+    this.connectBehavior(this, { port, host });
+  }
+
+  destroy() {
+    this.destroyed = true;
+  }
 }
 
 function readLengthPrefixedRequest(socket) {
@@ -206,4 +228,42 @@ test("client reconnects after remote close", async () => {
     assert.equal(connectionCount, 2);
     client.destroy();
   });
+});
+
+test("diagnostic reports when the Bitwig bridge accepts TCP connections", async () => {
+  const result = await diagnoseBitwigConnection({
+    host: "127.0.0.1",
+    port: 8888,
+    timeoutMs: 200,
+    createSocket: () =>
+      new FakeSocket((socket) => {
+        setImmediate(() => socket.emit("connect"));
+      }),
+  });
+
+  assert.equal(result.connected, true);
+  assert.equal(result.scope, "tcp-connectivity");
+  assert.equal(result.status, "listening");
+  assert.equal(result.target, "127.0.0.1:8888");
+  assert.match(result.hint, /accepting TCP connections/);
+});
+
+test("diagnostic explains a refused Bitwig bridge connection", async () => {
+  const result = await diagnoseBitwigConnection({
+    host: "127.0.0.1",
+    port: 8888,
+    timeoutMs: 200,
+    createSocket: () =>
+      new FakeSocket((socket) => {
+        const error = new Error("connect ECONNREFUSED 127.0.0.1:8888");
+        error.code = "ECONNREFUSED";
+        setImmediate(() => socket.emit("error", error));
+      }),
+  });
+
+  assert.equal(result.connected, false);
+  assert.equal(result.scope, "tcp-connectivity");
+  assert.equal(result.status, "error");
+  assert.equal(result.error_code, "ECONNREFUSED");
+  assert.match(result.hint, /Beat Twin controller is not listening/);
 });

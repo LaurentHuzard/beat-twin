@@ -2,8 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  createCommandRuntime,
   createCommandState,
   executeCommand,
+  executeCommandBatch,
+  materializeCommandBatch,
   type IdFactory,
 } from "../src/index.ts";
 
@@ -283,4 +286,139 @@ test("returns command errors without replacing the previous state", () => {
   assert.match(result.error, /No song/);
   assert.equal(result.state, state);
   assert.deepEqual(result.events, []);
+});
+
+test("executes a materialized command batch with one revision", () => {
+  const initial = createCommandState();
+  const preview = materializeCommandBatch(
+    initial,
+    [
+      { type: "CreateSong", title: "Atomic sketch", bpm: 132 },
+      { type: "CreateTrack", name: "Acid Pulse", kind: "instrument" },
+      { type: "CreateClip", trackId: "track-1", name: "Pulse", lengthBeats: 4 },
+      {
+        type: "AddNote",
+        trackId: "track-1",
+        clipId: "clip-1",
+        pitch: 45,
+        velocity: 104,
+        startBeat: 0,
+        lengthBeats: 0.25,
+      },
+    ],
+    { idFactory: fixedIds(["song-1", "track-1", "clip-1", "note-1"]) },
+  );
+  assert.equal(preview.ok, true);
+  assert.equal(initial.song, null);
+  assert.equal(initial.revision, 0);
+  if (!preview.ok) throw new Error(preview.error);
+
+  const result = executeCommandBatch(initial, {
+    requestId: "request-1",
+    expectedRevision: 0,
+    commands: preview.commands,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(initial.revision, 0);
+  assert.equal(result.state.revision, 1);
+  assert.equal(result.snapshot.revision, 1);
+  assert.deepEqual(result.commands.map((command) => "id" in command ? command.id : null), [
+    "song-1",
+    "track-1",
+    "clip-1",
+    "note-1",
+  ]);
+  assert.equal(result.results.length, 4);
+  assert.equal(result.events.length, 4);
+});
+
+test("rejects an invalid batch atomically", () => {
+  const initial = createCommandState();
+  const result = executeCommandBatch(initial, {
+    requestId: "request-invalid",
+    expectedRevision: 0,
+    commands: [
+      { type: "CreateSong", id: "song-1", title: "Must not leak" },
+      { type: "CreateClip", id: "clip-1", trackId: "missing-track", lengthBeats: 4 },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, "invalid_command");
+  assert.equal(result.state, initial);
+  assert.equal(result.snapshot.song, null);
+  assert.equal(result.snapshot.revision, 0);
+  assert.deepEqual(result.events, []);
+  assert.deepEqual(initial.log, []);
+});
+
+test("rejects stale revisions before materializing commands", () => {
+  const state = createCommandState();
+  const result = executeCommandBatch(state, {
+    requestId: "request-stale",
+    expectedRevision: 1,
+    commands: [{ type: "CreateSong", id: "song-1" }],
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, "stale_revision");
+  assert.equal(result.state, state);
+  assert.deepEqual(result.commands, []);
+});
+
+test("makes batch request IDs idempotent in the command runtime", () => {
+  const runtime = createCommandRuntime(createCommandState());
+  const request = {
+    requestId: "request-idempotent",
+    expectedRevision: 0,
+    commands: [
+      { type: "CreateSong", id: "song-1", title: "Once" },
+      { type: "CreateTrack", id: "track-1", name: "Once" },
+    ],
+  } as const;
+
+  const first = runtime.executeCommandBatch(request);
+  const replay = runtime.executeCommandBatch(request);
+
+  assert.equal(first.ok, true);
+  assert.equal(replay, first);
+  assert.equal(runtime.inspect().revision, 1);
+  assert.equal(runtime.inspect().song?.tracks.length, 1);
+});
+
+test("binds idempotency to the normalized request ID and exact payload", () => {
+  const runtime = createCommandRuntime(createCommandState());
+  const first = runtime.executeCommandBatch({
+    requestId: " request-normalized ",
+    expectedRevision: 0,
+    commands: [{ type: "CreateSong", id: "song-1", title: "Original" }],
+  });
+  const replay = runtime.executeCommandBatch({
+    requestId: "request-normalized",
+    expectedRevision: 0,
+    commands: [{ type: "CreateSong", id: "song-1", title: "Original" }],
+  });
+  const collision = runtime.executeCommandBatch({
+    requestId: "request-normalized",
+    expectedRevision: 0,
+    commands: [{ type: "CreateSong", id: "song-2", title: "Different" }],
+  });
+
+  assert.equal(first.ok, true);
+  assert.equal(replay, first);
+  assert.equal(collision.ok, false);
+  assert.equal(collision.ok ? null : collision.errorCode, "invalid_command");
+  assert.match(collision.ok ? "" : collision.error, /different payload/);
+  assert.equal(runtime.inspect().revision, 1);
+  assert.equal(runtime.inspect().song?.id, "song-1");
+});
+
+test("returns a stable error for a malformed runtime request", () => {
+  const runtime = createCommandRuntime();
+  const result = runtime.executeCommandBatch(null as never);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.ok ? null : result.errorCode, "invalid_command");
+  assert.equal(runtime.inspect().revision, 0);
 });
