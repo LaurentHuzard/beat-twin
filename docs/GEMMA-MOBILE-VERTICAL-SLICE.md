@@ -1,4 +1,4 @@
-# Gemma Mobile Agent: first vertical slice
+# Local LLM to DAW: first dual-target vertical slice
 
 ## Outcome
 
@@ -6,46 +6,74 @@ From the Android chat, the user can ask:
 
 > Create an instrument track named Acid Pulse with a four-bar syncopated A minor clip at 132 BPM.
 
-Beat Twin returns a preview. After explicit confirmation, the disposable Bitwig project contains:
+The user explicitly selects either `minidaw` or `bitwig`. Beat Twin inspects that target, compiles the same SongPatch into canonical `BeatTwinCommand[]`, returns a target-aware preview, and requires confirmation.
+
+After execution, the selected target contains the semantically equivalent result:
 
 - tempo set to 132 BPM;
 - one instrument track named `Acid Pulse`;
-- one four-bar clip;
+- one four-bar MIDI clip;
 - a valid bounded MIDI pattern.
 
-This is the first end-to-end write slice. It is intentionally narrower than a general Bitwig copilot.
+The Mini-DAW path works without Bitwig installed. The Bitwig path runs against a disposable project. Neither path requires a DAW-specific prompt or LLM tool.
 
 ## Product flow
 
-1. The phone pairs with the workstation gateway.
-2. The client requests a read-only session snapshot.
-3. Gemma emits a constrained `propose_song_patch` call.
-4. The gateway validates and compiles the patch into `BeatTwinCommand[]`.
-5. The gateway returns a preview and a short-lived `planId`.
-6. The user confirms the displayed plan.
-7. The client calls `execute_plan(planId, confirmationToken)`.
-8. The gateway rechecks the session revision and write policies.
-9. The Bitwig adapter applies commands in order and records each result.
-10. The client displays success, partial success, or failure without guessing.
+1. The S25 pairs with the Beat Twin Agent Gateway.
+2. The client calls `list_daw_targets`.
+3. The user selects `minidaw` or `bitwig`.
+4. Beat Twin requests the selected adapter's health, capabilities, snapshot, and revision.
+5. Gemma emits a constrained `propose_song_patch` call.
+6. Beat Twin validates the SongPatch against canonical musical rules and target capabilities.
+7. Beat Twin compiles it into `BeatTwinCommand[]`.
+8. The gateway returns a target-aware preview and short-lived `planId`.
+9. The user confirms the exact displayed plan.
+10. The gateway rechecks target ID, capability version, revision, expiry, confirmation, and scopes.
+11. The selected adapter executes and records one result per command.
+12. The client displays success, partial success, unsupported capability, or failure without guessing.
 
-## Initial API
+## Target-independent API
 
 ### `GET /v1/health`
 
-Returns gateway, authentication, and Bitwig bridge status without mutating Bitwig.
+Returns gateway status and configured adapter health summaries without mutation.
 
-### `GET /v1/session`
+### `GET /v1/daws`
 
-Returns a normalized, read-only snapshot with a revision identifier.
-
-### `POST /v1/plans`
-
-Accepts a bounded `SongPatch` and creates a side-effect-free plan.
+Lists configured DAW targets and capability versions.
 
 Example:
 
 ```json
 {
+  "targets": [
+    {
+      "id": "minidaw",
+      "connected": true,
+      "capabilityVersion": "1"
+    },
+    {
+      "id": "bitwig",
+      "connected": false,
+      "capabilityVersion": "1"
+    }
+  ]
+}
+```
+
+### `GET /v1/sessions/:dawId`
+
+Returns a normalized read-only snapshot, revision, and capabilities for the selected target.
+
+### `POST /v1/plans`
+
+Creates a side-effect-free plan.
+
+Example:
+
+```json
+{
+  "dawId": "minidaw",
   "baseRevision": "session-revision",
   "intent": "create_pattern",
   "tempo": 132,
@@ -68,119 +96,157 @@ Example:
 }
 ```
 
-The server owns IDs. The model cannot choose executable method names.
+The server owns executable IDs. The model cannot choose adapter method names.
 
 ### `POST /v1/plans/:planId/confirm`
 
-Creates a single-use confirmation token after returning the exact preview to the client.
+Creates a single-use confirmation token for the exact target and preview.
 
 ### `POST /v1/plans/:planId/execute`
 
-Executes the already confirmed, non-expired plan. It does not accept replacement commands.
+Executes the confirmed plan through its recorded adapter. The request cannot replace the target or commands.
 
-## Limits for the first slice
+## Initial portable capability
 
-- one new instrument track;
-- one new MIDI clip;
-- 1 to 64 notes;
+Both reference adapters must support the first portable subset:
+
+- inspect normalized session;
+- set tempo;
+- create one instrument track;
+- create one MIDI clip;
+- add 1 to 64 notes.
+
+Limits:
+
 - clip length from 1 to 16 bars;
 - MIDI pitch and velocity from 0 to 127;
 - positive note lengths;
 - no note may exceed clip bounds;
-- optional tempo from 40 to 240 BPM;
-- no devices, presets, mixer writes, scenes, audio files, or recording;
+- tempo from 40 to 240 BPM;
 - one active execution per paired client;
 - plan expiry after five minutes.
 
-## Required policies
-
-- read access for inspection;
-- `application_write` for instrument-track creation;
-- `clip_write` for clip and note creation;
-- `transport` only if tempo remains classified there.
-
-The gateway must reject the plan before any mutation when a required policy is disabled.
+Deferred capabilities include devices, presets, mixer writes, scenes, audio files, recording, and rendering.
 
 ## Package map
 
-Proposed locations:
-
 ```text
 apps/gateway
-  HTTP/WebSocket transport, pairing, plan store
+  authenticated transport, pairing, target registry, and plan store
 
 apps/android
-  Compose chat, LiteRT-LM integration, tool calling
+  Compose chat, LiteRT-LM, target selection, and high-level tools
+
+apps/playground
+  standalone Mini-DAW plus explicit connected-control mode
 
 packages/agent-contract
-  versioned request, patch, preview, and result schemas
+  versioned SongPatch, preview, target, and result schemas
+
+packages/daw-contract
+  DawAdapter, capabilities, snapshots, plans, and execution reports
+
+packages/adapters/minidaw
+  @beat-twin/commands reference adapter
 
 packages/adapters/bitwig
-  snapshot import and command execution
+  canonical command to TCP/JSON-RPC adapter
 
 packages/commands
-  canonical BeatTwinCommand validation and execution semantics
+  canonical BeatTwinCommand validation and semantics
 ```
 
-The Android build may remain a separate Gradle project while the shared wire contract is generated from versioned JSON Schema.
+The Android build may remain a separate Gradle project. Shared wire contracts are generated from versioned JSON Schema.
 
 ## Acceptance criteria
 
-### Gateway
+### Beat Twin Gateway
 
-- rejects every unauthenticated session or plan request;
-- never forwards mobile payloads directly to the controller;
-- produces the same plan for the same validated patch and base snapshot;
-- rejects stale revisions and expired plans;
-- exposes no write endpoint without confirmation;
+- rejects unauthenticated target, session, plan, and execution requests;
+- contains no target-specific mutation logic;
+- never forwards mobile payloads directly to a DAW;
+- records adapter ID and capability version in every plan;
+- rejects adapter switching or capability drift after planning;
+- creates deterministic commands and previews from identical validated input;
+- requires explicit confirmation before execution;
 - logs plan and command IDs without auth secrets.
 
-### Android
+### Gemma Android client
 
 - runs Gemma locally;
-- declares only the approved high-level functions;
-- renders the plan summary before presenting confirmation;
-- makes destructive ambiguity visible rather than silently choosing;
-- handles gateway disconnects and partial execution results.
+- lists and selects configured targets;
+- declares only target-independent high-level functions;
+- uses the same prompt and SongPatch format for Mini-DAW and Bitwig;
+- renders target name, preview, warnings, and unsupported capabilities;
+- handles disconnects and partial execution results.
 
-### Bitwig adapter
+### MiniDawAdapter
+
+- works with Bitwig closed or absent;
+- applies canonical commands through the existing command executor;
+- preserves Playground standalone mode;
+- accepts remote control only after explicit connected-mode opt-in;
+- synchronizes resulting immutable state to the Playground;
+- uses existing command history for recovery where supported.
+
+### BitwigAdapter
 
 - keeps the controller on `127.0.0.1`;
-- creates the expected track, clip, and notes in a disposable project;
-- returns one structured result per low-level operation;
-- stops after an error and reports the partial boundary;
-- preserves the existing root MCP behavior.
+- translates only declared canonical capabilities;
+- preserves root MCP behavior and existing policy gates;
+- creates the expected track, clip, tempo, and notes in a disposable project;
+- stops on error and reports the partial boundary;
+- does not define LLM or planning behavior.
+
+### Conformance
+
+Given the same accepted SongPatch:
+
+- both adapters receive equivalent canonical command semantics;
+- both resulting normalized snapshots contain the expected tempo, track, clip, and notes;
+- unsupported differences are declared as capabilities rather than silently ignored.
 
 ### Tests
 
-Offline tests cover:
+Offline coverage includes:
 
+- adapter capability negotiation;
+- shared adapter conformance;
 - schema acceptance and rejection;
 - note and clip bounds;
+- plan target binding;
+- capability-version drift;
 - policy computation;
 - plan expiry;
-- stale session revision;
+- stale revisions;
 - confirmation reuse;
 - command compilation;
-- partial execution reporting;
-- authentication and token revocation.
+- authentication and revocation;
+- partial execution reporting.
 
-A manual live smoke covers the complete S25-to-Bitwig path.
+Manual live smokes cover:
+
+1. S25 -> Beat Twin -> Mini-DAW;
+2. S25 -> Beat Twin -> Bitwig.
 
 ## Delivery order
 
-1. Read-only authenticated gateway.
-2. Android pairing and `inspect_session`.
-3. Plan schema, compilation, and preview.
-4. Controlled Bitwig execution.
-5. Live smoke and recovery documentation.
+1. Define `DawAdapter`, capabilities, normalized snapshot, and conformance fixtures.
+2. Add the authenticated DAW-agnostic gateway.
+3. Implement `MiniDawAdapter` and Playground connected mode.
+4. Extract and implement `BitwigAdapter` without breaking root MCP.
+5. Build Android pairing, target selection, and `inspect_session`.
+6. Add SongPatch planning, preview, confirmation, and execution.
+7. Run the same S25 prompt against both targets.
 
 ## Deferred
 
-- modifying an existing Bitwig clip;
+- modifying existing clips beyond the portable subset;
 - velocity humanization and density transformations;
 - device and preset selection;
 - arrangement generation;
+- Ableton Live and Ardour adapters;
 - voice input;
 - remote access outside the LAN;
-- automatic rollback.
+- automatic cross-adapter conversion;
+- automatic rollback for external DAWs.
