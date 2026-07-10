@@ -1,30 +1,59 @@
 # Beat Twin Roadmap
 
+## Product Direction
+
+Beat Twin is a DAW-agnostic orchestration layer:
+
+```text
+Local LLM -> Beat Twin -> selected DAW adapter
+```
+
+The browser Mini-DAW is the native reference target. Bitwig is the first external target. Ableton Live and Ardour are later adapters.
+
 ## Now
 
-- Keep the default MCP surface read-only.
-- Keep offline policy and protocol tests passing.
-- Grow the browser Playground through command-first local song editing.
-- Keep Playground save/load schema-versioned through `@beat-twin/core`.
-- Keep browser pattern tools command-first and autosaved.
-- Keep Playground undo/redo local to command-state snapshots.
-- Keep keyboard shortcuts local and ignored while editing fields.
-- Keep selected tracks, clips, and note density visible in the Playground timeline.
-- Keep the command palette local to existing Playground actions.
-- Keep command draft parsing deterministic and local-only.
-- Validate the Beat Twin controller manually in Bitwig Studio.
+- Keep the browser Mini-DAW working as a standalone application.
+- Keep the current Bitwig MCP surface read-only by default.
+- Keep offline policy, protocol, core, command, audio, and Playground tests passing.
+- Keep `@beat-twin/core` as the canonical musical document model.
+- Keep `@beat-twin/commands` as the canonical mutation language.
+- Keep browser save/load schema-versioned.
+- Keep Mini-DAW audition and editing independent from Bitwig.
+- Validate the existing Bitwig controller manually in disposable projects.
 - Document only behavior that exists or is directly testable.
 
-## Next
+## Next: Local LLM To DAW
 
-- Improve connection diagnostics for the Bitwig TCP bridge.
-- Add a smaller live smoke path for read-only inspection.
-- Expand command draft coverage only when phrases can stay deterministic.
-- Expand policy tests when new tools are added.
-- Keep arrangement assistance plan-only until write flows have stronger previews and rollback guidance.
+Implementation order:
+
+1. Define `DawAdapter`, normalized capabilities, snapshots, revisions, execution reports, and conformance fixtures.
+2. Add an authenticated DAW-agnostic Agent Gateway.
+3. Build the on-device Gemma 4 Android client with target selection and read-only inspection.
+4. Compile target-independent SongPatch proposals into canonical previewable plans.
+5. Implement `MiniDawAdapter` and explicit connected Playground mode.
+6. Implement `BitwigAdapter` without breaking the root MCP compatibility path.
+7. Route confirmed plans to their recorded adapter.
+8. Run the same S25 prompt through:
+   - Gemma 4 -> Beat Twin -> Mini-DAW;
+   - Gemma 4 -> Beat Twin -> Bitwig.
+
+Guardrails:
+
+- The local LLM never receives raw DAW protocol methods.
+- The gateway contains no target-specific mutation code.
+- Unsupported capabilities are rejected before mutation.
+- Plans are bound to adapter ID, capability version, and session revision.
+- Mini-DAW standalone mode remains available.
+- The Bitwig controller stays on loopback.
+- External-DAW partial execution is reported honestly.
+- Arrangement assistance remains plan-only until preview and recovery are stronger.
 
 ## Later
 
-- Explore a small Go daemon for the Bitwig TCP/JSON-RPC bridge.
-- Add richer clip/device inspection before adding more write tools.
-- Package the controller and MCP server for easier local installation.
+- Add a proper Mini-DAW piano roll, audio clips, samples, mixer, and export without turning it into a Bitwig dependency.
+- Add richer portable transformations such as velocity shaping, density, humanization, and arrangement sections.
+- Add verified recovery semantics per adapter.
+- Add Ableton Live through the shared adapter contract.
+- Add Ardour through the shared adapter contract.
+- Explore a small Go daemon for external-DAW protocol bridging where it materially improves reliability.
+- Package the gateway, adapters, controller, and Mini-DAW for easier local installation.
