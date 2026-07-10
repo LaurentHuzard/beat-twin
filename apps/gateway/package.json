@@ -1,0 +1,23 @@
+{
+  "name": "@beat-twin/gateway",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Loopback-only HTTP gateway for LiteRT-LM agent planning and explicit DAW execution.",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": "^22.0.0 || ^24.0.0"
+  },
+  "dependencies": {
+    "@beat-twin/agent-contract": "workspace:*",
+    "@beat-twin/daw-contract": "workspace:*",
+    "@beat-twin/gateway-core": "workspace:*",
+    "@beat-twin/litert-provider": "workspace:*"
+  }
+}

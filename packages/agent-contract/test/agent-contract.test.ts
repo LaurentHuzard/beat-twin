@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { createCommandState, executeCommandBatch } from "@beat-twin/commands";
 
 import {
   SONG_PATCH_V1_JSON_SCHEMA,
+  SONG_PATCH_V1_TOOL_SCHEMA,
   SongPatchValidationError,
   compileSongPatchV1,
   materializeSongPatchIds,
@@ -397,4 +399,126 @@ test("exports a strict provider-facing JSON schema", () => {
     16,
   );
   assert.ok(Object.isFrozen(SONG_PATCH_V1_JSON_SCHEMA));
+});
+
+test("exports the exact LiteRT-compatible SongPatchV1 tool projection", () => {
+  assert.deepEqual(SONG_PATCH_V1_TOOL_SCHEMA, {
+    type: "object",
+    required: ["schemaVersion", "track"],
+    properties: {
+      schemaVersion: { type: "number", enum: [1] },
+      tempoBpm: { type: "number", minimum: 40, maximum: 240 },
+      track: {
+        type: "object",
+        required: ["kind", "name", "clip"],
+        properties: {
+          kind: { type: "string", enum: ["instrument"] },
+          name: { type: "string", minLength: 1, maxLength: 64 },
+          clip: {
+            type: "object",
+            required: ["name", "lengthBeats", "notes"],
+            properties: {
+              name: { type: "string", minLength: 1, maxLength: 64 },
+              lengthBeats: { type: "number", minimum: 1, maximum: 16 },
+              notes: {
+                type: "array",
+                minItems: 1,
+                maxItems: 16,
+                items: {
+                  type: "object",
+                  required: ["pitch", "velocity", "startBeat", "lengthBeats"],
+                  properties: {
+                    pitch: { type: "integer", minimum: 0, maximum: 127 },
+                    velocity: { type: "integer", minimum: 1, maximum: 127 },
+                    startBeat: { type: "number", minimum: 0, maximum: 16 },
+                    lengthBeats: { type: "number", minimum: 0.25, maximum: 16 },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  assert.ok(Object.isFrozen(SONG_PATCH_V1_TOOL_SCHEMA));
+});
+
+test("keeps required fields across root, track, clip, and note levels", () => {
+  const track = SONG_PATCH_V1_TOOL_SCHEMA.properties.track;
+  const clip = track.properties.clip;
+  const note = clip.properties.notes.items;
+
+  assert.deepEqual(SONG_PATCH_V1_TOOL_SCHEMA.required, ["schemaVersion", "track"]);
+  assert.deepEqual(track.required, ["kind", "name", "clip"]);
+  assert.deepEqual(clip.required, ["name", "lengthBeats", "notes"]);
+  assert.deepEqual(note.required, ["pitch", "velocity", "startBeat", "lengthBeats"]);
+  assert.deepEqual(Object.keys(note.properties), [
+    "pitch",
+    "velocity",
+    "startBeat",
+    "lengthBeats",
+  ]);
+});
+
+test("omits unsupported LiteRT schema keywords at every depth", () => {
+  const unsupported = new Set([
+    "$schema",
+    "$id",
+    "const",
+    "additionalProperties",
+    "multipleOf",
+  ]);
+
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (value === null || typeof value !== "object") {
+      return;
+    }
+    for (const [key, child] of Object.entries(value)) {
+      assert.equal(unsupported.has(key), false, `unsupported schema keyword: ${key}`);
+      visit(child);
+    }
+  };
+
+  visit(SONG_PATCH_V1_TOOL_SCHEMA);
+});
+
+test("validates the captured S25 propose_song_patch arguments at runtime", () => {
+  const fixtureUrl = new URL(
+    "../../../tests/fixtures/litert-s25-tool-call.json",
+    import.meta.url,
+  );
+  const fixture = JSON.parse(readFileSync(fixtureUrl, "utf8")) as {
+    response?: {
+      choices?: Array<{
+        message?: {
+          tool_calls?: Array<{
+            function?: { name?: string; arguments?: string };
+          }>;
+        };
+      }>;
+    };
+  };
+  const toolCall = fixture.response?.choices?.[0]?.message?.tool_calls?.[0]?.function;
+
+  assert.equal(toolCall?.name, "propose_song_patch");
+  assert.equal(typeof toolCall.arguments, "string");
+  const patch = validateSongPatchV1(JSON.parse(toolCall.arguments!));
+  assert.deepEqual(patch, {
+    schemaVersion: 1,
+    tempoBpm: 120,
+    track: {
+      kind: "instrument",
+      name: "SimpleOneBeat",
+      clip: {
+        name: "OneBeatHit",
+        lengthBeats: 1,
+        notes: [{ pitch: 60, velocity: 100, startBeat: 0, lengthBeats: 1 }],
+      },
+    },
+  });
 });

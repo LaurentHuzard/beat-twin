@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 
 import { compileSongPatchV1 } from "../packages/agent-contract/dist/index.js";
 import { NANODAW_CAPABILITY_VERSION } from "../packages/adapters/nanodaw/dist/index.js";
+import { MAX_PLAN_TTL_MS } from "../packages/gateway-core/dist/index.js";
+import { LITERT_AGENT_TOOL_NAMES } from "../packages/litert-provider/dist/index.js";
 import { scheduleSongNotes } from "../packages/audio-tone/dist/index.js";
 import {
   createCommandState,
@@ -37,6 +39,12 @@ const compiled = compileSongPatchV1({
 });
 assert.equal(compiled.every((command) => !("id" in command) || Boolean(command.id)), true);
 assert.equal(NANODAW_CAPABILITY_VERSION, "nanodaw-v1");
+assert.equal(MAX_PLAN_TTL_MS, 120_000);
+assert.deepEqual(LITERT_AGENT_TOOL_NAMES, [
+  "list_daw_targets",
+  "inspect_session",
+  "propose_song_patch",
+]);
 
 console.log(JSON.stringify({
   ok: true,
@@ -47,5 +55,7 @@ console.log(JSON.stringify({
     "daw-contract",
     "agent-contract",
     "nanodaw-adapter",
+    "litert-provider",
+    "gateway-core",
   ],
 }));

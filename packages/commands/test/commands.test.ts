@@ -7,6 +7,8 @@ import {
   executeCommand,
   executeCommandBatch,
   materializeCommandBatch,
+  snapshotCommandState,
+  validateCommandSnapshot,
   type IdFactory,
 } from "../src/index.ts";
 
@@ -365,6 +367,28 @@ test("rejects stale revisions before materializing commands", () => {
   assert.equal(result.errorCode, "stale_revision");
   assert.equal(result.state, state);
   assert.deepEqual(result.commands, []);
+});
+
+test("strictly validates command snapshots and their complete song graph", () => {
+  const runtime = createCommandRuntime(createCommandState());
+  runtime.executeCommandBatch({
+    requestId: "snapshot-song",
+    expectedRevision: 0,
+    commands: [{ type: "CreateSong", id: "song-1", title: "Verified" }],
+  });
+  const snapshot = runtime.inspect();
+  assert.equal(validateCommandSnapshot(snapshot), true);
+  assert.equal(validateCommandSnapshot({ song: null, revision: 0 }), true);
+  assert.equal(validateCommandSnapshot({ song: {}, revision: 1 }), false);
+  assert.equal(validateCommandSnapshot({ ...snapshot, extra: true }), false);
+  assert.equal(
+    validateCommandSnapshot({
+      ...snapshot,
+      song: { ...snapshot.song, transport: { ...snapshot.song?.transport, isPlaying: 1 } },
+    }),
+    false,
+  );
+  assert.equal(validateCommandSnapshot(snapshotCommandState(createCommandState())), true);
 });
 
 test("makes batch request IDs idempotent in the command runtime", () => {

@@ -1,6 +1,11 @@
 import { writeFile } from "node:fs/promises";
 
-import { SONG_PATCH_V1_JSON_SCHEMA } from "../packages/agent-contract/dist/index.js";
+import { validateSongPatchV1 } from "../packages/agent-contract/dist/index.js";
+import {
+  DEFAULT_LITERT_AGENT_SYSTEM_PROMPT,
+  LITERT_AGENT_TOOL_SPECS,
+  parseChatCompletionResponse,
+} from "../packages/litert-provider/dist/index.js";
 
 const baseUrl = requireHttpUrl(process.env.LITERT_BASE_URL);
 const apiKey = process.env.LITERT_API_KEY?.trim();
@@ -22,45 +27,58 @@ if (typeof model !== "string" || model.length === 0) {
   throw new Error("LiteRT-LM /v1/models did not return a usable model id");
 }
 
+const request = {
+  model,
+  temperature: 0,
+  messages: [
+    {
+      role: "system",
+      content: DEFAULT_LITERT_AGENT_SYSTEM_PROMPT,
+    },
+    {
+      role: "user",
+      content: "Propose one instrument track with a one-beat quantized clip and one MIDI note at 120 BPM.",
+    },
+  ],
+  tools: LITERT_AGENT_TOOL_SPECS,
+  tool_choice: "auto",
+};
+
 const response = await requestJson(new URL("v1/chat/completions", baseUrl), {
   method: "POST",
   headers: { ...headers, "content-type": "application/json" },
-  body: JSON.stringify({
-    model,
-    temperature: 0,
-    messages: [
-      {
-        role: "system",
-        content: "You propose bounded Beat Twin song patches by calling propose_song_patch.",
-      },
-      {
-        role: "user",
-        content: "Propose one instrument track with a one-beat quantized clip and one MIDI note at 120 BPM.",
-      },
-    ],
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: "propose_song_patch",
-          description: "Propose a strict SongPatchV1. This never executes or confirms a plan.",
-          parameters: SONG_PATCH_V1_JSON_SCHEMA,
-        },
-      },
-    ],
-  }),
+  body: JSON.stringify(request),
 });
 
-const toolCalls = response?.choices?.[0]?.message?.tool_calls;
-if (!Array.isArray(toolCalls) || toolCalls.length === 0) {
+let completion;
+try {
+  completion = parseChatCompletionResponse(response);
+} catch (error) {
   process.stderr.write(`${JSON.stringify(response, null, 2)}\n`);
-  throw new Error("G1 failed: LiteRT-LM response contains no choices[0].message.tool_calls");
+  throw new Error(`G1 failed: invalid LiteRT-LM completion: ${errorMessage(error)}`);
+}
+const toolCalls = completion.choice.message.toolCalls;
+if (
+  !toolCalls ||
+  toolCalls.length !== 1 ||
+  toolCalls[0].function.name !== "propose_song_patch"
+) {
+  process.stderr.write(`${JSON.stringify(response, null, 2)}\n`);
+  throw new Error("G1 failed: exact runtime request did not return one propose_song_patch tool call");
+}
+try {
+  validateSongPatchV1(JSON.parse(toolCalls[0].function.arguments));
+} catch (error) {
+  throw new Error(`G1 failed: propose_song_patch arguments are invalid: ${errorMessage(error)}`);
 }
 
 const fixture = {
   capturedAt: new Date().toISOString(),
-  serverOrigin: baseUrl.origin,
+  serverOrigin: "http://s25.local:9379",
+  serverOriginRedacted: true,
   model,
+  requestProfile: "litert-provider-three-tools-v1",
+  request,
   response,
 };
 const serialized = `${JSON.stringify(fixture, null, 2)}\n`;
@@ -70,6 +88,10 @@ if (outputPath) {
   console.log(JSON.stringify({ ok: true, outputPath, toolCallCount: toolCalls.length }));
 } else {
   process.stdout.write(serialized);
+}
+
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function requireHttpUrl(value) {

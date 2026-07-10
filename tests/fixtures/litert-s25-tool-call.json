@@ -1,0 +1,33 @@
+{
+  "capturedAt": "2026-07-10T05:00:51Z",
+  "serverOrigin": "http://s25.local:9379",
+  "serverOriginRedacted": true,
+  "model": "gemma4-e2b",
+  "requestProfile": "single-proposal-tool-schema-probe-v1",
+  "response": {
+    "id": "chatcmpl_20260710050051239797",
+    "object": "chat.completion",
+    "created": 1783659651,
+    "model": "gemma4-e2b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_20260710050051239797_0",
+              "type": "function",
+              "function": {
+                "name": "propose_song_patch",
+                "arguments": "{\"schemaVersion\": 1.0, \"tempoBpm\": 120.0, \"track\": {\"clip\": {\"lengthBeats\": 1.0, \"name\": \"OneBeatHit\", \"notes\": [{\"lengthBeats\": 1.0, \"pitch\": 60.0, \"startBeat\": 0.0, \"velocity\": 100.0}]}, \"kind\": \"instrument\", \"name\": \"SimpleOneBeat\"}}"
+              }
+            }
+          ]
+        },
+        "finish_reason": "tool_calls"
+      }
+    ]
+  }
+}
