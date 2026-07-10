@@ -1,118 +1,208 @@
-# ADR-001: Gemma mobile agent boundary
+# ADR-001: Local LLM and DAW adapter boundary
 
 - Status: Proposed
 - Date: 2026-07-10
 - Owners: Beat Twin maintainers
-- Decision scope: mobile agent, workstation gateway, and Bitwig execution boundary
+- Decision scope: local LLM clients, Beat Twin orchestration, and DAW-agnostic execution
 
 ## Context
 
-Beat Twin already has three useful boundaries:
+Beat Twin is not an agent dedicated to Bitwig. Its product boundary is:
+
+```text
+Local LLM
+  -> Beat Twin
+  -> selected DAW
+```
+
+The first local LLM client is Gemma 4 running on a Samsung S25. The first two execution targets are:
+
+- the Beat Twin browser Mini-DAW, which allows the concept to be tested without a paid DAW;
+- Bitwig Studio, which proves that the same orchestration can control an external production DAW.
+
+Ableton Live and Ardour are later adapters, not separate agent products.
+
+Beat Twin already has useful canonical foundations:
 
 - a pure musical document model in `@beat-twin/core`;
-- a typed mutation path in `@beat-twin/commands`;
+- a typed mutation language in `@beat-twin/commands`;
+- a browser Mini-DAW in `apps/playground`;
 - a policy-gated MCP and TCP/JSON-RPC bridge to Bitwig.
 
-The next product slice is a local chat running Gemma 4 on a Samsung S25. It must be able to inspect a Bitwig session and request creative changes without exposing the unauthenticated Bitwig controller port to the phone or allowing arbitrary model output to mutate the DAW.
-
-The current root MCP server uses stdio and static environment policies. It is a compatibility surface for local MCP clients, not a network API for mobile devices.
+The missing boundary is a DAW contract between Beat Twin plans and target-specific execution.
 
 ## Decision
 
-Gemma runs on the phone and acts as an intent planner. Beat Twin on the workstation remains the authority that validates, previews, authorizes, and executes every operation.
+Beat Twin is the DAW-agnostic orchestrator.
 
-The mobile client never connects to the Bitwig controller TCP port and never emits raw Bitwig JSON-RPC methods.
+The local LLM interprets creative language and proposes intent. Beat Twin owns session inspection, capability negotiation, validation, preview, authorization, routing, execution reporting, and audit events. A selected DAW adapter owns only target-specific inspection and command translation.
 
 ```text
-Android chat + Gemma 4
-  -> authenticated LAN API
-  -> Beat Twin Gateway
-  -> plan validation and policy checks
-  -> BeatTwinCommand[]
-  -> Bitwig adapter
-  -> existing 127.0.0.1 TCP bridge
-  -> Bitwig Studio
+Gemma 4 on S25
+  -> authenticated Beat Twin Agent Gateway
+  -> intent and SongPatch validation
+  -> canonical BeatTwinCommand[]
+  -> capability and policy checks
+  -> selected DawAdapter
+       -> Mini-DAW
+       -> Bitwig
+       -> Ableton Live (later)
+       -> Ardour (later)
 ```
 
-## Components
+The LLM never receives or emits raw Bitwig JSON-RPC, Tone.js calls, Ableton APIs, OSC messages, controller-script methods, or arbitrary executable code.
 
-### Android client
+## Canonical command boundary
 
-A small native Android application owns:
+`@beat-twin/commands` remains the canonical mutation language for all targets.
 
-- the chat UI;
-- on-device Gemma 4 inference through LiteRT-LM;
-- constrained function calls;
-- display of session summaries and change previews;
-- explicit user confirmation before execution;
-- storage of pairing material in Android secure storage.
+Initial portable commands include:
 
-The model receives a small high-level tool surface. It does not receive the existing low-level Bitwig tool list.
+- `CreateSong`
+- `CreateTrack`
+- `CreateClip`
+- `AddNote`
+- `UpdateNote`
+- `RemoveNote`
+- `DuplicateClip`
+- `QuantizeClip`
+- `TransposeClip`
+- `SetTempo`
+- `StartPlayback`
+- `StopPlayback`
+- `SetPlayhead`
 
-Initial tools:
+DAW-specific features must not leak into the canonical command set without a target-independent musical meaning.
 
+## DAW adapter contract
+
+A `DawAdapter` provides a narrow runtime contract:
+
+```ts
+interface DawAdapter {
+  readonly id: string;
+  health(): Promise<DawHealth>;
+  capabilities(): Promise<DawCapabilities>;
+  inspect(): Promise<DawSnapshot>;
+  execute(plan: ExecutablePlan): Promise<ExecutionReport>;
+}
+```
+
+The exact TypeScript types are implementation work, but the semantic rules are fixed:
+
+- `capabilities()` declares supported commands, limits, scopes, and recovery support;
+- `inspect()` returns a normalized snapshot and revision;
+- `execute()` accepts only a previously validated canonical plan;
+- execution returns one structured result per command;
+- adapters never parse natural language;
+- adapters never elevate permissions;
+- unsupported commands are rejected before the first mutation.
+
+An adapter may expose richer target-specific diagnostics, but those diagnostics cannot become an alternate mutation path.
+
+## Target selection
+
+A Beat Twin session has one explicit target adapter.
+
+The initial CLI/server default may be selected with:
+
+```text
+BEAT_TWIN_DAW=minidaw
+BEAT_TWIN_DAW=bitwig
+```
+
+Later clients may select among configured adapters per session. A plan records the adapter ID and capability version used to create it. It cannot be executed against another adapter without being rebuilt and confirmed again.
+
+## Mini-DAW adapter
+
+The Mini-DAW is the native reference adapter, not a Bitwig preview.
+
+`MiniDawAdapter` wraps the existing `@beat-twin/commands` and `@beat-twin/core` state. It must preserve the Playground's current standalone browser mode.
+
+When remote control is enabled, the Playground registers an authenticated connected session with the Beat Twin Gateway. The adapter applies canonical commands through the same command executor used by local UI actions and synchronizes the resulting immutable state back to the Playground.
+
+The Mini-DAW path must work without Bitwig, MCP, or any proprietary DAW.
+
+## Bitwig adapter
+
+`BitwigAdapter` translates normalized snapshots and canonical commands to the existing TCP/JSON-RPC controller protocol.
+
+It must:
+
+- preserve the root `index.js` MCP compatibility surface;
+- keep the controller bridge on `127.0.0.1`;
+- retain existing write-policy gates;
+- report partial execution honestly;
+- reject commands not represented by its declared capabilities.
+
+Bitwig is one adapter and must not define the orchestration model.
+
+## Local LLM client
+
+The first client is a native Android chat running Gemma 4 on the S25 through LiteRT-LM.
+
+The model receives a small high-level tool surface:
+
+- `list_daw_targets`
 - `inspect_session`
 - `propose_song_patch`
 - `preview_plan`
 - `execute_plan`
 
-### Beat Twin Gateway
+The same tool definitions and SongPatch should work with either the Mini-DAW or Bitwig selected.
 
-A new workstation process provides an authenticated HTTP/WebSocket API for the mobile client.
+The phone stores pairing material securely and never connects directly to any DAW.
 
-Initial responsibilities:
+## Beat Twin Agent Gateway
 
-- pairing and token verification;
-- health and Bitwig connection diagnostics;
-- read-only session inspection;
+A workstation gateway provides an authenticated HTTP/WebSocket API.
+
+Responsibilities:
+
+- pairing, token verification, and revocation;
+- target selection and capability discovery;
+- health and connection diagnostics;
+- normalized session inspection;
 - schema validation;
-- plan creation with stable IDs and expiry;
-- preview generation;
+- side-effect-free plan creation;
+- deterministic preview;
 - policy evaluation;
-- execution after confirmation;
-- structured results and audit events.
+- explicit per-plan confirmation;
+- routing to the selected adapter;
+- structured execution and audit results.
 
-The gateway binds to a configured LAN interface. The existing Bitwig controller remains bound to `127.0.0.1`.
+The gateway does not contain DAW-specific mutation code.
 
-### Command boundary
+## Agent and plan contract
 
-`@beat-twin/commands` remains the canonical mutation language. Model output is translated into validated `BeatTwinCommand[]` before any DAW call.
+Gemma may propose; only Beat Twin may validate and execute.
 
-The first adapter work must support both directions:
+A plan contains:
 
-- `BitwigSnapshot -> Song / CommandState`
-- `BeatTwinCommand[] -> Bitwig JSON-RPC operations`
-
-The root `index.js` MCP compatibility surface must keep working during extraction.
-
-## Agent contract
-
-Gemma may create a proposal, but only Beat Twin may accept it.
-
-A proposal contains:
-
-- a base session revision;
-- a bounded list of musical changes;
-- required policy classes;
+- adapter ID and capability version;
+- base session revision;
+- bounded canonical commands;
+- required scopes;
 - a human-readable summary;
-- warnings and assumptions.
+- warnings and assumptions;
+- expiry and stable plan ID.
 
 The gateway rejects:
 
 - unknown command types;
+- unsupported adapter capabilities;
 - stale session revisions;
-- notes outside MIDI ranges;
-- notes outside clip bounds;
-- unsupported track or device operations;
-- plans exceeding configured command or note limits;
-- execution without an explicit confirmation token;
-- execution requiring disabled policy classes.
+- adapter changes after planning;
+- invalid musical values;
+- plans exceeding configured limits;
+- execution without explicit confirmation;
+- execution requiring disabled scopes.
 
-Plan creation is side-effect free. Plan execution is a separate request.
+Plan creation is side-effect free. Confirmation and execution are separate requests.
 
-## Policy model
+## Policy and safety
 
-The existing policy classes remain the maximum authority available to the process:
+The existing policy classes remain compatibility scopes while the shared capability model is introduced:
 
 - `read`
 - `transport`
@@ -122,71 +212,65 @@ The existing policy classes remain the maximum authority available to the proces
 - `device_write`
 - `application_write`
 
-A confirmed plan cannot elevate the process beyond its configured policy. For the first write slice, only `application_write` and `clip_write` are required.
+A confirmed plan cannot elevate the configured process or adapter authority.
 
-Confirmation is per plan and short lived. A global “trust every future model action” mode is not part of this decision.
+Network constraints:
 
-## Network and security constraints
-
-- Never expose the Bitwig controller port outside loopback.
-- Require pairing before returning session data.
-- Use a random high-entropy token; do not use a user-chosen password.
-- Rate-limit inference-facing endpoints and execution attempts.
-- Do not log raw auth tokens.
-- Redact absolute workstation paths from mobile responses.
-- Reject requests larger than configured limits.
-- Support explicit token revocation.
-- Treat LAN access as untrusted despite the local-first product shape.
-
-TLS or a private overlay network can be added later. Initial development may use HTTP on a trusted development LAN, but authentication and loopback isolation are required from the first slice.
+- require pairing before returning session data;
+- use revocable high-entropy tokens;
+- never log auth tokens;
+- rate-limit requests and execution attempts;
+- reject oversized payloads;
+- redact workstation paths;
+- keep the Bitwig controller on loopback;
+- require explicit opt-in before the Playground accepts remote control.
 
 ## Failure and recovery
 
-A plan records the last successful command and all command results. Partial execution must be reported explicitly and must never be described as atomic.
+Execution is not assumed atomic.
 
-Before broader arrangement writes, Beat Twin must add either:
+A plan records all command results and the last successful command. An adapter declares whether it supports undo, compensation, or neither. Partial execution must be reported explicitly.
 
-- verified Bitwig undo integration; or
-- compensating operations for each supported command.
-
-The first slice runs against a disposable Bitwig project and documents manual undo.
+The Mini-DAW may use immutable command-state history for recovery. Bitwig recovery remains manual until verified undo or compensating operations exist.
 
 ## Non-goals
 
 - autonomous background composition;
-- direct MCP-over-the-internet exposure;
-- direct phone-to-Bitwig communication;
-- arbitrary code execution generated by the model;
-- audio rendering or sample generation on the phone;
-- unrestricted device browsing;
-- multi-user collaboration;
-- claiming transactional rollback before it exists.
+- a separate agent implementation per DAW;
+- direct phone-to-DAW communication;
+- arbitrary model-generated code execution;
+- forcing the Mini-DAW to depend on Bitwig or the gateway in standalone mode;
+- pretending every adapter has identical capabilities;
+- automatic cross-adapter project conversion;
+- public-internet exposure in the first slice.
 
 ## Consequences
 
 ### Positive
 
-- the phone stays a private, offline-capable creative interface;
-- existing command validation and policy work is reused;
-- Bitwig remains isolated from model and network input;
-- MCP compatibility is preserved;
-- deterministic gateway tests can run without Gemma or Bitwig.
+- one local-LLM contract can control several DAWs;
+- the Mini-DAW provides a free deterministic reference backend;
+- Bitwig proves external-DAW integration without owning the architecture;
+- future Ableton and Ardour support becomes adapter work;
+- model prompts, validation, preview, and safety logic are reused;
+- adapter conformance can be tested without a model.
 
 ### Costs
 
-- a new gateway and Android client must be maintained;
-- live Bitwig state must be mapped into the core model;
-- command execution is initially only partially reversible;
-- model prompts and tool schemas become versioned API contracts.
+- a capability model and adapter conformance suite are required;
+- normalized snapshots must tolerate target differences;
+- the Playground needs an explicit connected-control mode;
+- portability is limited to the intersection of adapter capabilities;
+- live external-DAW execution is initially only partially reversible.
 
 ## Validation
 
-This decision is accepted when a paired S25 can:
+This decision is accepted when the same S25 and Gemma 4 client can:
 
-1. inspect a running disposable Bitwig project;
-2. propose a bounded four-bar MIDI creation plan;
-3. show a deterministic preview;
-4. require explicit confirmation;
-5. create one instrument track, one clip, and its notes;
-6. report every applied or failed operation;
-7. leave the Bitwig TCP port reachable only through loopback.
+1. list both `minidaw` and `bitwig` targets;
+2. inspect the selected target through one normalized contract;
+3. propose the same bounded four-bar MIDI plan for either target;
+4. show a target-aware preview and require confirmation;
+5. execute successfully in the Mini-DAW without Bitwig installed;
+6. execute the semantically equivalent plan in a disposable Bitwig project;
+7. report unsupported capabilities and partial failures without guessing.
