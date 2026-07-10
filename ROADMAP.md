@@ -5,7 +5,12 @@
 Beat Twin is a DAW-agnostic orchestration layer:
 
 ```text
-Local LLM -> Beat Twin -> selected DAW adapter
+NanoDAW Agent mode
+  -> Beat Twin Gateway on the laptop
+  -> LiteRT-LM/Gemma API on the S25
+  -> SongPatchV1 -> ExecutableBeatTwinCommand[] -> ExecutablePlan
+  -> human confirmation
+  -> selected DAW adapter
 ```
 
 The browser NanoDAW is the native reference target. Bitwig is the first external target. Ableton Live and Ardour are later adapters.
@@ -22,29 +27,43 @@ The browser NanoDAW is the native reference target. Bitwig is the first external
 - Validate the existing Bitwig controller manually in disposable projects.
 - Document only behavior that exists or is directly testable.
 
-## Next: Local LLM To DAW
+## Completed Foundations
 
-Implementation order:
+- Node 24 local baseline, Node 22/24 CI matrix, compiled package `dist` outputs, and package smoke.
+- Strict executable commands, atomic batches, monotonic revisions, payload-bound idempotence, and stable errors.
+- `DawAdapter`, normalized capabilities/snapshots/plans/reports, and reusable fake-adapter conformance.
+- Bounded `SongPatchV1` validation, deterministic compilation, fully materialized IDs, and side-effect-free preview.
+- Transactional `NanoDawAdapter` memory port and abstract browser proxy contract; the adapter never owns a second song copy.
+- Frozen compatibility snapshot for the historical 57-tool Bitwig MCP surface.
 
-1. Define `DawAdapter`, normalized capabilities, snapshots, revisions, execution reports, and conformance fixtures.
-2. Add an authenticated DAW-agnostic Agent Gateway.
-3. Build the on-device Gemma 4 Android client with target selection and read-only inspection.
-4. Compile target-independent SongPatch proposals into canonical previewable plans.
-5. Implement `NanoDawAdapter` and explicit connected Playground mode.
-6. Implement `BitwigAdapter` without breaking the root MCP compatibility path.
-7. Route confirmed plans to their recorded adapter.
-8. Run the same S25 prompt through:
-   - Gemma 4 -> Beat Twin -> NanoDAW;
-   - Gemma 4 -> Beat Twin -> Bitwig.
+## Next: Provider And Connected Mode
+
+Gate order:
+
+1. Capture a real LiteRT-LM `tool_calls` response from the S25 before implementing the provider loop.
+2. Add the loopback Agent Gateway, provider client, pairing, quotas, plan store, policy, and fail-closed audit.
+3. Implement the authenticated browser WebSocket proxy over the existing `BrowserNanoDawPort` contract.
+4. Add explicit connected Agent mode while keeping the browser as the only NanoDAW state owner.
+5. Implement `BitwigAdapter` without breaking the root MCP compatibility path or its 57-tool snapshot.
+6. Authenticate the Bitwig write bridge and add strict bounds, reliable target identity, and note readback.
+7. Route separately confirmed plans to the recorded target with no target or command replacement at execution time.
+8. Run the same accepted SongPatch through two separate laptop-owned flows:
+   - Gateway -> S25 Gemma provider -> Gateway -> NanoDAW;
+   - Gateway -> S25 Gemma provider -> Gateway -> Bitwig.
 
 Guardrails:
 
-- The local LLM never receives raw DAW protocol methods.
+- Gemma sees only `list_daw_targets`, `inspect_session`, and `propose_song_patch`.
+- Gemma never receives a confirmation or execution tool.
+- `TOOL_SPECS` remains the historical Bitwig MCP surface, not the portable command language.
 - The gateway contains no target-specific mutation code.
 - Unsupported capabilities are rejected before mutation.
-- Plans are bound to adapter ID, capability version, and session revision.
+- Plans are bound to adapter ID, capability version, session revision, digest, scopes, and expiry.
+- Plans expire after two minutes; confirmations are single-use and expire after thirty seconds.
+- NanoDAW remote writes are one atomic batch, one revision, one autosave, and one undo checkpoint.
+- The gateway proxies NanoDAW commands to the browser instead of keeping a second song copy.
 - NanoDAW standalone mode remains available.
-- The Bitwig controller stays on loopback.
+- Bitwig writes stay blocked until the bridge is authenticated and exact note readback is available.
 - External-DAW partial execution is reported honestly.
 - Arrangement assistance remains plan-only until preview and recovery are stronger.
 
@@ -55,5 +74,6 @@ Guardrails:
 - Add verified recovery semantics per adapter.
 - Add Ableton Live through the shared adapter contract.
 - Add Ardour through the shared adapter contract.
+- Build an optional native Android app as an independent client, without bundling Gemma or another LLM.
 - Explore a small Go daemon for external-DAW protocol bridging where it materially improves reliability.
 - Package the gateway, adapters, controller, and NanoDAW for easier local installation.

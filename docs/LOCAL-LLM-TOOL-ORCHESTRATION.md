@@ -2,259 +2,327 @@
 
 ## Decision
 
-Beat Twin becomes the stable orchestration boundary between an LLM and one or more DAWs.
-
-The LLM does not target Bitwig, Ableton, Ardour, or the browser NanoDAW directly. It selects typed Beat Twin tools. Beat Twin validates the call, applies policy, executes it through a DAW adapter, and returns a structured result to the model.
-
-```text
-User
-  -> local or remote LLM
-  -> OpenAI-compatible tool call
-  -> Beat Twin tool gateway
-  -> policy + validation + preview
-  -> DAW adapter
-  -> Bitwig | NanoDAW | Ableton | Ardour
-```
-
-The first validated runtime is LiteRT-LM running Gemma 4 E2B on Android and exposed on the local network through its OpenAI-compatible server. The architecture must not depend on LiteRT-LM or Gemma: any provider able to emit OpenAI-style tool calls can use the same gateway.
-
-## Why This Shape
-
-- Keeps prompts and musical intents independent from a specific DAW.
-- Reuses Beat Twin's existing tool descriptions and write-policy gates.
-- Avoids parsing free-form prose or prompt-enforced JSON.
-- Allows local, offline orchestration from a phone without moving the DAW runtime.
-- Preserves a plan-only and read-only default.
-- Makes adapter capability differences explicit instead of hiding them in prompts.
-
-## Core Boundaries
-
-### 1. LLM Provider
-
-A provider sends chat messages and Beat Twin tool definitions to an OpenAI-compatible endpoint.
-
-Initial providers:
-
-- `litert-lm`: Gemma on Android, accessed over LAN or a trusted tunnel.
-- `openai-compatible`: generic endpoint for llama.cpp, Ollama-compatible bridges, hosted services, or future runtimes.
-
-Provider configuration is data, not architecture:
-
-```ts
-export type LlmProviderConfig = {
-  baseUrl: string;
-  apiKey?: string;
-  model: string;
-};
-```
-
-### 2. Beat Twin Tool Gateway
-
-The gateway owns the agent loop:
-
-1. Build the model-visible tool catalogue from Beat Twin tool definitions.
-2. Send messages and tools to the provider.
-3. Parse returned `tool_calls`.
-4. Validate every function name and argument object.
-5. Apply read/write policy before execution.
-6. Dispatch through the selected DAW adapter.
-7. Append structured tool results to the conversation.
-8. Continue until the model returns a final answer or the loop limit is reached.
-
-The gateway must reject:
-
-- unknown tools;
-- malformed JSON arguments;
-- calls unsupported by the selected adapter;
-- writes not enabled by policy;
-- excessive tool-call loops;
-- calls that exceed configured batch or note limits.
-
-### 3. Canonical Tool Registry
-
-The existing `TOOL_SPECS` registry is the current source of truth for the Bitwig MCP surface and its policy classification. It should be extracted behind a reusable module instead of duplicated for LLM tool calling.
-
-Target shape:
+The Beat Twin Gateway runs on the laptop and calls the S25 as an
+OpenAI-compatible inference provider. The phone does not run the Gateway and
+does not connect directly to a DAW.
 
 ```text
-packages/tool-registry
-  -> canonical names
-  -> JSON schemas
-  -> descriptions
-  -> read/write policy classes
-  -> capability tags
-
-MCP server
-  -> consumes tool-registry
-
-LLM tool gateway
-  -> consumes tool-registry
-
-DAW adapters
-  -> declare supported capabilities
+NanoDAW Agent mode
+  -> Beat Twin Gateway on laptop loopback
+  -> LiteRT-LM /v1/chat/completions on S25:9379
+  -> Gemma list, inspect, or propose tool call
+  -> SongPatchV1
+  -> ExecutableBeatTwinCommand[]
+  -> ExecutablePlan and preview
+  -> human confirmation
+  -> NanoDawAdapter | BitwigAdapter
+  -> ExecutionReport
 ```
 
-The initial slice may expose only a narrow subset even though the registry contains more tools.
+The provider interprets creative language and proposes bounded musical intent.
+Beat Twin owns schemas, target capabilities, executable IDs, policy, preview,
+confirmation, routing, idempotence, and audit.
 
-### 4. DAW Adapter
+## Why this shape
 
-Adapters translate canonical Beat Twin commands into runtime-specific operations.
+- The browser remains the sole owner of NanoDAW state.
+- Provider choice stays independent from DAW choice.
+- Gemma cannot turn a model loop into a mutation loop.
+- One portable proposal can be replanned for different adapters.
+- Existing Bitwig MCP compatibility does not define the new agent language.
+- Preview and confirmation remain human-verifiable Gateway/UI operations.
 
-```ts
-export interface DawAdapter {
-  readonly id: string;
-  readonly capabilities: ReadonlySet<string>;
-  execute(call: ValidatedToolCall): Promise<ToolExecutionResult>;
-}
-```
-
-Initial adapters:
-
-- `bitwig`: wraps the current JSON-RPC bridge.
-- `nanodaw`: applies commands to the browser NanoDAW song model.
-
-Future adapters:
-
-- `ableton`
-- `ardour`
-
-An adapter must not silently emulate unsupported behavior. It returns a typed `unsupported_capability` result.
-
-## First Tool Surface
-
-Do not expose all existing tools to Gemma on day one. Start with a compact, observable musical surface:
-
-### Read
-
-- `session_get_snapshot`
-- `transport_get_state`
-- `track_list`
-- `clip_get_info`
-
-### Plan
-
-- `arrangement_create_plan`
-
-### Narrow writes
-
-- `transport_set_tempo`
-- `track_create`
-- `clip_create`
-- `clip_add_notes`
-- `transport_play`
-- `transport_stop`
-
-Exact names may be mapped to existing canonical tools during implementation. The important constraint is a small catalogue with stable schemas.
-
-## Safety Model
-
-Local does not mean trusted.
-
-- Read-only and plan-only remain the default.
-- Model-visible write tools are filtered by the active policy before the request is sent.
-- Every returned call is checked again before dispatch.
-- Destructive or broad writes require explicit user approval or a future confirmation boundary.
-- Tool results include the selected adapter, policy class, normalized arguments, and execution status.
-- The Android endpoint should stay on a trusted LAN or behind a tunnel. It must not be exposed directly to the public internet.
-- A maximum iteration count prevents recursive tool-call spirals.
-
-## Minimal Agent Loop
-
-```ts
-for (let step = 0; step < maxSteps; step += 1) {
-  const response = await provider.complete({
-    messages,
-    tools: registry.forPolicy(policy, adapter.capabilities),
-  });
-
-  if (!response.toolCalls.length) {
-    return response.message;
-  }
-
-  for (const rawCall of response.toolCalls) {
-    const call = registry.validate(rawCall);
-    policy.assertAllowed(call);
-    const result = await adapter.execute(call);
-    messages.push(asToolResultMessage(call, result));
-  }
-}
-
-throw new Error("Agent tool loop exceeded its configured limit");
-```
-
-## Android Development Topology
+## Provider topology
 
 ```text
 Samsung S25
-  LiteRT-LM
-  Gemma 4 E2B
+  LiteRT-LM OpenAI-compatible server
+  configured Gemma model
   http://PHONE_IP:9379/v1
+        ^
+        | trusted provider connection
         |
-        | trusted Wi-Fi or tunnel
-        v
 Laptop
-  Beat Twin agent gateway
-  Bitwig adapter or NanoDAW adapter
-        |
-        v
-DAW
+  NanoDAW browser Agent mode
+        -> loopback Beat Twin Gateway
+        -> provider client
+        -> plan compiler and policy
+        -> NanoDAW WebSocket proxy or Bitwig loopback adapter
 ```
 
-Suggested local provider configuration:
+Suggested future provider configuration:
 
 ```env
 BEAT_TWIN_LLM_BASE_URL=http://192.168.x.x:9379/v1
-BEAT_TWIN_LLM_MODEL=gemma4-e2b
+BEAT_TWIN_LLM_MODEL=gemma-model-id
 BEAT_TWIN_LLM_API_KEY=local-unused
-BEAT_TWIN_AGENT_MAX_STEPS=8
-BEAT_TWIN_DAW_ADAPTER=bitwig
+BEAT_TWIN_AGENT_MAX_STEPS=4
 ```
 
-The phone only performs inference. Beat Twin remains on the laptop, close to the DAW and its trusted-local control bridge.
+The API key is optional for a trusted local provider, but the Gateway's own
+client tokens are always high entropy and revocable.
 
-## Delivery Slices
+## Provider fixture gate
 
-### Slice 0: Contract and fixtures
+LiteRT-LM documents these relevant server endpoints:
 
-- Capture the successful Gemma tool-call response as a fixture.
-- Define normalized provider response and tool-call types.
-- Add validation tests for valid, malformed, unknown, and policy-blocked calls.
+- `GET /v1/models`;
+- `POST /v1/chat/completions`;
+- default port `9379`.
 
-### Slice 1: Provider client
+References:
 
-- Add an OpenAI-compatible chat client with configurable base URL and model.
-- Support non-streaming tool calls first.
-- Keep API-key handling optional for local endpoints.
+- <https://developers.google.com/edge/litert-lm/cli/openai_server>
+- <https://github.com/google-ai-edge/LiteRT-LM/blob/main/README.md>
 
-### Slice 2: Reusable tool registry
+The documentation does not lock the exact `tool_calls` response shape for the
+configured S25 build and model. Before agent-loop implementation:
 
-- Extract reusable schemas and policy metadata from `TOOL_SPECS`.
-- Keep MCP behavior backward-compatible.
-- Export an OpenAI tool-definition projection.
+1. start LiteRT-LM on the real S25;
+2. request a harmless tool call with the exact future client payload;
+3. sanitize secrets and device-specific data;
+4. commit the response as a provider contract fixture;
+5. test normalization and malformed-response rejection against that fixture.
 
-### Slice 3: Agent loop
+If a real response does not contain a usable `tool_calls` structure, the Agent
+Gateway stops at this gate. It must not fall back to prompt-enforced JSON or
+extract commands from prose.
 
-- Implement bounded multi-turn tool execution.
-- Add structured logs and tool-result messages.
-- Default to read-only or plan-only.
+## Model-visible tools
 
-### Slice 4: Bitwig vertical slice
+Gemma receives exactly three tools.
 
-- Connect the agent loop to the existing Bitwig JSON-RPC bridge.
-- Validate one read flow and one narrowly enabled write flow.
-- Add a manual smoke checklist using Gemma 4 E2B on Android.
+### `list_daw_targets`
 
-### Slice 5: NanoDAW adapter
+Returns configured target IDs, health summaries, and capability versions. It
+does not select a target or mutate state.
 
-- Execute the same canonical intent against the NanoDAW song model.
-- Demonstrate that one prompt can target Bitwig or the NanoDAW by configuration only.
+### `inspect_session`
 
-## Acceptance Scenario
+Returns a normalized read-only snapshot for the target fixed by the Agent run.
+Paths, secrets, and target-specific protocol details are redacted.
 
-Given Gemma 4 E2B running through LiteRT-LM on the phone, and Beat Twin running on the laptop:
+### `propose_song_patch`
 
-1. The user asks: `Create a four-bar broken techno groove at 138 BPM.`
-2. Gemma emits one or more canonical Beat Twin tool calls.
-3. Beat Twin validates and previews the calls.
-4. With write policy disabled, no DAW mutation occurs and the user receives the required policy classes.
-5. With the narrow policy enabled, the selected adapter executes the groove.
+Returns one bounded `SongPatchV1` proposal. It does not create, confirm, or
+execute a plan.
+
+There are deliberately no model tools named or equivalent to:
+
+- `preview_plan`;
+- `confirm_plan`;
+- `execute_plan`;
+- `undo`;
+- transport or playback operations;
+- Bitwig JSON-RPC methods;
+- raw NanoDAW commands.
+
+## SongPatchV1
+
+The proposal schema accepts only:
+
+- one instrument track;
+- one clip from 1 to 16 beats with a 4/4 assumption;
+- 1 to 16 notes;
+- starts and lengths quantized to 1/16 note boundaries;
+- optional tempo from 40 to 240 BPM;
+- pitch from 0 to 127;
+- velocity from 1 to 127;
+- names no longer than 64 characters.
+
+Unknown fields are rejected. Playback, recording, devices, mixer, scenes,
+audio, files, presets, and rendering are excluded.
+
+The model never chooses executable IDs, adapter methods, policy scopes,
+confirmation tokens, plan lifetime, or execution order.
+
+## Bounded model loop
+
+The provider loop is non-streaming first and limited to four steps. It may call
+read tools and finish with a SongPatch proposal, but it cannot execute an
+adapter operation.
+
+```ts
+for (let step = 0; step < 4; step += 1) {
+  const response = await provider.complete({
+    messages,
+    tools: MODEL_TOOL_SPECS,
+  });
+
+  const calls = normalizeRealProviderToolCalls(response);
+  if (calls.length === 0) return { message: response.message };
+
+  for (const rawCall of calls) {
+    const call = validateModelToolCall(rawCall);
+
+    if (call.name === "list_daw_targets") {
+      messages.push(asToolResult(await listDawTargets()));
+      continue;
+    }
+
+    if (call.name === "inspect_session") {
+      messages.push(asToolResult(await inspectFixedTarget()));
+      continue;
+    }
+
+    if (call.name === "propose_song_patch") {
+      return { songPatch: validateSongPatchV1(call.arguments) };
+    }
+  }
+}
+
+throw new AgentLoopError("step_limit");
+```
+
+Only after the loop returns a valid SongPatch does Beat Twin compile and store
+an executable plan. Compilation and preview still do not mutate a DAW.
+
+## Historical MCP surface
+
+`TOOL_SPECS` is the existing 57-tool Bitwig MCP catalogue in `index.js`. It is
+the compatibility source of truth for the current MCP server and its policy
+classes only.
+
+It is not:
+
+- the model-visible Agent-mode catalogue;
+- the portable command language;
+- the DAW adapter contract;
+- a source from which Gemma write tools are projected.
+
+Extraction work may share validation helpers or protocol metadata when useful,
+but the 57 names, schemas, visibility, and policy behavior must retain a
+snapshot compatibility test.
+
+## Portable execution boundary
+
+```text
+SongPatchV1
+  -> strict validation
+  -> capability-aware compilation
+  -> ExecutableBeatTwinCommand[]
+  -> ExecutablePlan
+  -> adapter execution after confirmation
+```
+
+All IDs are materialized before preview. A plan is immutable and records:
+
+- adapter ID;
+- capability version;
+- base revision;
+- executable commands;
+- required scopes;
+- digest and deterministic preview;
+- stable plan and request IDs;
+- creation time and two-minute expiry.
+
+Confirmation is created by explicit UI action, is bound to the plan digest,
+expires after thirty seconds, and can be used only once. Execution accepts no
+replacement command array and no target override.
+
+## NanoDAW transport
+
+The Gateway never owns an authoritative NanoDAW song. The browser connects to
+`/v1/nanodaw/sessions` over an authenticated WebSocket and exposes a narrow
+session port for inspection and exact batch execution.
+
+A remote mutation contains:
+
+- one `requestId`;
+- one `expectedRevision`;
+- one immutable `ExecutableBeatTwinCommand[]` batch.
+
+The browser validates the complete batch and commits it through the same
+command executor used by local UI operations. Success creates one revision,
+one autosave, and one undo checkpoint. Failure creates none. Projected audition
+before confirmation remains local and non-mutating.
+
+## Bitwig transport
+
+The existing bridge is useful for read-only inspection and diagnostics but is
+currently trusted-local and unauthenticated. Agent-mode Bitwig writes remain
+blocked until:
+
+- bridge authentication is implemented;
+- every parameter and musical bound is validated;
+- stable track and clip identifiers are resolved and bound before preview, so
+  execution never relies on the current selection;
+- required policies are enabled before the first mutation;
+- notes are read back from the exact target and compared with the plan.
+
+The adapter stops at the first failure, reports `partial_execution` honestly,
+and never automatically retries after a possible mutation. Existing
+`pnpm smoke:read-only` diagnostics and the root MCP path remain intact.
+
+## Gateway safety
+
+- Listen on loopback.
+- Require pairing before target or session data is returned.
+- Use revocable high-entropy tokens.
+- Never log tokens, provider secrets, or unredacted workstation paths.
+- Limit request sizes, concurrent runs, tool steps, plans, and executions.
+- Store plans for at most two minutes.
+- Store single-use confirmations for at most thirty seconds.
+- Fail closed on unknown tools, malformed arguments, policy uncertainty,
+  capability drift, stale revisions, expiry, digest mismatch, or wrong target.
+- Never retry automatically after a mutation may have occurred.
+- Keep provider calls separate from adapter execution.
+
+## Delivery slices
+
+### Slice 0: Real provider fixture
+
+- Capture the S25 `tool_calls` response.
+- Lock normalization tests to the sanitized fixture.
+- Stop if the contract is not usable without prompt-JSON parsing.
+
+### Slice 1: Provider and agent contract
+
+- Implement the OpenAI-compatible client.
+- Define the three model tools and `SongPatchV1`.
+- Enforce a four-step, no-execution model loop.
+
+### Slice 2: Portable compiler
+
+- Materialize executable IDs.
+- Compile `SongPatchV1` into `ExecutableBeatTwinCommand[]` and an immutable
+  `ExecutablePlan`.
+- Produce deterministic, non-mutating previews.
+
+### Slice 3: Gateway policy and plan lifecycle
+
+- Add pairing, quotas, audit, plan storage, expiry, exact confirmation, and
+  idempotent execution.
+
+### Slice 4: NanoDAW browser proxy
+
+- Add the authenticated session WebSocket.
+- Keep state ownership in the browser.
+- Prove atomic batch, revision, autosave, and single-undo semantics.
+
+### Slice 5: Bitwig adapter
+
+- Preserve the 57-tool MCP snapshot and read-only smoke.
+- Add bridge authentication, target identity, strict bounds, and note readback
+  before enabling any Agent-mode write.
+
+## Acceptance scenario
+
+Given LiteRT-LM running on the S25 and NanoDAW Agent mode open on the laptop:
+
+1. the user selects `nanodaw` and requests a bounded pattern;
+2. the Gateway calls the S25 provider;
+3. Gemma lists, inspects, and proposes a SongPatch without mutation;
+4. Beat Twin compiles and shows an exact preview;
+5. the user confirms once;
+6. NanoDAW commits one atomic browser-owned batch and returns a verified report;
+7. the same SongPatch is replanned and separately confirmed for `bitwig`;
+8. Bitwig execution remains blocked unless bridge authentication, target
+   identity, bounds, scopes, and readback are all available;
+9. success or partial execution is reported without guessing.
+
+## Deferred Android client
+
+A future native Android application may consume the Gateway as a normal client.
+It is independent from this provider architecture and does not embed Gemma,
+LiteRT-LM, or any other LLM runtime.

@@ -3,6 +3,9 @@ import { create } from "zustand";
 import {
   createCommandState,
   executeCommand,
+  executeCommandBatch,
+  materializeCommandBatch,
+  restoreCommandState,
   type BeatTwinCommand,
   type CommandEvent,
   type CommandState,
@@ -132,19 +135,19 @@ function applyCommands(
   readonly events: readonly CommandEvent[];
   readonly error: string | null;
 } {
-  let nextState = state;
-  const events: CommandEvent[] = [];
-
-  for (const command of commands) {
-    const result = executeCommand(nextState, command, { idFactory: makeId });
-    if (!result.ok) {
-      return { state: nextState, events, error: result.error };
-    }
-    nextState = result.state;
-    events.push(...result.events);
+  const materialized = materializeCommandBatch(state, commands, { idFactory: makeId });
+  if (!materialized.ok) {
+    return { state, events: [], error: materialized.error };
   }
+  const result = executeCommandBatch(state, {
+    requestId: makeId("note").replace("note-", "batch-"),
+    expectedRevision: state.revision,
+    commands: materialized.commands,
+  });
 
-  return { state: nextState, events, error: null };
+  return result.ok
+    ? { state: result.state, events: result.events, error: null }
+    : { state, events: [], error: result.error };
 }
 
 function deriveSelection(state: CommandState): {
@@ -578,7 +581,10 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       }
 
       return {
-        commandState: previousState,
+        commandState: restoreCommandState(
+          previousState,
+          current.commandState.revision + 1,
+        ),
         undoStack: current.undoStack.slice(0, -1),
         redoStack: [current.commandState, ...current.redoStack],
         ...deriveSelection(previousState),
@@ -600,7 +606,10 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       }
 
       return {
-        commandState: nextState,
+        commandState: restoreCommandState(
+          nextState,
+          current.commandState.revision + 1,
+        ),
         undoStack: [...current.undoStack, current.commandState],
         redoStack: current.redoStack.slice(1),
         ...deriveSelection(nextState),
@@ -663,15 +672,18 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
 
     set((current) => {
       const result = applyCommands(current.commandState, commands);
+      if (result.error) {
+        return { lastError: result.error };
+      }
       const persistence = autosaveSong(result.state.song);
       return {
         commandState: result.state,
-        undoStack: result.error ? current.undoStack : [...current.undoStack, current.commandState],
-        redoStack: result.error ? current.redoStack : [],
+        undoStack: [...current.undoStack, current.commandState],
+        redoStack: [],
         ...deriveSelection(result.state),
         songJsonDraft: result.state.song ? exportSongJson(result.state.song) : current.songJsonDraft,
         persistence: persistence ?? current.persistence,
-        lastError: result.error,
+        lastError: null,
       };
     });
   },
@@ -861,9 +873,10 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
         return;
       }
 
+      const current = get();
       set({
-        commandState: createCommandState(song),
-        undoStack: [...get().undoStack, get().commandState],
+        commandState: createCommandState(song, current.commandState.revision + 1),
+        undoStack: [...current.undoStack, current.commandState],
         redoStack: [],
         ...deriveSongSelection(song),
         songJsonDraft: exportSongJson(song),
@@ -907,9 +920,10 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     try {
       const song = importSongJson(source);
       saveSongToStorage(song);
+      const current = get();
       set({
-        commandState: createCommandState(song),
-        undoStack: [...get().undoStack, get().commandState],
+        commandState: createCommandState(song, current.commandState.revision + 1),
+        undoStack: [...current.undoStack, current.commandState],
         redoStack: [],
         ...deriveSongSelection(song),
         persistence: persistenceStatus("loaded", "Imported song", song.title),

@@ -16,7 +16,8 @@ same deterministic command path over a pure song model.
 - Read-only defaults with explicit write-policy gates.
 - Offline tests for protocol framing, policy behavior, session inspection, and arrangement planning.
 - Short read-only smoke command for live TCP/session diagnostics.
-- Pure packages under `packages/core`, `packages/commands`, and `packages/audio-tone`.
+- Pure packages under `packages/core`, `packages/commands`, `packages/audio-tone`, `packages/daw-contract`, and `packages/agent-contract`.
+- Transactional NanoDAW memory adapter and browser-proxy contract under `packages/adapters/nanodaw`.
 - Browser NanoDAW under `apps/playground` for now; the repo path stays stable while the product name shifts.
 - Copyright-safe Bitwig API placeholder note under `bitwig-api-docs/`.
 
@@ -31,14 +32,16 @@ same deterministic command path over a pure song model.
 - The NanoDAW supports local song sketches, Tone.js audition, note editing,
   pattern tools, keyboard shortcuts, undo/redo, save/load, timeline feedback,
   command palette actions, and deterministic command drafts.
+- Command batches are atomic, revisioned, fully materialized before execution, and idempotent by request payload.
+- `SongPatchV1` validates and previews the first portable one-track/one-clip agent proposal without mutation.
 
 ## Current Risk
 
 - This is still a proof of concept, not a hardened creative production tool.
 - Live verification requires Bitwig Studio and a local controller installation.
 - Tool exposure must stay conservative because DAW control can quickly become too broad for agents.
-- The NanoDAW is still local-first; it is not yet a full DAW adapter or
-  autonomous composition system.
+- The NanoDAW has a tested memory adapter contract, but connected browser mode,
+  the Gateway, and the real S25 provider remain gated work.
 
 ## Direction
 

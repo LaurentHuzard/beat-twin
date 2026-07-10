@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@beat-twin/commands": ["../commands/dist/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

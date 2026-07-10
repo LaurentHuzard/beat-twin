@@ -12,9 +12,10 @@ This directory contains the current technical notes for the public Beat Twin pro
 - [`BITWIG_MANUAL_SMOKE_CHECKLIST.md`](BITWIG_MANUAL_SMOKE_CHECKLIST.md): manual live verification with Bitwig Studio.
 - [`FUTURE-DIRECTION.md`](FUTURE-DIRECTION.md): conservative direction for arrangement assistance.
 - [`LOCAL_MCP_SETUP.md`](LOCAL_MCP_SETUP.md): local MCP and Bitwig controller setup, including `pnpm smoke:read-only`.
-- [`LOCAL-LLM-TOOL-ORCHESTRATION.md`](LOCAL-LLM-TOOL-ORCHESTRATION.md): the canonical local LLM gateway and adapter boundary.
-- [`ADR-001-GEMMA-MOBILE-AGENT.md`](ADR-001-GEMMA-MOBILE-AGENT.md): the local LLM and DAW adapter boundary decision.
-- [`GEMMA-MOBILE-VERTICAL-SLICE.md`](GEMMA-MOBILE-VERTICAL-SLICE.md): the first dual-target local LLM slice.
+- [`LOCAL-LLM-TOOL-ORCHESTRATION.md`](LOCAL-LLM-TOOL-ORCHESTRATION.md): the laptop Gateway to S25 provider loop, model-visible tools, and fixture gate.
+- [`ADR-001-GEMMA-MOBILE-AGENT.md`](ADR-001-GEMMA-MOBILE-AGENT.md): the accepted dual-target boundary; the historical filename is retained while native Android is deferred.
+- [`GEMMA-MOBILE-VERTICAL-SLICE.md`](GEMMA-MOBILE-VERTICAL-SLICE.md): the first NanoDAW Agent-mode slice targeting NanoDAW or Bitwig.
+- [`S25-TOOL-CALL-GATE.md`](S25-TOOL-CALL-GATE.md): the mandatory real LiteRT-LM `tool_calls` capture before provider implementation.
 - [`PLAYGROUND_ARCHITECTURE.md`](PLAYGROUND_ARCHITECTURE.md): browser-first architecture, package map, and compatibility boundary.
 - [`SPRINT-2-BROWSER-AUDITION.md`](SPRINT-2-BROWSER-AUDITION.md): browser playback/audition boundary, Bitwig safety rules, and validation commands.
 - [`SPRINT-3-NOTE-EDITOR.md`](SPRINT-3-NOTE-EDITOR.md): browser note editing commands, units, safety boundary, and validation commands.

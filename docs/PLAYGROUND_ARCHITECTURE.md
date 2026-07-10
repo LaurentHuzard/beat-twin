@@ -33,7 +33,9 @@ Sprint 10 draft command parser boundaries live in
 ```text
 User gesture or command draft
   -> BeatTwinCommand
-  -> executeCommand()
+  -> executeCommand() compatibility wrapper
+  -> or materializeCommandBatch() preview
+  -> executeCommandBatch(ExecutableBeatTwinCommand[])
   -> immutable Song state
   -> optional local CommandState history snapshot
   -> React/Zustand render
@@ -56,7 +58,10 @@ The serializer is schema-versioned so later imports, exports, and Bitwig adapter
 
 ## Command Boundary
 
-`@beat-twin/commands` exports `BeatTwinCommand`, `executeCommand`, and `createCommandState`. Commands currently cover:
+`@beat-twin/commands` exports the historical single-command wrapper plus the
+strict `materializeCommandBatch()` / `executeCommandBatch()` boundary. Remote
+plans execute only fully materialized `ExecutableBeatTwinCommand[]`; a batch
+advances the monotonic session revision exactly once. Commands currently cover:
 
 - `CreateSong`;
 - `CreateTrack`;
@@ -72,11 +77,16 @@ The serializer is schema-versioned so later imports, exports, and Bitwig adapter
 - `StopPlayback`;
 - `SetPlayhead`.
 
-IDs are deterministic when callers inject `idFactory`. Browser callers can use `crypto.randomUUID`; tests use fixed IDs.
+IDs are deterministic when callers inject `idFactory`. Browser callers can use
+`crypto.randomUUID`; tests use fixed IDs. Materialization is side-effect free,
+and execution rejects stale revisions before mutation.
 
-## Future Package Map
+## Package Map
 
 - `packages/audio-tone`: browser playback and auditioning from local `Song` state, without Bitwig or MCP writes.
+- `packages/daw-contract`: versioned adapter, capability, plan, report, and conformance contracts.
+- `packages/agent-contract`: strict `SongPatchV1` validation, compilation, and preview.
+- `packages/adapters/nanodaw`: transactional memory adapter and abstract browser-owned port.
 - `packages/adapters/bitwig`: future home for Bitwig-specific translation after a compatibility pass.
 - `packages/mcp`: future extracted MCP server wiring, if the root CLI grows too large.
 - `packages/ui`: shared UI primitives once the playground repeats enough component patterns.

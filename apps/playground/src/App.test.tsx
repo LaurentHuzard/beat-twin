@@ -272,6 +272,39 @@ describe("Playground", () => {
     expect(screen.getByText("Loaded local song")).toBeInTheDocument();
   });
 
+  it("applies a multi-command demo as one revision and one undo checkpoint", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+
+    const applied = usePlaygroundStore.getState();
+    expect(applied.commandState.revision).toBe(1);
+    expect(applied.undoStack).toHaveLength(1);
+    expect(applied.commandState.song?.tracks[0]?.clips[0]?.pattern.notes).toHaveLength(3);
+
+    fireEvent.click(screen.getByRole("button", { name: /^undo$/i }));
+
+    const undone = usePlaygroundStore.getState();
+    expect(undone.commandState.song).toBeNull();
+    expect(undone.commandState.revision).toBe(2);
+    expect(undone.undoStack).toHaveLength(0);
+  });
+
+  it("keeps revisions monotonic across undo, redo, and load", () => {
+    usePlaygroundStore.getState().createDemo();
+    expect(usePlaygroundStore.getState().commandState.revision).toBe(1);
+
+    usePlaygroundStore.getState().undo();
+    expect(usePlaygroundStore.getState().commandState.revision).toBe(2);
+
+    usePlaygroundStore.getState().redo();
+    expect(usePlaygroundStore.getState().commandState.revision).toBe(3);
+
+    usePlaygroundStore.getState().loadSavedSong();
+    expect(usePlaygroundStore.getState().commandState.revision).toBe(4);
+  });
+
   it("exports and imports song JSON through the storage panel", () => {
     mockPreviewAudioEngine();
     render(<App />);

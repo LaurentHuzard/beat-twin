@@ -11,7 +11,9 @@ Its current repo contains two working musical surfaces:
 - a Bitwig Studio MCP bridge with explicit write-policy gates;
 - a standalone browser NanoDAW built on the canonical Beat Twin song and command models.
 
-The DAW-agnostic adapter and local-LLM gateway are documented and planned, but not implemented yet.
+The DAW contract, strict agent patch contract, and transactional NanoDAW memory
+adapter are implemented. The local-LLM Gateway, authenticated browser proxy,
+and Bitwig adapter remain gated follow-up work.
 
 ## What Works
 
@@ -22,6 +24,10 @@ The DAW-agnostic adapter and local-LLM gateway are documented and planned, but n
 - A Bitwig controller script that speaks JSON-RPC over a local TCP connection.
 - Offline protocol and policy tests that run without launching Bitwig.
 - A browser NanoDAW for command-first song sketches, Tone.js audition, note editing, pattern tools, keyboard shortcuts, local undo/redo, JSON save/load, visible timeline feedback, a local command palette, and deterministic command drafts.
+- Atomic `ExecutableBeatTwinCommand[]` batches with monotonic revisions, stable errors, and idempotent request IDs.
+- A versioned `DawAdapter` contract with fake-adapter conformance tests.
+- Strict `SongPatchV1` validation, deterministic compilation, and mutation-free preview.
+- A `NanoDawAdapter` memory port plus an abstract browser-owned proxy boundary.
 
 ## Architecture
 
@@ -56,24 +62,32 @@ Browser timeline feedback is derived from local song state and does not call Bit
 Browser command palette actions reuse the same local NanoDAW action boundary.
 Browser command drafts parse known local phrases only; they are not an AI chat path.
 
-The target orchestration direction is DAW-agnostic:
+The planned Agent mode keeps the browser as the only owner of NanoDAW song
+state and puts Beat Twin on the laptop between the UI, the phone-hosted model,
+and the selected DAW adapter:
 
 ```text
-User
-  -> local or remote LLM
-  -> OpenAI-compatible tool call
-  -> Beat Twin tool gateway
-  -> policy + validation + preview
-  -> DAW adapter
-  -> Bitwig | NanoDAW | Ableton | Ardour
+NanoDAW Agent mode
+  -> Beat Twin Gateway on the laptop
+  -> LiteRT-LM OpenAI-compatible API on the S25
+  -> validated SongPatch
+  -> ExecutableBeatTwinCommand[]
+  -> side-effect-free preview
+  -> explicit human confirmation
+  -> NanoDawAdapter | BitwigAdapter
+  -> verifiable execution report
 ```
 
-MCP and native LLM tool calling are intended to become two projections over the same canonical Beat Twin tool registry. See [`docs/LOCAL-LLM-TOOL-ORCHESTRATION.md`](docs/LOCAL-LLM-TOOL-ORCHESTRATION.md).
+Gemma may only list targets, inspect the selected session, and propose a
+bounded `SongPatchV1`. Confirmation and execution are gateway/UI operations;
+they are never model tools. The existing `TOOL_SPECS` registry remains the
+historical 57-tool Bitwig MCP surface, not the portable agent language. See
+[`docs/LOCAL-LLM-TOOL-ORCHESTRATION.md`](docs/LOCAL-LLM-TOOL-ORCHESTRATION.md).
 
 ## Requirements
 
-- Node.js 20 or newer
-- pnpm 11.10.0 or newer
+- Node.js 24 for local development; Node.js 22 and 24 are covered by CI
+- pnpm 11.10.0 through Corepack
 - Bitwig Studio for live/manual verification
 
 ## Install
@@ -135,7 +149,12 @@ Beat Twin is read-only by default. At the MCP entry point, write tools are not l
 
 This gate is enforced by the Node MCP server only. The Bitwig controller's TCP bridge (default `127.0.0.1:8888`) is unauthenticated and executes any JSON-RPC command it receives. It does not apply the write policy. Anything able to reach that port can drive Bitwig regardless of the MCP write policy, so the MCP gate is not a barrier at the DAW itself. As a known limitation of this local proof of concept, treat the bridge as trusted-local-only: firewall the port and do not expose it on untrusted networks.
 
-The local-LLM tool gateway must apply the same principle twice: filter model-visible tools by active policy, then validate and authorize every returned tool call again before adapter dispatch.
+The future Agent Gateway does not expose these Bitwig MCP write tools to Gemma.
+It validates a constrained SongPatch, materializes executable IDs, previews the
+exact plan without mutation, and requires a short-lived human confirmation.
+Bitwig adapter writes remain blocked until the controller bridge is
+authenticated and the adapter can validate bounds, identify the intended
+track and clip reliably, and read back the written notes.
 
 To enable a narrow write class:
 

@@ -1,86 +1,101 @@
-# ADR-001: Local LLM and DAW adapter boundary
+# ADR-001: S25 provider, Agent Gateway, and DAW adapter boundary
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-07-10
 - Owners: Beat Twin maintainers
-- Decision scope: local LLM clients, Beat Twin orchestration, and DAW-agnostic execution
+- Historical filename: retained to avoid breaking existing links; a native Android agent is not part of this decision
 
 ## Context
 
-Beat Twin is not an agent dedicated to Bitwig. Its product boundary is:
+Beat Twin has two real musical surfaces today:
 
-```text
-Local LLM
-  -> Beat Twin
-  -> selected DAW
-```
+- the browser NanoDAW, whose React store owns the complete song state;
+- the historical Bitwig MCP and loopback JSON-RPC bridge.
 
-The first local LLM client is Gemma 4 running on a Samsung S25. The first two execution targets are:
+The first Agent-mode proof uses Gemma through LiteRT-LM's
+OpenAI-compatible server on a Samsung S25. The model runtime is a provider for
+the laptop Gateway, not an Android client that connects to a DAW.
 
-- the Beat Twin browser NanoDAW, which allows the concept to be tested without a paid DAW;
-- Bitwig Studio, which proves that the same orchestration can control an external production DAW.
+The architecture must preserve four boundaries:
 
-Ableton Live and Ardour are later adapters, not separate agent products.
-
-Beat Twin already has useful canonical foundations:
-
-- a pure musical document model in `@beat-twin/core`;
-- a typed mutation language in `@beat-twin/commands`;
-- a browser NanoDAW in `apps/playground`;
-- a policy-gated MCP and TCP/JSON-RPC bridge to Bitwig.
-
-The missing boundary is a DAW contract between Beat Twin plans and target-specific execution.
+1. The browser remains the only owner of NanoDAW state.
+2. The model may inspect and propose, but never confirm or execute.
+3. A portable proposal is compiled before any adapter-specific operation.
+4. Bitwig writes remain closed until the controller path is authenticated and
+   its result can be verified.
 
 ## Decision
 
-Beat Twin is the DAW-agnostic orchestrator.
-
-The local LLM interprets creative language and proposes intent. Beat Twin owns session inspection, capability negotiation, validation, preview, authorization, routing, execution reporting, and audit events. A selected DAW adapter owns only target-specific inspection and command translation.
+Beat Twin is the DAW-agnostic orchestrator on the laptop.
 
 ```text
-Gemma 4 on S25
-  -> authenticated Beat Twin Agent Gateway
-  -> intent and SongPatch validation
-  -> canonical BeatTwinCommand[]
-  -> capability and policy checks
-  -> selected DawAdapter
-       -> NanoDAW
-       -> Bitwig
-       -> Ableton Live (later)
-       -> Ardour (later)
+NanoDAW Agent mode
+  -> Beat Twin Gateway on laptop loopback
+  -> LiteRT-LM OpenAI-compatible API on the S25, port 9379
+  -> Gemma tool_calls: list, inspect, or propose only
+  -> SongPatchV1 validation
+  -> ExecutableBeatTwinCommand[]
+  -> ExecutablePlan and side-effect-free preview
+  -> explicit human confirmation
+  -> NanoDawAdapter | BitwigAdapter
+  -> verifiable ExecutionReport
 ```
 
-The LLM never receives or emits raw Bitwig JSON-RPC, Tone.js calls, Ableton APIs, OSC messages, controller-script methods, or arbitrary executable code.
+The S25 performs inference. It never connects directly to NanoDAW, Bitwig, or
+their transports. The Gateway calls the S25 provider and remains responsible
+for target selection, validation, policy, preview, confirmation, routing,
+idempotence, and audit.
 
-## Canonical command boundary
+## Command runtime boundary
 
-`@beat-twin/commands` remains the canonical mutation language for all targets.
+`@beat-twin/commands` remains the pure NanoDAW musical mutation foundation,
+but raw authoring commands are not executable plans.
 
-Initial portable commands include:
+The portable runtime boundary is:
 
-- `CreateSong`
-- `CreateTrack`
-- `CreateClip`
-- `AddNote`
-- `UpdateNote`
-- `RemoveNote`
-- `DuplicateClip`
-- `QuantizeClip`
-- `TransposeClip`
-- `SetTempo`
-- `StartPlayback`
-- `StopPlayback`
-- `SetPlayhead`
+```text
+SongPatchV1
+  -> validated musical intent
+  -> ExecutableBeatTwinCommand[] with every ID materialized
+  -> ExecutablePlan bound to one adapter and one snapshot
+```
 
-DAW-specific features must not leak into the canonical command set without a target-independent musical meaning.
+The command runtime adds these public concepts:
+
+```ts
+type CommandSnapshot = {
+  song: Song;
+  revision: number;
+};
+
+type ExecuteCommandBatchInput = {
+  requestId: string;
+  expectedRevision: number;
+  commands: ExecutableBeatTwinCommand[];
+};
+```
+
+`executeCommandBatch()` validates the complete batch before mutation. For
+NanoDAW, a valid remote batch produces exactly one new revision, one autosave,
+and one undo checkpoint. Any invalid command rejects the whole batch.
+
+Stable command errors are:
+
+- `invalid_command`;
+- `stale_revision`;
+- `unsupported_capability`;
+- `policy_blocked`;
+- `partial_execution`.
+
+The existing single-command API remains available through a backward-compatible
+wrapper. UI selection, chat messages, audition, history rendering, and audit
+records are deliberately outside the musical command contract.
 
 ## DAW adapter contract
 
-A `DawAdapter` provides a narrow runtime contract:
-
 ```ts
 interface DawAdapter {
-  readonly id: string;
+  readonly id: "nanodaw" | "bitwig";
   health(): Promise<DawHealth>;
   capabilities(): Promise<DawCapabilities>;
   inspect(): Promise<DawSnapshot>;
@@ -88,173 +103,175 @@ interface DawAdapter {
 }
 ```
 
-The exact TypeScript types are implementation work, but the semantic rules are fixed:
+An executable plan contains at least:
 
-- `capabilities()` declares supported commands, limits, scopes, and recovery support;
-- `inspect()` returns a normalized snapshot and revision;
-- `execute()` accepts only a previously validated canonical plan;
-- execution returns one structured result per command;
-- adapters never parse natural language;
-- adapters never elevate permissions;
-- unsupported commands are rejected before the first mutation.
-
-An adapter may expose richer target-specific diagnostics, but those diagnostics cannot become an alternate mutation path.
-
-## Target selection
-
-A Beat Twin session has one explicit target adapter.
-
-The initial CLI/server default may be selected with:
-
-```text
-BEAT_TWIN_DAW=nanodaw
-BEAT_TWIN_DAW=bitwig
-```
-
-Later clients may select among configured adapters per session. A plan records the adapter ID and capability version used to create it. It cannot be executed against another adapter without being rebuilt and confirmed again.
-
-## NanoDAW adapter
-
-The NanoDAW is the native reference adapter, not a Bitwig preview.
-
-`NanoDawAdapter` wraps the existing `@beat-twin/commands` and `@beat-twin/core` state. It must preserve the browser app's current standalone mode.
-
-When remote control is enabled, the browser app registers an authenticated connected session with the Beat Twin Gateway. The adapter applies canonical commands through the same command executor used by local UI actions and synchronizes the resulting immutable state back to the app.
-
-The NanoDAW path must work without Bitwig, MCP, or any proprietary DAW.
-
-## Bitwig adapter
-
-`BitwigAdapter` translates normalized snapshots and canonical commands to the existing TCP/JSON-RPC controller protocol.
-
-It must:
-
-- preserve the root `index.js` MCP compatibility surface;
-- keep the controller bridge on `127.0.0.1`;
-- retain existing write-policy gates;
-- report partial execution honestly;
-- reject commands not represented by its declared capabilities.
-
-Bitwig is one adapter and must not define the orchestration model.
-
-## Local LLM client
-
-The first client is a native Android chat running Gemma 4 on the S25 through LiteRT-LM.
-
-The model receives a small high-level tool surface:
-
-- `list_daw_targets`
-- `inspect_session`
-- `propose_song_patch`
-- `preview_plan`
-- `execute_plan`
-
-The same tool definitions and SongPatch should work with either the NanoDAW or Bitwig selected.
-
-The phone stores pairing material securely and never connects directly to any DAW.
-
-## Beat Twin Agent Gateway
-
-A workstation gateway provides an authenticated HTTP/WebSocket API.
-
-Responsibilities:
-
-- pairing, token verification, and revocation;
-- target selection and capability discovery;
-- health and connection diagnostics;
-- normalized session inspection;
-- schema validation;
-- side-effect-free plan creation;
-- deterministic preview;
-- policy evaluation;
-- explicit per-plan confirmation;
-- routing to the selected adapter;
-- structured execution and audit results.
-
-The gateway does not contain DAW-specific mutation code.
-
-## Agent and plan contract
-
-Gemma may propose; only Beat Twin may validate and execute.
-
-A plan contains:
-
-- adapter ID and capability version;
-- base session revision;
-- bounded canonical commands;
+- `adapterId` and `capabilityVersion`;
+- `baseRevision` from the inspected snapshot;
+- materialized executable commands;
 - required scopes;
-- a human-readable summary;
-- warnings and assumptions;
-- expiry and stable plan ID.
+- a digest covering the immutable plan and preview;
+- creation and expiration timestamps;
+- stable plan and request IDs;
+- one structured result per attempted command.
 
-The gateway rejects:
+An adapter never parses natural language, changes targets, chooses additional
+commands, or elevates authority. Unsupported capabilities fail before the
+first mutation.
 
-- unknown command types;
-- unsupported adapter capabilities;
-- stale session revisions;
-- adapter changes after planning;
-- invalid musical values;
-- plans exceeding configured limits;
-- execution without explicit confirmation;
-- execution requiring disabled scopes.
+## SongPatchV1
 
-Plan creation is side-effect free. Confirmation and execution are separate requests.
+The initial proposal contract is intentionally narrow:
 
-## Policy and safety
+- exactly one instrument track;
+- one MIDI clip from 1 to 16 beats, assuming 4/4;
+- 1 to 16 notes;
+- note starts and lengths quantized to 1/16 note boundaries;
+- optional tempo from 40 to 240 BPM;
+- MIDI pitch from 0 to 127;
+- velocity from 1 to 127;
+- track and clip names limited to 64 characters.
 
-The existing policy classes remain compatibility scopes while the shared capability model is introduced:
+Playback, recording, devices, mixer changes, scenes, audio, files, presets, and
+rendering are not part of `SongPatchV1`.
 
-- `read`
-- `transport`
-- `mixer_write`
-- `clip_write`
-- `scene_write`
-- `device_write`
-- `application_write`
+## Model-visible tools
 
-A confirmed plan cannot elevate the configured process or adapter authority.
+Gemma receives exactly three target-independent tools:
 
-Network constraints:
+- `list_daw_targets`;
+- `inspect_session`;
+- `propose_song_patch`.
 
-- require pairing before returning session data;
-- use revocable high-entropy tokens;
-- never log auth tokens;
-- rate-limit requests and execution attempts;
-- reject oversized payloads;
-- redact workstation paths;
-- keep the Bitwig controller on loopback;
-- require explicit opt-in before the browser app accepts remote control.
+There is no model tool for preview, confirmation, execution, undo, transport,
+or low-level DAW mutation. No adapter execution occurs during the model loop.
+The Gateway compiles a returned SongPatch only after the loop has ended.
+
+`TOOL_SPECS` remains the historical 57-tool Bitwig MCP surface and its existing
+policy classification. It must remain backward compatible, but it is neither
+the universal agent language nor the portable adapter contract.
+
+## Provider gate
+
+LiteRT-LM documents `/v1/models`, `/v1/chat/completions`, and port `9379`, but
+the exact `tool_calls` shape must be proven against the configured S25 runtime.
+
+Before implementing the agent loop, the project captures a successful real S25
+response as a sanitized fixture and locks parsing tests to it. If the provider
+does not return a usable `tool_calls` response, Agent Gateway implementation
+stops at that gate. Prompt-enforced JSON is not a fallback.
+
+The model loop is non-streaming first and bounded to four steps.
+
+## Agent Gateway
+
+The Gateway listens on laptop loopback. It uses revocable high-entropy tokens,
+request-size limits, quotas, fail-closed policy checks, and secret-free audit
+events.
+
+Minimum API:
+
+- `POST /v1/pair`;
+- `GET /v1/health`;
+- `GET /v1/daws`;
+- `GET /v1/sessions/:dawId`;
+- `POST /v1/agent/runs`;
+- `POST /v1/plans/:planId/confirm`;
+- `POST /v1/plans/:planId/execute`;
+- WebSocket `/v1/nanodaw/sessions`.
+
+Plans expire after two minutes. Human confirmations are single-use and expire
+after thirty seconds. Confirmation and execution requests identify only the
+stored plan; they cannot submit replacement commands or a different target.
+
+## NanoDAW ownership and execution
+
+The browser is the sole source of truth for NanoDAW song state. The Gateway
+must not maintain a second authoritative song copy.
+
+In connected mode, the browser opens an authenticated WebSocket session to the
+Gateway. `NanoDawAdapter` uses that session as a proxy:
+
+1. inspect the browser-owned snapshot and revision;
+2. compile and preview without mutation;
+3. after human confirmation, send one immutable command batch with the expected
+   revision and request ID;
+4. let the browser validate and commit atomically through its existing command
+   executor;
+5. receive the new revision and execution report.
+
+A stale revision, duplicate request, disconnect, or invalid command never
+creates a second mutation path. Standalone NanoDAW behavior remains unchanged
+when connected mode is disabled.
+
+Audition before confirmation uses projected state locally and never commits the
+plan.
+
+## Bitwig execution boundary
+
+`BitwigAdapter` preserves the existing MCP server and all 57 historical tool
+definitions. Read-only inspection and diagnostics may be extracted first.
+
+Bitwig writes remain blocked until all of these gates pass:
+
+- controller bridge authentication is implemented and verified;
+- parameters and musical bounds are validated strictly before dispatch;
+- stable identifiers for the target track and clip are resolved and bound to
+  the plan before preview rather than inferred from a fragile selection;
+- created notes can be read back from that exact target and compared with the
+  plan;
+- required policy scopes are enabled before the first mutation.
+
+Bitwig may not support atomic multi-operation execution. It stops after the
+first failure and returns an honest `partial_execution` boundary with no
+automatic retry after a mutation. The live write smoke uses a disposable
+project. Clip naming remains an explicit capability gap if the controller API
+cannot set it reliably.
 
 ## Failure and recovery
 
-Execution is not assumed atomic.
+NanoDAW batches are atomic and create one undo checkpoint. Bitwig execution is
+reported as partial whenever a verified all-or-nothing result is unavailable.
 
-A plan records all command results and the last successful command. An adapter declares whether it supports undo, compensation, or neither. Partial execution must be reported explicitly.
+Execution is idempotent by request ID. The Gateway never automatically retries
+after a target may have mutated. Reports distinguish rejected-before-mutation,
+complete success, and partial execution.
 
-The NanoDAW may use immutable command-state history for recovery. Bitwig recovery remains manual until verified undo or compensating operations exist.
+## Native Android application
+
+A native Android app is deferred. If built later, it is an optional independent
+client of the laptop Gateway and does not bundle Gemma, LiteRT-LM, or another
+LLM runtime. The S25 provider proof does not depend on an Android UI project.
 
 ## Non-goals
 
-- autonomous background composition;
-- a separate agent implementation per DAW;
-- direct phone-to-DAW communication;
-- arbitrary model-generated code execution;
-- forcing the NanoDAW to depend on Bitwig or the gateway in standalone mode;
-- pretending every adapter has identical capabilities;
-- automatic cross-adapter project conversion;
-- public-internet exposure in the first slice.
+- autonomous or background execution;
+- a model tool that confirms or executes plans;
+- direct S25-to-DAW communication;
+- a second server-side copy of NanoDAW song state;
+- reuse of raw Bitwig MCP calls as the portable agent language;
+- arbitrary model-generated code;
+- playback, recording, device, mixer, scene, audio, or file operations in the
+  first SongPatch contract;
+- pretending Bitwig execution is atomic;
+- automatic retry or rollback after an uncertain external-DAW mutation;
+- public-internet exposure;
+- an Android application in the critical path.
 
-## Consequences
+## Acceptance criteria
 
-### Positive
+This decision is accepted for implementation when:
 
-- one local-LLM contract can control several DAWs;
-- the NanoDAW provides a free deterministic reference backend;
-- Bitwig proves external-DAW integration without owning the architecture;
-- future Ableton and Ardour support becomes adapter work;
-- model prompts, validation, preview, and safety logic are reused;
-- adapter conformance can be tested without a model.
-
-### Costs
-
-- a capability model and adapter conformance suite are required;
+1. a real sanitized S25 fixture proves the expected `tool_calls` shape;
+2. invalid NanoDAW batches leave song, revision, autosave, and undo unchanged;
+3. a fake adapter passes the shared contract, revision, expiry, and idempotence
+   suite;
+4. Gemma can only list, inspect, and propose;
+5. preview and projected audition occur without mutation;
+6. human confirmation is exact, single-use, and short-lived;
+7. NanoDAW applies the confirmed plan once through its browser-owned state;
+8. Bitwig writes remain unavailable until authentication, identity, bounds, and
+   readback gates are proven;
+9. the same SongPatch is replanned and confirmed separately for NanoDAW and
+   Bitwig;
+10. execution reports and audit logs contain no secrets and never hide partial
+    results.

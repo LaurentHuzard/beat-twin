@@ -1,8 +1,8 @@
 {
-  "name": "@beat-twin/core",
+  "name": "@beat-twin/daw-contract",
   "version": "0.0.0",
   "private": true,
-  "description": "Pure musical document model for Beat Twin.",
+  "description": "Fail-closed DAW adapter contract and reusable conformance suite for Beat Twin.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -15,5 +15,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "node --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@beat-twin/commands": "workspace:*"
   }
 }

@@ -1,48 +1,65 @@
-# Local LLM to DAW: first dual-target vertical slice
+# Gateway to S25 provider: first dual-target Agent-mode vertical slice
+
+The historical filename is retained for existing links. This slice does not
+include a native Android client.
 
 ## Outcome
 
-From the Android chat, the user can ask:
+From NanoDAW Agent mode, the user selects `nanodaw` or `bitwig` and asks:
 
-> Create an instrument track named Acid Pulse with a four-bar syncopated A minor clip at 132 BPM.
+> Create an instrument track named Acid Pulse with a 16-beat syncopated A minor
+> clip at 132 BPM.
 
-The user explicitly selects either `nanodaw` or `bitwig`. Beat Twin inspects that target, compiles the same SongPatch into canonical `BeatTwinCommand[]`, returns a target-aware preview, and requires confirmation.
+The Beat Twin Gateway on the laptop sends the conversation and three safe tools
+to the LiteRT-LM OpenAI-compatible API on the S25. Gemma may inspect and return
+a `SongPatchV1`, but it cannot preview, confirm, or execute.
 
-After execution, the selected target contains the semantically equivalent result:
+Beat Twin validates the proposal, materializes every executable ID, compiles an
+immutable target-bound plan, and displays a side-effect-free preview. Only an
+explicit human confirmation can route the plan to `NanoDawAdapter` or
+`BitwigAdapter`.
 
-- tempo set to 132 BPM;
-- one instrument track named `Acid Pulse`;
-- one four-bar MIDI clip;
-- a valid bounded MIDI pattern.
-
-The NanoDAW path works without Bitwig installed. The Bitwig path runs against a disposable project. Neither path requires a DAW-specific prompt or LLM tool.
+The resulting execution report verifies tempo, track, clip length, and notes.
+The same SongPatch is replanned and confirmed separately for each target.
 
 ## Product flow
 
-1. The S25 pairs with the Beat Twin Agent Gateway.
-2. The client calls `list_daw_targets`.
-3. The user selects `nanodaw` or `bitwig`.
-4. Beat Twin requests the selected adapter's health, capabilities, snapshot, and revision.
-5. Gemma emits a constrained `propose_song_patch` call.
-6. Beat Twin validates the SongPatch against canonical musical rules and target capabilities.
-7. Beat Twin compiles it into `BeatTwinCommand[]`.
-8. The gateway returns a target-aware preview and short-lived `planId`.
-9. The user confirms the exact displayed plan.
-10. The gateway rechecks target ID, capability version, revision, expiry, confirmation, and scopes.
-11. The selected adapter executes and records one result per command.
-12. The client displays success, partial success, unsupported capability, or failure without guessing.
+1. NanoDAW Agent mode connects to the laptop Gateway on loopback with a
+   revocable token.
+2. The user selects `nanodaw` or `bitwig` before starting the run.
+3. The Gateway inspects the selected adapter's health, capabilities, snapshot,
+   and revision.
+4. The Gateway calls LiteRT-LM on the S25 at its configured port `9379`.
+5. Gemma uses at most `list_daw_targets`, `inspect_session`, and
+   `propose_song_patch` during a loop bounded to four steps.
+6. No adapter mutation occurs during that model loop.
+7. Beat Twin validates `SongPatchV1` and compiles
+   `ExecutableBeatTwinCommand[]` with server-owned IDs.
+8. Beat Twin creates an `ExecutablePlan`, digest, required scopes, warnings,
+   and deterministic preview bound to the selected target and base revision.
+9. The browser shows the exact diff and may audition projected NanoDAW state
+   without committing it.
+10. The user explicitly confirms the exact plan.
+11. The Gateway exchanges that confirmation for a single-use token valid for
+    thirty seconds.
+12. Execution rechecks auth, target, capability version, base revision, digest,
+    expiry, policy scopes, and adapter health.
+13. The recorded adapter executes once and returns a verifiable report.
 
 ## Target-independent API
 
+### `POST /v1/pair`
+
+Pairs a local client and returns revocable authentication material. Secrets are
+never written to audit logs.
+
 ### `GET /v1/health`
 
-Returns gateway status and configured adapter health summaries without mutation.
+Returns Gateway, provider, and configured-adapter health without mutation.
 
 ### `GET /v1/daws`
 
-Lists configured DAW targets and capability versions.
-
-Example:
+Lists configured targets and capability versions.
 
 ```json
 {
@@ -63,19 +80,19 @@ Example:
 
 ### `GET /v1/sessions/:dawId`
 
-Returns a normalized read-only snapshot, revision, and capabilities for the selected target.
+Returns the normalized read-only snapshot, revision, and capabilities for the
+selected target.
 
-### `POST /v1/plans`
+### `POST /v1/agent/runs`
 
-Creates a side-effect-free plan.
+Starts a bounded provider loop for one fixed target and user request. The
+request does not contain executable commands.
 
-Example:
+Example validated model proposal:
 
 ```json
 {
-  "dawId": "nanodaw",
-  "baseRevision": "session-revision",
-  "intent": "create_pattern",
+  "version": 1,
   "tempo": 132,
   "track": {
     "kind": "instrument",
@@ -88,165 +105,163 @@ Example:
       {
         "pitch": 45,
         "velocity": 104,
-        "startBeat": 0,
-        "lengthBeats": 0.5
+        "startBeat": 0.25,
+        "lengthBeats": 0.25
       }
     ]
   }
 }
 ```
 
-The server owns executable IDs. The model cannot choose adapter method names.
+The Gateway returns a stored plan and preview. Plans expire after two minutes.
 
 ### `POST /v1/plans/:planId/confirm`
 
-Creates a single-use confirmation token for the exact target and preview.
+Records explicit human confirmation of the stored plan digest and returns a
+single-use confirmation valid for thirty seconds.
 
 ### `POST /v1/plans/:planId/execute`
 
-Executes the confirmed plan through its recorded adapter. The request cannot replace the target or commands.
+Executes the stored plan through its recorded adapter. The request cannot
+replace commands, change the target, alter scopes, or extend expiry.
 
-## Initial portable capability
+### WebSocket `/v1/nanodaw/sessions`
 
-Both reference adapters must support the first portable subset:
+Connects the browser-owned NanoDAW session to the Gateway. It carries snapshots,
+revisions, and immutable executable batches; it is not a second song store.
 
-- inspect normalized session;
-- set tempo;
-- create one instrument track;
-- create one MIDI clip;
-- add 1 to 64 notes.
+## SongPatchV1 bounds
 
-Limits:
+The first portable slice accepts only:
 
-- clip length from 1 to 16 bars;
-- MIDI pitch and velocity from 0 to 127;
-- positive note lengths;
-- no note may exceed clip bounds;
-- tempo from 40 to 240 BPM;
-- one active execution per paired client;
-- plan expiry after five minutes.
+- one instrument track;
+- one MIDI clip from 1 to 16 beats in 4/4;
+- 1 to 16 notes;
+- note starts and lengths quantized to 1/16 note boundaries;
+- optional tempo from 40 to 240 BPM;
+- pitch from 0 to 127;
+- velocity from 1 to 127;
+- track and clip names up to 64 characters.
 
-Deferred capabilities include devices, presets, mixer writes, scenes, audio files, recording, and rendering.
+Every note must have a positive duration and fit within the clip. Unknown fields
+and command names are rejected. Playback, recording, device, mixer, scene,
+audio, file, preset, and rendering operations are outside the contract.
 
-## Package map
+## Executable plan
+
+Compilation is deterministic and side-effect free:
 
 ```text
-apps/gateway
-  authenticated transport, pairing, target registry, and plan store
-
-apps/android
-  Compose chat, LiteRT-LM, target selection, and high-level tools
-
-apps/playground
-  standalone NanoDAW plus explicit connected-control mode
-
-packages/agent-contract
-  versioned SongPatch, preview, target, and result schemas
-
-packages/daw-contract
-  DawAdapter, capabilities, snapshots, plans, and execution reports
-
-packages/adapters/nanodaw
-  @beat-twin/commands reference adapter
-
-packages/adapters/bitwig
-  canonical command to TCP/JSON-RPC adapter
-
-packages/commands
-  canonical BeatTwinCommand validation and semantics
+SongPatchV1
+  -> strict schema and musical validation
+  -> adapter capability validation
+  -> ID materialization
+  -> ExecutableBeatTwinCommand[]
+  -> ExecutablePlan
 ```
 
-The Android build may remain a separate Gradle project. Shared wire contracts are generated from versioned JSON Schema.
+The plan records the adapter ID, capability version, base revision, commands,
+required scopes, digest, timestamps, preview, warnings, and per-command result
+slots. A target switch or capability/revision change requires a fresh plan and
+fresh confirmation.
 
-## Acceptance criteria
+## NanoDawAdapter acceptance
 
-### Beat Twin Gateway
+- The browser remains the only owner of song state.
+- The Gateway proxies inspection and execution through the authenticated
+  WebSocket; it never operates on a second authoritative copy.
+- Preview and projected audition do not mutate the song.
+- Execution sends one batch with `requestId`, `expectedRevision`, and fully
+  materialized commands.
+- The browser validates the full batch before mutation.
+- A valid batch creates one revision, one autosave, and one undo checkpoint.
+- An invalid or stale batch creates none of them.
+- Duplicate request IDs cannot apply the plan twice.
+- Standalone NanoDAW remains unchanged when connected mode is disabled.
 
-- rejects unauthenticated target, session, plan, and execution requests;
-- contains no target-specific mutation logic;
-- never forwards mobile payloads directly to a DAW;
-- records adapter ID and capability version in every plan;
-- rejects adapter switching or capability drift after planning;
-- creates deterministic commands and previews from identical validated input;
-- requires explicit confirmation before execution;
-- logs plan and command IDs without auth secrets.
+## BitwigAdapter acceptance
 
-### Gemma Android client
+- Read-only health, capabilities, and inspection remain available independently
+  of write enablement.
+- The historical 57-tool MCP surface and policy behavior remain compatible.
+- The controller bridge remains on loopback and must authenticate writes.
+- Bounds, required scopes, target identity, and plan freshness are checked
+  before the first mutation.
+- Stable identifiers for the intended track and clip are resolved and bound to
+  the plan before preview; execution never relies on the current selection.
+- It reads back notes from that exact target and compares them with the plan.
+- It stops on the first failure and reports the precise partial boundary.
+- It never automatically retries after a possible mutation.
+- Clip naming is reported as an explicit capability gap when the API cannot
+  verify it.
+- Live writes use a disposable Bitwig project.
 
-- runs Gemma locally;
-- lists and selects configured targets;
-- declares only target-independent high-level functions;
-- uses the same prompt and SongPatch format for NanoDAW and Bitwig;
-- renders target name, preview, warnings, and unsupported capabilities;
-- handles disconnects and partial execution results.
+## Gateway and provider acceptance
 
-### NanoDawAdapter
+- The Gateway listens on loopback and rejects unauthenticated requests.
+- Pairing tokens are high entropy, revocable, and absent from logs.
+- Request size, quotas, plan counts, and concurrent runs are bounded.
+- The provider loop has at most four steps.
+- Gemma receives only `list_daw_targets`, `inspect_session`, and
+  `propose_song_patch`.
+- No `confirm`, `execute`, transport, or adapter protocol tool is exposed.
+- A real sanitized S25 `tool_calls` response is captured before provider-loop
+  implementation; prompt-enforced JSON is not a fallback.
+- Plans expire after two minutes and confirmations after thirty seconds.
+- Confirmation is exact and single-use.
+- Audit is fail-closed and contains no secret or raw auth material.
 
-- works with Bitwig closed or absent;
-- applies canonical commands through the existing command executor;
-- preserves browser standalone mode;
-- accepts remote control only after explicit connected-mode opt-in;
-- synchronizes resulting immutable state to the browser app;
-- uses existing command history for recovery where supported.
-
-### BitwigAdapter
-
-- keeps the controller on `127.0.0.1`;
-- translates only declared canonical capabilities;
-- preserves root MCP behavior and existing policy gates;
-- creates the expected track, clip, tempo, and notes in a disposable project;
-- stops on error and reports the partial boundary;
-- does not define LLM or planning behavior.
-
-### Conformance
-
-Given the same accepted SongPatch:
-
-- both adapters receive equivalent canonical command semantics;
-- both resulting normalized snapshots contain the expected tempo, track, clip, and notes;
-- unsupported differences are declared as capabilities rather than silently ignored.
-
-### Tests
+## Conformance and tests
 
 Offline coverage includes:
 
-- adapter capability negotiation;
-- shared adapter conformance;
-- schema acceptance and rejection;
-- note and clip bounds;
-- plan target binding;
-- capability-version drift;
-- policy computation;
-- plan expiry;
-- stale revisions;
+- SongPatch schema acceptance and rejection;
+- 1/16 quantization, MIDI, tempo, name, note-count, and clip-length bounds;
+- executable ID materialization;
+- strict all-command validation before NanoDAW mutation;
+- one revision/autosave/undo checkpoint per valid batch;
+- stale revision and duplicate request rejection;
+- adapter and capability-version binding;
+- plan and confirmation expiry;
 - confirmation reuse;
-- command compilation;
-- authentication and revocation;
-- partial execution reporting.
+- policy computation;
+- unknown or malformed provider tool calls;
+- the four-step model-loop limit;
+- Bitwig write blocking before authentication and readback;
+- honest partial-execution reporting.
 
-Manual live smokes cover:
+Manual live gates cover:
 
-1. S25 -> Beat Twin -> NanoDAW;
-2. S25 -> Beat Twin -> Bitwig.
+1. a real S25 `tool_calls` fixture;
+2. Gateway -> S25 provider -> Gateway -> NanoDAW with visible atomic browser
+   mutation;
+3. Gateway -> S25 provider -> Gateway -> Bitwig with authenticated bridge and
+   verified readback;
+4. the same SongPatch replanned and confirmed separately for both targets.
+
+The only required manual interventions are starting LiteRT-LM on the S25 and
+activating the Beat Twin controller in a disposable Bitwig project.
 
 ## Delivery order
 
-1. Define `DawAdapter`, capabilities, normalized snapshot, and conformance fixtures.
-2. Add the authenticated DAW-agnostic gateway.
-3. Implement `NanoDawAdapter` and browser connected mode.
-4. Extract and implement `BitwigAdapter` without breaking root MCP.
-5. Build Android pairing, target selection, and `inspect_session`.
-6. Add SongPatch planning, preview, confirmation, and execution.
-7. Run the same S25 prompt against both targets.
+1. Strict executable commands, batches, revisions, and stable errors.
+2. DAW contract and fake-adapter conformance.
+3. SongPatchV1 contract, compilation, and deterministic preview.
+4. Real S25 fixture and OpenAI-compatible provider client.
+5. Loopback Gateway, pairing, quotas, policy, plan store, and audit.
+6. NanoDawAdapter memory port, browser proxy, and connected Agent mode.
+7. BitwigAdapter read-only extraction and 57-tool compatibility snapshot.
+8. Bitwig bridge authentication, target identity, strict writes, and readback.
+9. Exact confirmation, idempotent execution, and dual-target routing.
+10. E2E smokes and closeout documentation.
 
 ## Deferred
 
 - modifying existing clips beyond the portable subset;
-- velocity humanization and density transformations;
-- device and preset selection;
-- arrangement generation;
+- playback, recording, device, mixer, scene, audio, or file operations;
+- arrangement generation and arbitrary transformations;
 - Ableton Live and Ardour adapters;
-- voice input;
-- remote access outside the LAN;
-- automatic cross-adapter conversion;
-- automatic rollback for external DAWs.
+- automatic rollback for external DAWs;
+- public-network access;
+- autonomous background work;
+- a native Android application.
