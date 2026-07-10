@@ -6,12 +6,15 @@ This directory contains the current technical notes for the public Beat Twin pro
 
 - [`AGENT_SETUP.md`](AGENT_SETUP.md): what a coding agent can automate and what must be requested from the user in Bitwig.
 - [`BT-101-SESSION-INSPECTOR.md`](BT-101-SESSION-INSPECTOR.md): read-only session snapshot behavior.
-- [`BT-102-PROTOCOL-SMOKE.md`](BT-102-PROTOCOL-SMOKE.md): TCP framing and offline protocol smoke tests.
+- [`BT-102-PROTOCOL-SMOKE.md`](BT-102-PROTOCOL-SMOKE.md): TCP framing, offline protocol smoke tests, and connection diagnostic coverage.
 - [`BT-103-POLICY-GATE.md`](BT-103-POLICY-GATE.md): write-policy model and current tool classification.
 - [`BT-104-ARRANGEMENT-PLAN.md`](BT-104-ARRANGEMENT-PLAN.md): plan-only arrangement helper.
 - [`BITWIG_MANUAL_SMOKE_CHECKLIST.md`](BITWIG_MANUAL_SMOKE_CHECKLIST.md): manual live verification with Bitwig Studio.
 - [`FUTURE-DIRECTION.md`](FUTURE-DIRECTION.md): conservative direction for arrangement assistance.
-- [`LOCAL_MCP_SETUP.md`](LOCAL_MCP_SETUP.md): local MCP and Bitwig controller setup.
+- [`LOCAL_MCP_SETUP.md`](LOCAL_MCP_SETUP.md): local MCP and Bitwig controller setup, including `pnpm smoke:read-only`.
+- [`LOCAL-LLM-TOOL-ORCHESTRATION.md`](LOCAL-LLM-TOOL-ORCHESTRATION.md): the canonical local LLM gateway and adapter boundary.
+- [`ADR-001-GEMMA-MOBILE-AGENT.md`](ADR-001-GEMMA-MOBILE-AGENT.md): the local LLM and DAW adapter boundary decision.
+- [`GEMMA-MOBILE-VERTICAL-SLICE.md`](GEMMA-MOBILE-VERTICAL-SLICE.md): the first dual-target local LLM slice.
 - [`PLAYGROUND_ARCHITECTURE.md`](PLAYGROUND_ARCHITECTURE.md): browser-first architecture, package map, and compatibility boundary.
 - [`SPRINT-2-BROWSER-AUDITION.md`](SPRINT-2-BROWSER-AUDITION.md): browser playback/audition boundary, Bitwig safety rules, and validation commands.
 - [`SPRINT-3-NOTE-EDITOR.md`](SPRINT-3-NOTE-EDITOR.md): browser note editing commands, units, safety boundary, and validation commands.

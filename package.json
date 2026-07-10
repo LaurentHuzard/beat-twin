@@ -13,6 +13,9 @@
     "test:unit": "node --test packages/core/test/*.test.ts packages/commands/test/*.test.ts packages/audio-tone/test/*.test.ts tests/session-inspect.test.js tests/policy-gate.test.js tests/arrangement-plan.test.js",
     "test:protocol-smoke": "node --test tests/protocol-smoke.test.js",
     "test:live": "node scripts/run-live-tests.js",
+    "smoke:read-only": "node scripts/read-only-smoke.js",
+    "nanodaw:dev": "pnpm --filter @beat-twin/playground dev",
+    "nanodaw:test": "pnpm --filter @beat-twin/playground test",
     "test:playground": "pnpm --filter @beat-twin/playground test",
     "playground:dev": "pnpm --filter @beat-twin/playground dev"
   },

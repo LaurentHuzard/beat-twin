@@ -18,6 +18,92 @@ const BITWIG_RESPONSE_TIMEOUT_MS = Number.parseInt(
   process.env.BITWIG_RESPONSE_TIMEOUT_MS ?? "5000",
   10,
 );
+const BITWIG_DIAGNOSTIC_TIMEOUT_MS = Number.parseInt(
+  process.env.BITWIG_DIAGNOSTIC_TIMEOUT_MS ?? "1000",
+  10,
+);
+
+function connectionHint(error) {
+  const code = error?.code;
+
+  if (code === "ECONNREFUSED") {
+    return "Bitwig is reachable on this host, but the Beat Twin controller is not listening. Enable Beat Twin -> Beat Twin in Bitwig, then retry.";
+  }
+
+  if (code === "ETIMEDOUT") {
+    return "The Bitwig bridge did not answer before the timeout. Check the host, port, firewall, and whether Bitwig is running.";
+  }
+
+  if (code === "ENOTFOUND" || code === "EAI_AGAIN") {
+    return "The Bitwig host could not be resolved. Check BITWIG_HOST.";
+  }
+
+  if (code === "EPERM" || code === "EACCES") {
+    return "The TCP check was blocked by the local environment. Retry from an unsandboxed shell or allow local network access.";
+  }
+
+  return "Start Bitwig Studio, enable the Beat Twin controller, then retry the connection check.";
+}
+
+export async function diagnoseBitwigConnection({
+  host = BITWIG_HOST,
+  port = BITWIG_PORT,
+  timeoutMs = BITWIG_DIAGNOSTIC_TIMEOUT_MS,
+  createSocket = () => new net.Socket(),
+} = {}) {
+  return new Promise((resolve) => {
+    const socket = createSocket();
+    let settled = false;
+
+    const finish = (result) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve({
+        scope: "tcp-connectivity",
+        host,
+        port,
+        target: `${host}:${port}`,
+        ...result,
+      });
+    };
+
+    socket.setTimeout(timeoutMs);
+    socket.once("connect", () => {
+      finish({
+        connected: true,
+        status: "listening",
+        hint: "The Beat Twin controller bridge is accepting TCP connections.",
+      });
+    });
+    socket.once("timeout", () => {
+      const error = new Error(`Timed out after ${timeoutMs}ms`);
+      error.code = "ETIMEDOUT";
+      finish({
+        connected: false,
+        status: "timeout",
+        error: error.message,
+        error_code: error.code,
+        hint: connectionHint(error),
+      });
+    });
+    socket.once("error", (error) => {
+      finish({
+        connected: false,
+        status: "error",
+        error: error.message,
+        error_code: error.code ?? null,
+        hint: connectionHint(error),
+      });
+    });
+
+    socket.connect(port, host);
+  });
+}
 
 export class BitwigProtocolClient {
   constructor({

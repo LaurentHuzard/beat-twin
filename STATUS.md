@@ -2,7 +2,8 @@
 
 ## Current State
 
-Beat Twin is a local Bitwig Studio + MCP proof of concept.
+Beat Twin is a local Bitwig Studio + MCP proof of concept with a browser NanoDAW
+for command-driven song sketches.
 
 The repository has been renamed and cleaned for public open-source release under:
 
@@ -14,7 +15,10 @@ git@github.com:LaurentHuzard/beat-twin.git
 
 - MCP server entrypoint: `index.js`
 - Bitwig controller script: `bitwig-controller/BeatTwin/BeatTwin.control.js`
+- Browser NanoDAW: `apps/playground`
+- Pure browser packages: `packages/core`, `packages/commands`, `packages/audio-tone`
 - Offline tests: `tests/*.test.js`
+- Read-only live smoke: `pnpm smoke:read-only`
 - Manual live checklist: `docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md`
 - Bitwig API placeholder note: `bitwig-api-docs/README.md`
 
@@ -25,9 +29,12 @@ Offline validation should pass without Bitwig Studio:
 ```bash
 pnpm test
 node --check index.js
+pnpm test:playground
 ```
 
-Manual live validation still requires Bitwig Studio, the Beat Twin controller, and a disposable project.
+Read-only live validation can start with `pnpm smoke:read-only`. Manual write
+validation still requires Bitwig Studio, the Beat Twin controller, and a
+disposable project.
 
 ## Open Risks
 
