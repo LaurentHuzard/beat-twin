@@ -4,20 +4,73 @@
 
 # Beat Twin
 
-Beat Twin is a proof-of-concept bridge between Bitwig Studio and the Model Context Protocol (MCP).
+Beat Twin is an experimental, local-first orchestration layer between musical agents and DAWs.
 
-It exposes a small local MCP server for agent-assisted music workflows while keeping DAW mutations behind explicit write-policy gates. The default mode is read-only.
+Its target architecture is:
+
+```text
+Local LLM
+  -> Beat Twin
+  -> selected DAW adapter
+       -> Beat Twin Mini-DAW
+       -> Bitwig Studio
+       -> Ableton Live (later)
+       -> Ardour (later)
+```
+
+The current repository contains two working musical surfaces:
+
+- a Bitwig Studio MCP bridge with explicit write-policy gates;
+- a standalone browser Mini-DAW Playground built on canonical Beat Twin song and command models.
+
+The DAW-agnostic adapter and local-LLM gateway are documented and planned, but not implemented yet.
 
 ## What Works
 
+### Canonical musical foundation
+
+- Pure `Song`, `Track`, `Clip`, and `Note` model in `@beat-twin/core`.
+- Typed `BeatTwinCommand` mutation boundary in `@beat-twin/commands`.
+- Schema-versioned serialization and deterministic command tests.
+
+### Browser Mini-DAW
+
+- Command-first local song sketches.
+- Tone.js and Web Audio audition.
+- Note creation, editing, and removal.
+- Clip duplication, quantization, and transposition.
+- Keyboard shortcuts and command palette.
+- Local undo/redo and JSON save/load.
+- Timeline selection and note-density feedback.
+- Deterministic command drafts.
+
+The Mini-DAW is a standalone Beat Twin target. It is not a Bitwig preview and does not require Bitwig.
+
+### Bitwig integration
+
 - Read-only session inspection for transport, tracks, scenes, selected device, and remote controls.
-- Plan-only arrangement suggestions based on the current read-only Bitwig snapshot.
+- Plan-only arrangement suggestions based on the current Bitwig snapshot.
 - Transport, mixer, clip, scene, device, and application write tools, hidden and blocked by default.
-- A Bitwig controller script that speaks JSON-RPC over a local TCP connection.
-- Offline protocol and policy tests that run without launching Bitwig.
-- A browser Playground for command-first song sketches, Tone.js audition, note editing, pattern tools, keyboard shortcuts, local undo/redo, JSON save/load, visible timeline feedback, a local command palette, and deterministic command drafts.
+- A Bitwig controller script speaking JSON-RPC over local TCP.
+- Offline protocol and policy tests.
+- Manual live-test support for disposable Bitwig projects.
 
 ## Architecture
+
+### Canonical browser path
+
+```text
+apps/playground
+  -> @beat-twin/commands
+  -> @beat-twin/core
+  -> @beat-twin/audio-tone
+  -> Web Audio output
+  -> localStorage JSON save/load
+```
+
+Browser audition and editing are local Mini-DAW behavior. They do not call Bitwig or MCP.
+
+### Current Bitwig compatibility path
 
 ```text
 MCP client
@@ -27,32 +80,31 @@ MCP client
   -> Bitwig Studio
 ```
 
-The Node process is the MCP server. It connects to the Bitwig controller on demand through `BITWIG_HOST` and `BITWIG_PORT`.
+The root `index.js` remains the current MCP compatibility anchor. It connects to Bitwig through `BITWIG_HOST` and `BITWIG_PORT`.
 
-The browser-first playground foundation now lives alongside the MCP bridge:
+### Planned DAW-agnostic path
 
 ```text
-apps/playground
-  -> @beat-twin/commands
-  -> @beat-twin/core
-  -> @beat-twin/audio-tone browser audition
-  -> localStorage JSON save/load
+Local LLM client
+  -> authenticated Beat Twin Agent Gateway
+  -> SongPatch validation and preview
+  -> canonical BeatTwinCommand[]
+  -> selected DawAdapter
 ```
 
-The current Bitwig bridge still lives in `index.js`; adapter extraction is intentionally left for a later compatibility-focused slice. Browser audition is local Web Audio preview, not a Bitwig mutation or MCP write.
-Browser save/load is also local Playground state, not a Bitwig mutation.
-Browser pattern tools are local document edits for duplicate, quantize, and transpose.
-Browser undo/redo restores local Playground command snapshots only.
-Browser keyboard shortcuts invoke existing local Playground actions only.
-Browser timeline feedback is derived from local song state and does not call Bitwig.
-Browser command palette actions reuse the same local Playground action boundary.
-Browser command drafts parse known local phrases only; they are not an AI chat path.
+The model will not receive raw DAW protocol methods. Beat Twin will own capability negotiation, validation, confirmation, routing, and execution reporting. Adapters will own only target-specific inspection and canonical-command translation.
+
+See:
+
+- [ADR-001: Local LLM and DAW adapter boundary](docs/ADR-001-GEMMA-MOBILE-AGENT.md)
+- [First dual-target vertical slice](docs/GEMMA-MOBILE-VERTICAL-SLICE.md)
 
 ## Requirements
 
 - Node.js 20 or newer
 - pnpm 11.10.0 or newer
-- Bitwig Studio for live/manual verification
+- A modern browser for the Mini-DAW
+- Bitwig Studio only for Bitwig integration and live verification
 
 ## Install
 
@@ -60,7 +112,15 @@ Browser command drafts parse known local phrases only; they are not an AI chat p
 pnpm install
 ```
 
-## Run
+## Run The Mini-DAW
+
+```bash
+pnpm playground:dev
+```
+
+This runs the standalone browser Playground. It does not require Bitwig.
+
+## Run The Current MCP Server
 
 ```bash
 node index.js
@@ -109,9 +169,11 @@ for local verification commands and troubleshooting.
 
 ## Safety Model
 
-Beat Twin is read-only by default. At the MCP entry point, write tools are not listed by MCP clients and are blocked if called through the MCP server without an enabling policy.
+Beat Twin uses an inspect, propose, preview, confirm, then execute model.
 
-This gate is enforced by the Node MCP server only. The Bitwig controller's TCP bridge (default `127.0.0.1:8888`) is unauthenticated and executes any JSON-RPC command it receives. It does not apply the write policy. Anything able to reach that port can drive Bitwig regardless of the MCP write policy, so the MCP gate is not a barrier at the DAW itself. As a known limitation of this local proof of concept, treat the bridge as trusted-local-only: firewall the port and do not expose it on untrusted networks.
+The current MCP surface is read-only by default. Write tools are hidden and blocked unless the server starts with an explicit policy.
+
+This gate is enforced by the Node MCP server only. The Bitwig controller TCP bridge is unauthenticated and executes JSON-RPC commands it receives. It must remain bound to loopback and must never be exposed directly to a phone, model, or untrusted network.
 
 To enable a narrow write class:
 
@@ -125,13 +187,15 @@ To enable multiple write classes:
 BITWIG_MCP_WRITE_POLICY=transport,mixer_write node index.js
 ```
 
-To enable every write class for disposable test sessions only:
+To enable every current Bitwig write class for disposable tests only:
 
 ```bash
 BITWIG_MCP_ENABLE_WRITES=1 node index.js
 ```
 
-Use write mode only in a disposable Bitwig project or a copy of real work.
+Use Bitwig write mode only in a disposable project or a copy of real work.
+
+The Mini-DAW currently remains browser-local. Future remote control through the Agent Gateway will require explicit connected-mode opt-in.
 
 ## Tests
 
@@ -141,35 +205,39 @@ Run the offline checks:
 pnpm test
 ```
 
-Run a syntax check:
+Run Mini-DAW checks:
+
+```bash
+pnpm --filter @beat-twin/playground test
+pnpm --filter @beat-twin/playground build
+```
+
+Run a root MCP syntax check:
 
 ```bash
 node --check index.js
 ```
 
-Live tests require Bitwig Studio, the controller script, and explicit write permissions. They are intentionally separate from the default test suite.
+Live Bitwig tests require Bitwig Studio, the controller script, explicit write permissions, and a disposable project.
 
 ## Useful Docs
 
+- [`docs/ADR-001-GEMMA-MOBILE-AGENT.md`](docs/ADR-001-GEMMA-MOBILE-AGENT.md)
+- [`docs/GEMMA-MOBILE-VERTICAL-SLICE.md`](docs/GEMMA-MOBILE-VERTICAL-SLICE.md)
+- [`docs/PLAYGROUND_ARCHITECTURE.md`](docs/PLAYGROUND_ARCHITECTURE.md)
 - [`docs/BT-101-SESSION-INSPECTOR.md`](docs/BT-101-SESSION-INSPECTOR.md)
 - [`docs/BT-102-PROTOCOL-SMOKE.md`](docs/BT-102-PROTOCOL-SMOKE.md)
 - [`docs/BT-103-POLICY-GATE.md`](docs/BT-103-POLICY-GATE.md)
 - [`docs/BT-104-ARRANGEMENT-PLAN.md`](docs/BT-104-ARRANGEMENT-PLAN.md)
 - [`docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md`](docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md)
-- [`docs/FUTURE-DIRECTION.md`](docs/FUTURE-DIRECTION.md)
-- [`docs/PLAYGROUND_ARCHITECTURE.md`](docs/PLAYGROUND_ARCHITECTURE.md)
-- [`docs/SPRINT-2-BROWSER-AUDITION.md`](docs/SPRINT-2-BROWSER-AUDITION.md)
-- [`docs/SPRINT-3-NOTE-EDITOR.md`](docs/SPRINT-3-NOTE-EDITOR.md)
-- [`docs/SPRINT-4-SAVE-LOAD.md`](docs/SPRINT-4-SAVE-LOAD.md)
-- [`docs/SPRINT-5-PATTERN-TOOLS.md`](docs/SPRINT-5-PATTERN-TOOLS.md)
-- [`docs/SPRINT-6-UNDO-REDO.md`](docs/SPRINT-6-UNDO-REDO.md)
-- [`docs/SPRINT-7-KEYBOARD-SHORTCUTS.md`](docs/SPRINT-7-KEYBOARD-SHORTCUTS.md)
 - [`docs/AGENT_SETUP.md`](docs/AGENT_SETUP.md)
 - [`docs/LOCAL_MCP_SETUP.md`](docs/LOCAL_MCP_SETUP.md)
 
 ## Status
 
-Beat Twin is an experimental local integration, not a hardened production tool. It is published as an open-source foundation for safe, inspectable DAW control experiments.
+Beat Twin is an experimental open-source foundation, not a hardened production tool.
+
+Today, the Mini-DAW and Bitwig bridge are implemented as separate working surfaces sharing canonical musical concepts. The next phase is the DAW adapter contract and local-LLM orchestration path described in ADR-001.
 
 ## License
 
