@@ -4,9 +4,9 @@
 
 # Beat Twin
 
-Beat Twin is a proof-of-concept bridge between Bitwig Studio and the Model Context Protocol (MCP).
+Beat Twin is a proof-of-concept bridge between music agents and DAWs.
 
-It exposes a small local MCP server for agent-assisted music workflows while keeping DAW mutations behind explicit write-policy gates. The default mode is read-only.
+It currently exposes Bitwig Studio through a local MCP server while keeping DAW mutations behind explicit write-policy gates. The emerging architecture also lets local or remote LLMs call the same typed Beat Twin capabilities through OpenAI-compatible tool calling, without coupling prompts to a specific DAW. The default mode remains read-only.
 
 ## What Works
 
@@ -16,8 +16,11 @@ It exposes a small local MCP server for agent-assisted music workflows while kee
 - A Bitwig controller script that speaks JSON-RPC over a local TCP connection.
 - Offline protocol and policy tests that run without launching Bitwig.
 - A browser Playground for command-first song sketches, Tone.js audition, note editing, pattern tools, keyboard shortcuts, local undo/redo, JSON save/load, visible timeline feedback, a local command palette, and deterministic command drafts.
+- A documented local-LLM direction where Gemma through LiteRT-LM can emit typed Beat Twin tool calls from an Android device.
 
 ## Architecture
+
+The current Bitwig MCP path is:
 
 ```text
 MCP client
@@ -28,6 +31,20 @@ MCP client
 ```
 
 The Node process is the MCP server. It connects to the Bitwig controller on demand through `BITWIG_HOST` and `BITWIG_PORT`.
+
+The target orchestration direction is DAW-agnostic:
+
+```text
+User
+  -> local or remote LLM
+  -> OpenAI-compatible tool call
+  -> Beat Twin tool gateway
+  -> policy + validation + preview
+  -> DAW adapter
+  -> Bitwig | mini-DAW | Ableton | Ardour
+```
+
+MCP and native LLM tool calling are intended to become two projections over the same canonical Beat Twin tool registry. See [`docs/LOCAL-LLM-TOOL-ORCHESTRATION.md`](docs/LOCAL-LLM-TOOL-ORCHESTRATION.md).
 
 The browser-first playground foundation now lives alongside the MCP bridge:
 
@@ -113,6 +130,8 @@ Beat Twin is read-only by default. At the MCP entry point, write tools are not l
 
 This gate is enforced by the Node MCP server only. The Bitwig controller's TCP bridge (default `127.0.0.1:8888`) is unauthenticated and executes any JSON-RPC command it receives. It does not apply the write policy. Anything able to reach that port can drive Bitwig regardless of the MCP write policy, so the MCP gate is not a barrier at the DAW itself. As a known limitation of this local proof of concept, treat the bridge as trusted-local-only: firewall the port and do not expose it on untrusted networks.
 
+The local-LLM tool gateway must apply the same principle twice: filter model-visible tools by active policy, then validate and authorize every returned tool call again before adapter dispatch.
+
 To enable a narrow write class:
 
 ```bash
@@ -157,6 +176,7 @@ Live tests require Bitwig Studio, the controller script, and explicit write perm
 - [`docs/BT-104-ARRANGEMENT-PLAN.md`](docs/BT-104-ARRANGEMENT-PLAN.md)
 - [`docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md`](docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md)
 - [`docs/FUTURE-DIRECTION.md`](docs/FUTURE-DIRECTION.md)
+- [`docs/LOCAL-LLM-TOOL-ORCHESTRATION.md`](docs/LOCAL-LLM-TOOL-ORCHESTRATION.md)
 - [`docs/PLAYGROUND_ARCHITECTURE.md`](docs/PLAYGROUND_ARCHITECTURE.md)
 - [`docs/SPRINT-2-BROWSER-AUDITION.md`](docs/SPRINT-2-BROWSER-AUDITION.md)
 - [`docs/SPRINT-3-NOTE-EDITOR.md`](docs/SPRINT-3-NOTE-EDITOR.md)
@@ -169,7 +189,7 @@ Live tests require Bitwig Studio, the controller script, and explicit write perm
 
 ## Status
 
-Beat Twin is an experimental local integration, not a hardened production tool. It is published as an open-source foundation for safe, inspectable DAW control experiments.
+Beat Twin is an experimental local integration, not a hardened production tool. It is published as an open-source foundation for safe, inspectable, DAW-agnostic music-agent experiments.
 
 ## License
 
