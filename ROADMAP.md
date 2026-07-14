@@ -39,19 +39,20 @@ The browser NanoDAW is the native reference target. Bitwig is the first external
 - Bounded `SongPatchV1` validation, deterministic compilation, fully materialized IDs, and side-effect-free preview.
 - Transactional `NanoDawAdapter` memory port and abstract browser proxy contract; the adapter never owns a second song copy.
 - Frozen compatibility snapshot for the historical 57-tool Bitwig MCP surface.
+- Real LiteRT-LM/Gemma S25 capture of the exact three-tool runtime request and a strict provider loop bounded to four steps; G1 passed with `gemma4-e2b` on 2026-07-14.
+- Gateway security core with hashed/revocable pairing tokens, quotas, immutable two-minute plans, single-use thirty-second confirmations, and awaited redacted audit.
+- Loopback-only Gateway HTTP API with strict adapter validation, fixed-target previews, explicit confirmation, exactly-once dispatch, and uncertain-outcome status readback.
 
-## Next: Provider And Connected Mode
+## Next: Connected Mode And Bitwig Adapter
 
 Gate order:
 
-1. Capture a real LiteRT-LM `tool_calls` response from the S25 before implementing the provider loop.
-2. Add the loopback Agent Gateway, provider client, pairing, quotas, plan store, policy, and fail-closed audit.
-3. Implement the authenticated browser WebSocket proxy over the existing `BrowserNanoDawPort` contract.
-4. Add explicit connected Agent mode while keeping the browser as the only NanoDAW state owner.
-5. Implement `BitwigAdapter` without breaking the root MCP compatibility path or its 57-tool snapshot.
-6. Authenticate the Bitwig write bridge and add strict bounds, reliable target identity, and note readback.
-7. Route separately confirmed plans to the recorded target with no target or command replacement at execution time.
-8. Run the same accepted SongPatch through two separate laptop-owned flows:
+1. Implement the authenticated browser WebSocket proxy over the existing `BrowserNanoDawPort` contract.
+2. Add explicit connected Agent mode while keeping the browser as the only NanoDAW state owner.
+3. Implement `BitwigAdapter` without breaking the root MCP compatibility path or its 57-tool snapshot.
+4. Authenticate the Bitwig write bridge and add strict bounds, reliable target identity, and note readback.
+5. Route separately confirmed plans to the recorded target with no target or command replacement at execution time.
+6. Run the same accepted SongPatch through two separate laptop-owned flows:
    - Gateway -> S25 Gemma provider -> Gateway -> NanoDAW;
    - Gateway -> S25 Gemma provider -> Gateway -> Bitwig.
 

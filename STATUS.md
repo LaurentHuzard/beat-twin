@@ -18,6 +18,9 @@ git@github.com:LaurentHuzard/beat-twin.git
 - Browser NanoDAW: `apps/playground`
 - Pure runtime packages: `packages/core`, `packages/commands`, `packages/audio-tone`, `packages/daw-contract`, `packages/agent-contract`
 - Transactional NanoDAW adapter: `packages/adapters/nanodaw`
+- LiteRT-LM provider and bounded model loop: `packages/litert-provider`
+- Pairing, plan, confirmation, quota, policy, and audit core: `packages/gateway-core`
+- Loopback-only paired Agent HTTP API: `apps/gateway`
 - Node 22/24 CI and compiled package smoke: `.github/workflows/ci.yml`
 - Offline tests: `tests/*.test.js`
 - Read-only live smoke: `pnpm smoke:read-only`
@@ -43,5 +46,5 @@ disposable project.
 - Runtime behavior depends on Bitwig Studio and local controller-script installation.
 - Write tools can change DAW state and must remain explicitly policy-gated.
 - This is still an experimental integration, not a mature product.
-- The S25 `tool_calls` fixture gate is not yet captured, so no provider loop or Gateway is implemented.
-- The browser WebSocket proxy and authenticated Bitwig write bridge are not implemented.
+- Live Agent runs still depend on S25 network availability; the exact three-tool G1 capture passed with `gemma4-e2b` on 2026-07-14.
+- The authenticated browser WebSocket proxy and Bitwig write bridge are not implemented.

@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "baseUrl": ".",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@beat-twin/agent-contract": ["../agent-contract/dist/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

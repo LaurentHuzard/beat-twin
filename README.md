@@ -11,9 +11,9 @@ Its current repo contains two working musical surfaces:
 - a Bitwig Studio MCP bridge with explicit write-policy gates;
 - a standalone browser NanoDAW built on the canonical Beat Twin song and command models.
 
-The DAW contract, strict agent patch contract, and transactional NanoDAW memory
-adapter are implemented. The local-LLM Gateway, authenticated browser proxy,
-and Bitwig adapter remain gated follow-up work.
+The DAW/agent contracts, transactional NanoDAW memory adapter, LiteRT-LM
+provider, Gateway security core, and loopback HTTP API are implemented. The
+authenticated browser WebSocket proxy and Bitwig adapter remain gated follow-up work.
 
 ## What Works
 
@@ -28,6 +28,9 @@ and Bitwig adapter remain gated follow-up work.
 - A versioned `DawAdapter` contract with fake-adapter conformance tests.
 - Strict `SongPatchV1` validation, deterministic compilation, and mutation-free preview.
 - A `NanoDawAdapter` memory port plus an abstract browser-owned proxy boundary.
+- A real S25 LiteRT-LM capture of the exact three-tool runtime request, plus a strict provider loop bounded to four steps; G1 passed with `gemma4-e2b` on 2026-07-14.
+- A fail-closed Gateway core for hashed pairing tokens, quotas, immutable plans, short-lived single-use confirmations, and redacted audit events.
+- A loopback-only Gateway HTTP API with strict pairing, target-fixed preview/confirmation/execution, and durable uncertain-outcome readback.
 
 ## Architecture
 
@@ -62,7 +65,7 @@ Browser timeline feedback is derived from local song state and does not call Bit
 Browser command palette actions reuse the same local NanoDAW action boundary.
 Browser command drafts parse known local phrases only; they are not an AI chat path.
 
-The planned Agent mode keeps the browser as the only owner of NanoDAW song
+The Agent architecture keeps the browser as the only owner of NanoDAW song
 state and puts Beat Twin on the laptop between the UI, the phone-hosted model,
 and the selected DAW adapter:
 
@@ -83,6 +86,9 @@ bounded `SongPatchV1`. Confirmation and execution are gateway/UI operations;
 they are never model tools. The existing `TOOL_SPECS` registry remains the
 historical 57-tool Bitwig MCP surface, not the portable agent language. See
 [`docs/LOCAL-LLM-TOOL-ORCHESTRATION.md`](docs/LOCAL-LLM-TOOL-ORCHESTRATION.md).
+
+The provider, security core, and loopback HTTP API are implemented; the
+authenticated WebSocket session proxy and browser connected-mode wiring remain follow-up work.
 
 ## Requirements
 

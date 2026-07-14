@@ -1,9 +1,17 @@
-import type {
+import {
+  validateCommandSnapshot,
+  type CommandSnapshot,
+  type ExecutableBeatTwinCommand,
+} from "@beat-twin/commands";
+
+/*
+ * Re-export the portable command types without duplicating their runtime
+ * validation in this contract layer.
+ */
+export type {
   CommandSnapshot,
   ExecutableBeatTwinCommand,
 } from "@beat-twin/commands";
-
-export type { CommandSnapshot, ExecutableBeatTwinCommand };
 
 export type DawAdapterId = "nanodaw" | "bitwig";
 
@@ -59,7 +67,7 @@ export type ExecutablePlan = {
   readonly expiresAt: string;
 };
 
-export type CommandExecutionStatus = "succeeded" | "failed" | "not_attempted";
+export type CommandExecutionStatus = "succeeded" | "failed" | "not_attempted" | "unknown";
 
 export type CommandExecutionResult = {
   readonly index: number;
@@ -123,6 +131,7 @@ const COMMAND_STATUSES = new Set<CommandExecutionStatus>([
   "succeeded",
   "failed",
   "not_attempted",
+  "unknown",
 ]);
 const COMMAND_TYPES = new Set<ExecutableCommandType>([
   "CreateSong",
@@ -143,6 +152,9 @@ const COMMAND_TYPES = new Set<ExecutableCommandType>([
 export function validateDawHealth(value: unknown, adapterId?: DawAdapterId): ValidationResult {
   if (!isRecord(value) || !isAdapterId(value.adapterId)) {
     return invalid("health.adapterId must be nanodaw or bitwig");
+  }
+  if (!hasExactKeys(value, ["adapterId", "status", "checkedAt"], ["detail"])) {
+    return invalid("health contains unknown or missing fields");
   }
   if (adapterId && value.adapterId !== adapterId) {
     return invalid(`health.adapterId must be ${adapterId}`);
@@ -165,6 +177,15 @@ export function validateDawCapabilities(
 ): ValidationResult {
   if (!isRecord(value) || !isAdapterId(value.adapterId)) {
     return invalid("capabilities.adapterId must be nanodaw or bitwig");
+  }
+  if (!hasExactKeys(value, [
+    "adapterId",
+    "capabilityVersion",
+    "supportedCommands",
+    "scopes",
+    "limitations",
+  ])) {
+    return invalid("capabilities contains unknown or missing fields");
   }
   if (adapterId && value.adapterId !== adapterId) {
     return invalid(`capabilities.adapterId must be ${adapterId}`);
@@ -195,6 +216,9 @@ export function validateDawSnapshot(
   if (!isRecord(value) || !isAdapterId(value.adapterId)) {
     return invalid("snapshot.adapterId must be nanodaw or bitwig");
   }
+  if (!hasExactKeys(value, ["adapterId", "capabilityVersion", "observedAt", "commandSnapshot"])) {
+    return invalid("snapshot contains unknown or missing fields");
+  }
   if (adapterId && value.adapterId !== adapterId) {
     return invalid(`snapshot.adapterId must be ${adapterId}`);
   }
@@ -207,14 +231,8 @@ export function validateDawSnapshot(
   if (!isIsoDate(value.observedAt)) {
     return invalid("snapshot.observedAt must be an ISO date");
   }
-  if (!isRecord(value.commandSnapshot)) {
-    return invalid("snapshot.commandSnapshot must be an object");
-  }
-  if (!isRevision(value.commandSnapshot.revision)) {
-    return invalid("snapshot.commandSnapshot.revision must be a non-negative integer");
-  }
-  if (value.commandSnapshot.song !== null && !isRecord(value.commandSnapshot.song)) {
-    return invalid("snapshot.commandSnapshot.song must be an object or null");
+  if (!validateCommandSnapshot(value.commandSnapshot)) {
+    return invalid("snapshot.commandSnapshot must be a strict CommandSnapshot");
   }
   return VALID;
 }
@@ -318,6 +336,21 @@ export function validateExecutionReport(
   if (!isRecord(value) || typeof value.ok !== "boolean") {
     return invalid("execution report must be an object with an ok flag");
   }
+  const reportKeys = [
+    "ok",
+    "status",
+    "adapterId",
+    "planId",
+    "requestId",
+    "baseRevision",
+    "finalSnapshot",
+    "startedAt",
+    "completedAt",
+    "results",
+  ];
+  if (!hasExactKeys(value, value.ok ? reportKeys : [...reportKeys, "error"])) {
+    return invalid("execution report contains unknown or missing fields");
+  }
   if (
     value.adapterId !== plan.adapterId ||
     value.planId !== plan.planId ||
@@ -329,22 +362,33 @@ export function validateExecutionReport(
   if (!isIsoDate(value.startedAt) || !isIsoDate(value.completedAt)) {
     return invalid("execution report timestamps must be ISO dates");
   }
-  if (!isRecord(value.finalSnapshot) || !isRevision(value.finalSnapshot.revision)) {
+  if (Date.parse(value.completedAt) < Date.parse(value.startedAt)) {
+    return invalid("execution report completedAt cannot precede startedAt");
+  }
+  if (!validateCommandSnapshot(value.finalSnapshot)) {
     return invalid("execution report finalSnapshot is invalid");
   }
   if (!Array.isArray(value.results) || value.results.length !== plan.commands.length) {
     return invalid("execution report must contain one result per plan command");
   }
   for (const [index, item] of value.results.entries()) {
-    if (
-      !isRecord(item) ||
-      item.index !== index ||
-      stableJson(item.command) !== stableJson(plan.commands[index])
-    ) {
+    if (!isRecord(item) || item.index !== index) {
       return invalid(`execution result ${index} does not match its plan command`);
     }
     if (typeof item.status !== "string" || !COMMAND_STATUSES.has(item.status as CommandExecutionStatus)) {
       return invalid(`execution result ${index} has an invalid status`);
+    }
+    if (!hasExactKeys(
+      item,
+      item.status === "succeeded"
+        ? ["index", "command", "status"]
+        : ["index", "command", "status", "error"],
+    )) {
+      return invalid(`execution result ${index} contains unknown or missing fields`);
+    }
+    const commandValidation = validateExecutableCommand(item.command, index);
+    if (!commandValidation.ok || stableJson(item.command) !== stableJson(plan.commands[index])) {
+      return invalid(`execution result ${index} does not match its plan command`);
     }
     if (item.status === "succeeded" && item.error !== undefined) {
       return invalid(`successful execution result ${index} cannot contain an error`);
@@ -360,6 +404,9 @@ export function validateExecutionReport(
     if (value.error !== undefined) {
       return invalid("successful execution report cannot contain an error");
     }
+    if (value.finalSnapshot.revision !== plan.baseRevision + 1) {
+      return invalid("successful execution report must advance revision exactly once");
+    }
   } else {
     if ((value.status !== "failed" && value.status !== "partial") || !isDawError(value.error)) {
       return invalid("failed execution report must contain a stable error");
@@ -367,9 +414,36 @@ export function validateExecutionReport(
     if (value.status === "failed" && value.results.some((item) => item.status === "succeeded")) {
       return invalid("failed execution report cannot contain successful commands; use partial");
     }
+    if (value.status === "failed" && value.results.some((item) => item.status === "unknown")) {
+      return invalid("failed execution report cannot hide unknown command outcomes; use partial");
+    }
     if (value.status === "partial" && value.error.code !== "partial_execution") {
       return invalid("partial execution report must use partial_execution");
     }
+    if (
+      value.status === "partial" &&
+      (
+        !value.results.some((item) => item.status === "unknown") &&
+        (
+          !value.results.some((item) => item.status === "succeeded") ||
+          !value.results.some((item) => item.status !== "succeeded")
+        )
+      )
+    ) {
+      return invalid("partial execution report must mix known outcomes or mark outcomes unknown");
+    }
+  }
+  return VALID;
+}
+
+/** Strictly validates the portable command batch before it crosses an adapter boundary. */
+export function validateExecutableCommands(value: unknown): ValidationResult {
+  if (!Array.isArray(value) || value.length === 0) {
+    return invalid("commands must be a non-empty array");
+  }
+  for (const [index, command] of value.entries()) {
+    const validation = validateExecutableCommand(command, index);
+    if (!validation.ok) return validation;
   }
   return VALID;
 }
@@ -584,6 +658,7 @@ function isAdapterId(value: unknown): value is DawAdapterId {
 function isDawError(value: unknown): value is DawError {
   return (
     isRecord(value) &&
+    hasExactKeys(value, ["code", "message"], ["commandIndex"]) &&
     typeof value.code === "string" &&
     ERROR_CODES.has(value.code as DawErrorCode) &&
     isNonEmptyString(value.message) &&
@@ -601,7 +676,21 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.getPrototypeOf(value) === Object.prototype;
+}
+
+function hasExactKeys(
+  value: Record<string, unknown>,
+  required: readonly string[],
+  optional: readonly string[] = [],
+): boolean {
+  const keys = Object.keys(value);
+  const allowed = new Set([...required, ...optional]);
+  return required.every((key) => Object.hasOwn(value, key)) &&
+    keys.every((key) => allowed.has(key));
 }
 
 function isRevision(value: unknown): value is number {

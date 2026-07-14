@@ -6,6 +6,7 @@ import {
   createNote,
   createSong,
   createTrack,
+  deserializeSong,
   duplicateClip,
   quantizeClip,
   removeNote,
@@ -286,6 +287,18 @@ export function createCommandState(song: Song | null = null, revision = 0): Comm
 
 export function snapshotCommandState(state: CommandState): CommandSnapshot {
   return Object.freeze({ song: state.song, revision: state.revision });
+}
+
+/** Validates an untrusted snapshot and its full song graph without normalization. */
+export function validateCommandSnapshot(value: unknown): value is CommandSnapshot {
+  if (!isPlainRecord(value) || !hasExactKeys(value, ["song", "revision"])) return false;
+  if (!Number.isInteger(value.revision) || (value.revision as number) < 0) return false;
+  if (value.song === null) return true;
+  try {
+    return deepExact(value.song, deserializeSong(value.song));
+  } catch {
+    return false;
+  }
 }
 
 export function restoreCommandState(state: CommandState, revision: number): CommandState {
@@ -967,4 +980,35 @@ function freezeState(state: CommandState): CommandState {
     selection: state.selection ? Object.freeze({ ...state.selection }) : null,
     log: Object.freeze([...state.log]),
   }) as CommandState;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.getPrototypeOf(value) === Object.prototype;
+}
+
+function hasExactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
+  const actual = Object.keys(value).sort();
+  const sortedExpected = [...expected].sort();
+  return actual.length === sortedExpected.length &&
+    actual.every((key, index) => key === sortedExpected[index]);
+}
+
+function deepExact(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => deepExact(value, right[index]));
+  }
+  if (!isPlainRecord(left) || !isPlainRecord(right)) return false;
+  const leftKeys = Object.keys(left).sort();
+  const rightKeys = Object.keys(right).sort();
+  return leftKeys.length === rightKeys.length &&
+    leftKeys.every((key, index) =>
+      key === rightKeys[index] && deepExact(left[key], right[key]),
+    );
 }

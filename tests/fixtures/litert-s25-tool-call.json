@@ -1,0 +1,187 @@
+{
+  "capturedAt": "2026-07-14T10:13:11.859Z",
+  "serverOrigin": "http://s25.local:9379",
+  "serverOriginRedacted": true,
+  "model": "gemma4-e2b",
+  "requestProfile": "litert-provider-three-tools-v1",
+  "request": {
+    "model": "gemma4-e2b",
+    "temperature": 0,
+    "messages": [
+      {
+        "role": "system",
+        "content": "Inspect DAW sessions when useful, then propose exactly one strict SongPatchV1. Never confirm or execute a plan."
+      },
+      {
+        "role": "user",
+        "content": "Propose one instrument track with a one-beat quantized clip and one MIDI note at 120 BPM."
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "list_daw_targets",
+          "description": "List DAW targets available to inspect. This never mutates a DAW.",
+          "parameters": {
+            "type": "object",
+            "properties": {}
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "inspect_session",
+          "description": "Inspect one DAW session without mutating it.",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "dawId"
+            ],
+            "properties": {
+              "dawId": {
+                "type": "string",
+                "enum": [
+                  "nanodaw",
+                  "bitwig"
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "propose_song_patch",
+          "description": "Propose a strict SongPatchV1. This never confirms or executes a plan.",
+          "parameters": {
+            "type": "object",
+            "required": [
+              "schemaVersion",
+              "track"
+            ],
+            "properties": {
+              "schemaVersion": {
+                "type": "number",
+                "enum": [
+                  1
+                ]
+              },
+              "tempoBpm": {
+                "type": "number",
+                "minimum": 40,
+                "maximum": 240
+              },
+              "track": {
+                "type": "object",
+                "required": [
+                  "kind",
+                  "name",
+                  "clip"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "instrument"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "clip": {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "lengthBeats",
+                      "notes"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "lengthBeats": {
+                        "type": "number",
+                        "minimum": 1,
+                        "maximum": 16
+                      },
+                      "notes": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 16,
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "pitch",
+                            "velocity",
+                            "startBeat",
+                            "lengthBeats"
+                          ],
+                          "properties": {
+                            "pitch": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 127
+                            },
+                            "velocity": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 127
+                            },
+                            "startBeat": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 16
+                            },
+                            "lengthBeats": {
+                              "type": "number",
+                              "minimum": 0.25,
+                              "maximum": 16
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "tool_choice": "auto"
+  },
+  "response": {
+    "id": "chatcmpl_20260714101301188301",
+    "object": "chat.completion",
+    "created": 1784023981,
+    "model": "gemma4-e2b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_20260714101301188301_0",
+              "type": "function",
+              "function": {
+                "name": "propose_song_patch",
+                "arguments": "{\"schemaVersion\": 1.0, \"tempoBpm\": 120.0, \"track\": {\"clip\": {\"lengthBeats\": 1.0, \"name\": \"OneBeatClip\", \"notes\": [{\"lengthBeats\": 1.0, \"pitch\": 60.0, \"startBeat\": 0.0, \"velocity\": 100.0}]}, \"kind\": \"instrument\", \"name\": \"SimpleSynth\"}}"
+              }
+            }
+          ]
+        },
+        "finish_reason": "tool_calls"
+      }
+    ]
+  }
+}

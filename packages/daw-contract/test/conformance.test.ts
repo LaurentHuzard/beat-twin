@@ -12,6 +12,7 @@ import {
   preflightExecutablePlan,
   runDawAdapterConformance,
   validateDawCapabilities,
+  validateExecutableCommands,
   validateExecutionReport,
   type CommandExecutionResult,
   type DawAdapter,
@@ -249,6 +250,46 @@ test("capability and execution-report validators fail closed", async () => {
     validateExecutionReport({ ...report, results: [] }, plan).ok,
     false,
   );
+  assert.equal(
+    validateExecutionReport({ ...report, rogue: 1n }, plan).ok,
+    false,
+  );
+  assert.equal(
+    validateExecutionReport({
+      ...report,
+      results: report.results.map((item) => ({ ...item, rogue: true })),
+    }, plan).ok,
+    false,
+  );
+  assert.equal(
+    validateExecutionReport({
+      ...report,
+      finalSnapshot: { song: report.finalSnapshot.song, revision: plan.baseRevision },
+    }, plan).ok,
+    false,
+  );
+  assert.equal(
+    validateExecutionReport({
+      ...report,
+      finalSnapshot: { revision: plan.baseRevision + 1 },
+    }, plan).ok,
+    false,
+  );
+  assert.equal(
+    validateExecutionReport({
+      ...report,
+      finalSnapshot: { song: {}, revision: plan.baseRevision + 1 },
+    }, plan).ok,
+    false,
+  );
+  assert.equal(
+    validateExecutionReport({
+      ...report,
+      startedAt: "2026-07-10T05:00:02.000Z",
+      completedAt: "2026-07-10T05:00:01.000Z",
+    }, plan).ok,
+    false,
+  );
 
   const invalidCommand = createPlan(snapshot, {
     commands: Object.freeze([{ type: "SetTempo" } as never]),
@@ -275,4 +316,17 @@ test("capability and execution-report validators fail closed", async () => {
     ),
   };
   assert.equal(validateExecutionReport(hiddenPartial, plan).ok, false);
+
+  const onlySuccessfulPartial = {
+    ...report,
+    ok: false,
+    status: "partial",
+    error: { code: "partial_execution", message: "not actually partial" },
+  };
+  assert.equal(validateExecutionReport(onlySuccessfulPartial, plan).ok, false);
+
+  assert.equal(validateExecutableCommands([]).ok, false);
+  assert.equal(validateExecutableCommands([{ foo: "bar" }]).ok, false);
+  assert.equal(validateExecutableCommands([{ type: "SetTempo", bpm: 120 }]).ok, true);
+  assert.equal(validateExecutableCommands([{ type: "SetTempo" }]).ok, false);
 });
