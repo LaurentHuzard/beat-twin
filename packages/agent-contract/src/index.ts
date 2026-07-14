@@ -168,6 +168,53 @@ export const SONG_PATCH_V1_JSON_SCHEMA = deepFreeze({
 } as const);
 
 /**
+ * Provider-compatible projection of SongPatchV1 for LiteRT-LM tool calling.
+ *
+ * This deliberately omits JSON Schema keywords that the observed S25 server
+ * does not accept. It is only a model hint: validateSongPatchV1 remains the
+ * strict runtime boundary for every returned tool-call payload.
+ */
+export const SONG_PATCH_V1_TOOL_SCHEMA = deepFreeze({
+  type: "object",
+  required: ["schemaVersion", "track"],
+  properties: {
+    schemaVersion: { type: "number", enum: [SONG_PATCH_SCHEMA_VERSION] },
+    tempoBpm: { type: "number", minimum: 40, maximum: 240 },
+    track: {
+      type: "object",
+      required: ["kind", "name", "clip"],
+      properties: {
+        kind: { type: "string", enum: ["instrument"] },
+        name: { type: "string", minLength: 1, maxLength: 64 },
+        clip: {
+          type: "object",
+          required: ["name", "lengthBeats", "notes"],
+          properties: {
+            name: { type: "string", minLength: 1, maxLength: 64 },
+            lengthBeats: { type: "number", minimum: 1, maximum: 16 },
+            notes: {
+              type: "array",
+              minItems: 1,
+              maxItems: 16,
+              items: {
+                type: "object",
+                required: ["pitch", "velocity", "startBeat", "lengthBeats"],
+                properties: {
+                  pitch: { type: "integer", minimum: 0, maximum: 127 },
+                  velocity: { type: "integer", minimum: 1, maximum: 127 },
+                  startBeat: { type: "number", minimum: 0, maximum: 16 },
+                  lengthBeats: { type: "number", minimum: 0.25, maximum: 16 },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const);
+
+/**
  * Parses an untrusted model/tool payload. Unknown fields are rejected at every
  * nesting level and a detached, deeply frozen value is returned on success.
  */

@@ -18,6 +18,8 @@ same deterministic command path over a pure song model.
 - Short read-only smoke command for live TCP/session diagnostics.
 - Pure packages under `packages/core`, `packages/commands`, `packages/audio-tone`, `packages/daw-contract`, and `packages/agent-contract`.
 - Transactional NanoDAW memory adapter and browser-proxy contract under `packages/adapters/nanodaw`.
+- Strict LiteRT-LM provider under `packages/litert-provider` and fail-closed security core under `packages/gateway-core`.
+- Loopback-only Agent HTTP API under `apps/gateway`, including durable readback for uncertain post-dispatch outcomes.
 - Browser NanoDAW under `apps/playground` for now; the repo path stays stable while the product name shifts.
 - Copyright-safe Bitwig API placeholder note under `bitwig-api-docs/`.
 
@@ -34,14 +36,15 @@ same deterministic command path over a pure song model.
   command palette actions, and deterministic command drafts.
 - Command batches are atomic, revisioned, fully materialized before execution, and idempotent by request payload.
 - `SongPatchV1` validates and previews the first portable one-track/one-clip agent proposal without mutation.
+- A real S25 capture proves the exact three-tool OpenAI-style request and a strictly valid `propose_song_patch` response with `gemma4-e2b`.
 
 ## Current Risk
 
 - This is still a proof of concept, not a hardened creative production tool.
 - Live verification requires Bitwig Studio and a local controller installation.
 - Tool exposure must stay conservative because DAW control can quickly become too broad for agents.
-- The NanoDAW has a tested memory adapter contract, but connected browser mode,
-  the Gateway, and the real S25 provider remain gated work.
+- The NanoDAW has a tested memory adapter contract, but connected browser mode
+  and the authenticated Bitwig adapter remain gated work.
 
 ## Direction
 

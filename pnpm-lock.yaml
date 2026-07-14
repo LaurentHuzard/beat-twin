@@ -24,6 +24,21 @@ importers:
         specifier: ^5.9.0
         version: 5.9.3
 
+  apps/gateway:
+    dependencies:
+      '@beat-twin/agent-contract':
+        specifier: workspace:*
+        version: link:../../packages/agent-contract
+      '@beat-twin/daw-contract':
+        specifier: workspace:*
+        version: link:../../packages/daw-contract
+      '@beat-twin/gateway-core':
+        specifier: workspace:*
+        version: link:../../packages/gateway-core
+      '@beat-twin/litert-provider':
+        specifier: workspace:*
+        version: link:../../packages/litert-provider
+
   apps/playground:
     dependencies:
       '@beat-twin/audio-tone':
@@ -120,6 +135,22 @@ importers:
       '@beat-twin/commands':
         specifier: workspace:*
         version: link:../commands
+
+  packages/gateway-core:
+    dependencies:
+      '@beat-twin/daw-contract':
+        specifier: workspace:*
+        version: link:../daw-contract
+
+  packages/litert-provider:
+    dependencies:
+      '@beat-twin/agent-contract':
+        specifier: workspace:*
+        version: link:../agent-contract
+    devDependencies:
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
 
 packages:
 

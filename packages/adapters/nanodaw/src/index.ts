@@ -394,7 +394,7 @@ function uncertainReport(
     completedAt,
     results: Object.freeze(
       plan.commands.map((command, index) =>
-        Object.freeze({ index, command, status: "failed" as const, error }),
+        Object.freeze({ index, command, status: "unknown" as const, error }),
       ),
     ),
     error,

@@ -294,6 +294,7 @@ test("a post-dispatch proxy failure is reported as uncertain and never retried",
   const report = await adapter.execute(plan);
   assert.equal(report.ok, false);
   assert.equal(report.status, "partial");
+  assert.ok(report.results.every((result) => result.status === "unknown"));
   assert.equal(report.ok ? null : report.error.code, "partial_execution");
   assert.equal(validateExecutionReport(report, plan).ok, true);
   assert.equal(await adapter.execute(plan), report);
@@ -346,6 +347,7 @@ test("never turns a forged successful port response into adapter success", async
   const report = await adapter.execute(plan);
   assert.equal(report.ok, false);
   assert.equal(report.status, "partial");
+  assert.ok(report.results.every((result) => result.status === "unknown"));
   assert.equal(report.ok ? null : report.error.code, "partial_execution");
 });
 
@@ -380,6 +382,7 @@ test("never trusts a forged failed-batch snapshot", async () => {
   const report = await adapter.execute(plan);
   assert.equal(report.ok, false);
   assert.equal(report.status, "partial");
+  assert.ok(report.results.every((result) => result.status === "unknown"));
   assert.deepEqual(report.finalSnapshot, initial);
   assert.equal(report.ok ? null : report.error.code, "partial_execution");
 });
