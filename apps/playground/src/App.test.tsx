@@ -203,6 +203,7 @@ describe("Playground", () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    const durableStateBeforePreview = usePlaygroundStore.getState();
     fireEvent.click(screen.getByRole("button", { name: /play preview/i }));
 
     await waitFor(() => expect(engine.play).toHaveBeenCalledTimes(1));
@@ -216,11 +217,19 @@ describe("Playground", () => {
       }),
     );
     expect(screen.getByText("Auditioning Kick Ladder")).toBeInTheDocument();
+    expect(usePlaygroundStore.getState().commandState.song?.transport.isPlaying).toBe(false);
+    expect(usePlaygroundStore.getState().undoStack).toHaveLength(
+      durableStateBeforePreview.undoStack.length,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /stop preview/i }));
 
     await waitFor(() => expect(engine.stop).toHaveBeenCalledTimes(1));
     expect(screen.getByText("Preview idle")).toBeInTheDocument();
+    expect(usePlaygroundStore.getState().commandState.song?.transport.isPlaying).toBe(false);
+    expect(usePlaygroundStore.getState().undoStack).toHaveLength(
+      durableStateBeforePreview.undoStack.length,
+    );
   });
 
   it("reports preview engine failures without touching Web Audio", async () => {

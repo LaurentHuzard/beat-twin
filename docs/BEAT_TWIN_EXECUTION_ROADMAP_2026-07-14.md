@@ -12,6 +12,12 @@ This Linear-style roadmap separates three concerns that must not be conflated:
 `.agents/queue.md` is the short execution view. This document owns detailed
 scope, dependencies, and acceptance criteria.
 
+The launcher-first reflection remains an exploration. The Council decision in
+[`NANODAW_LIVE_COUNCIL_DECISION_2026-07-14.md`](NANODAW_LIVE_COUNCIL_DECISION_2026-07-14.md)
+requires the standalone evidence gate before a shared-clock comparison between
+the Session Deck and Mutation Instrument. No persistent scene/slot model,
+recording, macro, or capture architecture is authorized by that spike.
+
 ## Conventions
 
 - Priority: `P0` protects the standalone or diagnostic baseline, `P1` unlocks
@@ -50,8 +56,11 @@ Acceptance:
 
 - Priority: P0
 - Size: M
-- Status: Ready
+- Status: Done
 - Depends on: BT-201
+- Evidence: 116 root tests, 22 NanoDAW tests, typecheck, and the eight-package
+  smoke passed locally on 2026-07-14. Node 26 emitted an engine warning because
+  the supported matrix remains Node 22/24.
 
 Checks:
 
@@ -72,7 +81,7 @@ Acceptance:
 
 - Priority: P0
 - Size: M
-- Status: Ready
+- Status: Done
 - Depends on: BT-202
 
 Target flow:
@@ -90,11 +99,18 @@ Acceptance:
   interaction, desktop screenshot, and mobile screenshot are captured;
 - the app does not stall on an unavailable external dependency.
 
+Evidence (2026-07-14): Chromium loaded `Beat Twin Playground`, rendered the
+timeline and inspector, and completed a visible note edit. Console finished at
+0 errors and 0 warnings after adding an inline favicon. Desktop 1440 x 1000 and
+mobile 390 x 844 were inspected; the mobile body width stayed at 390 px. All 48
+captured requests were successful and limited to `127.0.0.1` or a local `blob:`
+URL. No Bitwig, MCP, gateway, S25, or cloud target was started or contacted.
+
 ### BT-204 - Prove the standalone musical loop
 
 - Priority: P0
 - Size: L
-- Status: Ready
+- Status: Done
 - Depends on: BT-203
 
 Scope:
@@ -111,6 +127,13 @@ Acceptance:
 - undo/redo restore deterministic document revisions;
 - audition failure, including browser autoplay restrictions, is explained;
 - no external DAW receives a command.
+
+Evidence (2026-07-14): the real-browser flow produced pitch `37`, undo restored
+`36`, redo restored `37`, and save/reload/load restored `37`. Tone.js audition
+started from an explicit click. Preview transport was removed from persistent
+command history after the gate exposed a mismatch between stopped audio and a
+serialized `transport.isPlaying: true`; the persisted value now remains `false`.
+The focused NanoDAW suite remains 22/22 and typecheck passes.
 
 ### BT-205 - Make runtime mode explicit
 

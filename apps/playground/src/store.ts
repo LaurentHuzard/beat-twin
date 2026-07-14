@@ -747,12 +747,10 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
         detail: `${audition.trackName} - ${audition.bpm} BPM`,
       },
     });
-    get().dispatch({ type: "StartPlayback", positionBeats: 0 });
 
     try {
       await previewAudioEngine.play(audition);
     } catch (error) {
-      get().dispatch({ type: "StopPlayback" });
       set({
         preview: {
           phase: "error",
@@ -777,7 +775,6 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       return;
     }
 
-    get().dispatch({ type: "StopPlayback" });
     set({ preview: idlePreviewState });
   },
 

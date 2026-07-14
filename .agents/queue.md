@@ -18,10 +18,22 @@ Statuses: `Ready`, `In progress`, `Blocked`, `Done`, `Parked`.
 | Order | ID | Task | Priority | Size | Status | Depends on |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | BT-201 | Create the isolated NanoDAW development worktree from `main` | P0 | S | Done | - |
-| 2 | BT-202 | Prove the offline package, typecheck, and NanoDAW test baseline | P0 | M | Ready | BT-201 |
-| 3 | BT-203 | Run a real-browser NanoDAW smoke without Bitwig, MCP, gateway, or S25 | P0 | M | Ready | BT-202 |
-| 4 | BT-204 | Prove edit, audition, save/load, undo/redo, and reload persistence in standalone mode | P0 | L | Ready | BT-203 |
+| 2 | BT-202 | Prove the offline package, typecheck, and NanoDAW test baseline | P0 | M | Done | BT-201 |
+| 3 | BT-203 | Run a real-browser NanoDAW smoke without Bitwig, MCP, gateway, or S25 | P0 | M | Done | BT-202 |
+| 4 | BT-204 | Prove edit, audition, save/load, undo/redo, and reload persistence in standalone mode | P0 | L | Done | BT-203 |
 | 5 | BT-205 | Make Standalone mode and unavailable external targets explicit in the UI | P1 | M | Ready | BT-203 |
+
+## Evidence Quest - Two Costumes, One Clock
+
+These are spike steps, not committed product backlog. They activate only after
+BT-204 proves the current standalone loop.
+
+| Step | Evidence question | Status | Depends on |
+| --- | --- | --- | --- |
+| Q1-A | Can one headless clock and transition ledger express intent, target beat, execution, failure, cancellation, and independent stop? | In progress | BT-204 |
+| Q1-B | Does a disposable two-track Session Deck make the next gesture obvious? | Blocked | Q1-A |
+| Q1-C | Does a disposable two-track Mutation Instrument create clearer musical momentum? | Blocked | Q1-A |
+| Q1-D | Which costume is promoted, paused, or killed after one shared performance scenario? | Blocked | Q1-B, Q1-C |
 
 ## Next - Honest Bitwig Dependency Health
 
