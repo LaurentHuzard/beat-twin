@@ -1,5 +1,9 @@
 # Beat Twin Roadmap
 
+The current ticket-level execution plan is maintained in
+[`docs/BEAT_TWIN_EXECUTION_ROADMAP_2026-07-14.md`](docs/BEAT_TWIN_EXECUTION_ROADMAP_2026-07-14.md),
+with the short operational queue in [`.agents/queue.md`](.agents/queue.md).
+
 ## Product Direction
 
 Beat Twin is a DAW-agnostic orchestration layer:
