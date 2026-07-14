@@ -8,6 +8,9 @@ This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
 `docs/BEAT_TWIN_EXECUTION_ROADMAP_2026-07-14.md`.
 
+Armada launch prompt:
+`.agents/prompts/ARMADA_BEAT_TWIN_NANODAW_ROADMAP_2026-07-14.md`.
+
 Statuses: `Ready`, `In progress`, `Blocked`, `Done`, `Parked`.
 
 ## Today - Standalone NanoDAW
