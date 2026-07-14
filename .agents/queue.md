@@ -35,7 +35,7 @@ Statuses: `Ready`, `In progress`, `Blocked`, `Done`, `Parked`.
 
 | ID | Task | Priority | Size | Status | Depends on |
 | --- | --- | --- | --- | --- | --- |
-| BT-209 | Capture the exact three-tool payload against the live S25 | P1 | M | Blocked | Live S25 reachable |
+| BT-209 | Capture the exact three-tool payload against the live S25 | P1 | M | Done | - |
 | BT-210 | Implement the authenticated browser WebSocket proxy over `BrowserNanoDawPort` | P1 | L | Ready | BT-204 |
 | BT-211 | Add explicit connected Agent mode while preserving browser-owned state | P1 | L | Blocked | BT-210, BT-209 |
 | BT-212 | Implement the authenticated bounded `BitwigAdapter` | P1 | XL | Blocked | BT-207, BT-211 |

@@ -210,15 +210,17 @@ confirmation.
 
 - Priority: P1
 - Size: M
-- Status: Blocked
-- Blocker: live S25 endpoint must be reachable
+- Status: Done
+- Evidence: G1 passed with `gemma4-e2b` on 2026-07-14; the sanitized exact
+  three-tool capture is tracked in `tests/fixtures/litert-s25-tool-call.json`.
 
 Acceptance:
 
 - the exact `list_daw_targets`, `inspect_session`, and `propose_song_patch`
   payload is captured from the real provider;
 - schema, tool-call parsing, and bounded loop fixtures are frozen from evidence;
-- the release gate remains fail-closed until the capture succeeds.
+- the release gate remains fail-closed if the model, tool projection, or
+  LiteRT-LM wire shape changes without a fresh capture.
 
 ### BT-210 - Implement `BrowserNanoDawPort` WebSocket proxy
 
