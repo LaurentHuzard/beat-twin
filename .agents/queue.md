@@ -30,9 +30,9 @@ BT-204 proves the current standalone loop.
 
 | Step | Evidence question | Status | Depends on |
 | --- | --- | --- | --- |
-| Q1-A | Can one headless clock and transition ledger express intent, target beat, execution, failure, cancellation, and independent stop? | In progress | BT-204 |
-| Q1-B | Does a disposable two-track Session Deck make the next gesture obvious? | Blocked | Q1-A |
-| Q1-C | Does a disposable two-track Mutation Instrument create clearer musical momentum? | Blocked | Q1-A |
+| Q1-A | Can one headless clock and transition ledger express intent, target beat, execution, failure, cancellation, and independent stop? | Done | BT-204 |
+| Q1-B | Does a disposable two-track Session Deck make the next gesture obvious? | In progress | Q1-A |
+| Q1-C | Does a disposable two-track Mutation Instrument create clearer musical momentum? | Ready | Q1-A |
 | Q1-D | Which costume is promoted, paused, or killed after one shared performance scenario? | Blocked | Q1-B, Q1-C |
 
 ## Next - Honest Bitwig Dependency Health

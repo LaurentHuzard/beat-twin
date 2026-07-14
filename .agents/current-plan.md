@@ -2,60 +2,61 @@
 
 ## Loop
 
-Q1-A — shared headless clock and transition contract for the live-interaction
-comparison quest.
+Q1-B and Q1-C — two disposable interaction costumes over the validated Q1-A
+clock and transition contract.
 
 ## Target Outcome
 
-Prove that one launcher-neutral kernel can resolve player intent to a concrete
-next-bar beat, track one pending transition per track, distinguish planned from
-observed state, and stop one track without stopping the shared clock.
+Run the same two-track performance scenario through a minimal Session Deck and
+a minimal Mutation Instrument, with identical timing, voices, and approximate
+musical material, then capture evidence without finishing either product.
 
 ## Product Contract
 
-- The kernel is ephemeral and must not mutate the persistent `Song` schema.
-- Clock position is derived rather than stored as ordinary reducer state.
-- Every transition has one identity, one exact target beat, and one lifecycle.
-- Engine observation alone may claim an active audible source.
-- Replacing a pending request cancels the prior transition explicitly.
-- The contract must remain neutral enough for both launch and mutation actions.
+- Both prototypes consume the same `liveSession` API.
+- Two tracks, fixed BPM, fixed 4/4, and next-bar quantization only.
+- Session Deck: two prepared sources per track; start, replace, cancel, stop.
+- Mutation Instrument: one anchor per track; transpose, rotate, restore, cancel,
+  stop.
+- Identical voices and comparable musical material prevent sound-quality bias.
+- No prototype state enters `Song`, persistence, undo, or redo.
 
 ## Files To Create Or Modify
 
 - `.agents/current-plan.md`
 - `.agents/queue.md`
-- `docs/live-contract.md`
-- one pure TypeScript transition module at the current audio/session boundary
-- headless tests for boundary resolution, replacement, cancellation, execution,
-  failure, and independent stop
+- one deliberately isolated comparison component and styles
+- focused interaction tests for both costumes
+- a real-browser comparison capture for each costume
+- one decision report promoting, pausing, or killing each path
 
 ## Commands To Run
 
 ```bash
-pnpm test
+pnpm nanodaw:test
 pnpm typecheck
+pnpm nanodaw:dev
 git diff --check
 git status --short --branch
 ```
 
 ## Validation Steps
 
-- resolve any request strictly to the next 4/4 bar;
-- replace or cancel one pending request per track deterministically;
-- execute two tracks at the same boundary without conflating their observations;
-- fail one transition without falsely claiming active audio;
-- stop one track while another remains observed active and the clock remains free;
-- keep launcher and mutation payloads outside the persistent song document.
+- start both tracks;
+- queue two changes for one shared next-bar boundary;
+- replace or cancel one pending request;
+- execute and distinguish pending from observed state;
+- stop one track while the other and the clock continue;
+- return to a known musical state without opening the detailed editor.
 
 ## Evidence Boundary
 
-- Pure tests prove transition semantics, not audible timing or musical joy.
-- The first engine adapter may still report late execution in a later slice.
-- No persistent slot, scene, recording, macro, or capture model is introduced.
+- Browser automation proves clarity and deterministic state changes, not desire.
+- Human listening remains the final preference signal.
+- No scenes, slots, recording, macros, capture, or production mobile campaign.
 
 ## Exit Condition
 
-- the contract and tests cover the shared Council scenario at the state-machine
-  level;
-- Q1-B and Q1-C can consume the same public API without changing `Song`;
-- no disposable interface is polished beyond what the comparison requires.
+- both costumes complete the shared scenario in tests and a real browser;
+- one meaningful preference, rejection, or exact unresolved question is written;
+- the shared kernel stays, while neither skin becomes persistent product schema.
