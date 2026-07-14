@@ -28,7 +28,7 @@ authenticated browser WebSocket proxy and Bitwig adapter remain gated follow-up 
 - A versioned `DawAdapter` contract with fake-adapter conformance tests.
 - Strict `SongPatchV1` validation, deterministic compilation, and mutation-free preview.
 - A `NanoDawAdapter` memory port plus an abstract browser-owned proxy boundary.
-- A real S25 LiteRT-LM `tool_calls` schema-probe fixture and strict provider loop bounded to four steps; the exact three-tool live capture remains a release gate.
+- A real S25 LiteRT-LM capture of the exact three-tool runtime request, plus a strict provider loop bounded to four steps; G1 passed with `gemma4-e2b` on 2026-07-14.
 - A fail-closed Gateway core for hashed pairing tokens, quotas, immutable plans, short-lived single-use confirmations, and redacted audit events.
 - A loopback-only Gateway HTTP API with strict pairing, target-fixed preview/confirmation/execution, and durable uncertain-outcome readback.
 

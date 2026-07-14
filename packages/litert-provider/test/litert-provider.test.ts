@@ -20,9 +20,9 @@ function validPatch() {
     tempoBpm: 120,
     track: {
       kind: "instrument",
-      name: "SimpleOneBeat",
+      name: "SimpleSynth",
       clip: {
-        name: "OneBeatHit",
+        name: "OneBeatClip",
         lengthBeats: 1,
         notes: [{ pitch: 60, velocity: 100, startBeat: 0, lengthBeats: 1 }],
       },

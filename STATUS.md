@@ -46,5 +46,5 @@ disposable project.
 - Runtime behavior depends on Bitwig Studio and local controller-script installation.
 - Write tools can change DAW state and must remain explicitly policy-gated.
 - This is still an experimental integration, not a mature product.
-- A real S25 one-tool schema probe is captured and validated; the exact three-tool runtime capture remains pending and release-blocking.
+- Live Agent runs still depend on S25 network availability; the exact three-tool G1 capture passed with `gemma4-e2b` on 2026-07-14.
 - The authenticated browser WebSocket proxy and Bitwig write bridge are not implemented.

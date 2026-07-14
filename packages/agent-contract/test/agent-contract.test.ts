@@ -513,9 +513,9 @@ test("validates the captured S25 propose_song_patch arguments at runtime", () =>
     tempoBpm: 120,
     track: {
       kind: "instrument",
-      name: "SimpleOneBeat",
+      name: "SimpleSynth",
       clip: {
-        name: "OneBeatHit",
+        name: "OneBeatClip",
         lengthBeats: 1,
         notes: [{ pitch: 60, velocity: 100, startBeat: 0, lengthBeats: 1 }],
       },

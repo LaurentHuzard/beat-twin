@@ -76,7 +76,8 @@ References:
 - <https://github.com/google-ai-edge/LiteRT-LM/blob/main/README.md>
 
 The documentation does not lock the exact `tool_calls` response shape for the
-configured S25 build and model. Before agent-loop implementation:
+configured S25 build and model. G1 completed this gate with `gemma4-e2b` on
+2026-07-14 by following this sequence:
 
 1. start LiteRT-LM on the real S25;
 2. request a harmless tool call with the exact future client payload;
