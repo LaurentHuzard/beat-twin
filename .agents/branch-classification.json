@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "repository": "LaurentHuzard/beat-twin",
+  "defaultBranch": "main",
+  "branches": [
+    {
+      "name": "main",
+      "classification": "default",
+      "deletionRecommended": false
+    },
+    {
+      "name": "dev/nanodaw-standalone",
+      "classification": "parallel-existing-work",
+      "deletionRecommended": false
+    },
+    {
+      "name": "agent/adopt-orbit-loop",
+      "classification": "governance-adoption",
+      "deletionRecommended": false
+    }
+  ]
+}

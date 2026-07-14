@@ -13,6 +13,14 @@ Armada launch prompt:
 
 Statuses: `Ready`, `In progress`, `Blocked`, `Done`, `Parked`.
 
+Under Orbit Program Kit governance, the legacy status `Ready` means eligible
+candidate (`later`), not implementation authorization. Only the section below
+may authorize a bounded product loop.
+
+## Orbit Ready
+
+None.
+
 ## Today - Standalone NanoDAW
 
 | Order | ID | Task | Priority | Size | Status | Depends on |
