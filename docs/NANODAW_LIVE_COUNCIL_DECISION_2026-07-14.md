@@ -82,3 +82,10 @@ Timing correctness is a technical gate. Promotion requires a separate listening
 and interaction judgment: the player can understand the next gesture while
 listening, create a coherent short evolution, return to a known state, and wants
 another run without first demanding more editor features.
+
+## Quest Outcome
+
+Q1-A through Q1-D were executed on 2026-07-14. The shared kernel is promoted,
+Session Deck becomes the listening control, and Mutation Instrument remains the
+R&D challenger. The provisional verdict and remaining listening gate are in
+`NANODAW_TWO_COSTUMES_DECISION_2026-07-14.md`.

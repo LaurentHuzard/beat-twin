@@ -35,6 +35,7 @@ import {
 
 import type { Clip, Note, Song, Track } from "@beat-twin/core";
 
+import { LiveComparisonLab } from "./LiveComparisonLab";
 import { buildPreviewAudition, type PreviewState } from "./previewAudio";
 import {
   usePlaygroundStore,
@@ -84,6 +85,7 @@ function App() {
   const setDraft = usePlaygroundStore((state) => state.setDraft);
   const submitDraft = usePlaygroundStore((state) => state.submitDraft);
   const [isCommandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [isLiveLabRunning, setLiveLabRunning] = useState(false);
 
   const selectedTrack =
     song?.tracks.find((track) => track.id === selectedTrackId) ?? song?.tracks[0] ?? null;
@@ -91,7 +93,8 @@ function App() {
     selectedTrack?.clips.find((clip) => clip.id === selectedClipId) ??
     selectedTrack?.clips[0] ??
     null;
-  const canPreview = Boolean(buildPreviewAudition(song, selectedTrackId, selectedClipId));
+  const canPreview =
+    Boolean(buildPreviewAudition(song, selectedTrackId, selectedClipId)) && !isLiveLabRunning;
   const isPlayingPreview = preview.phase === "playing";
 
   useKeyboardShortcuts({
@@ -306,6 +309,11 @@ function App() {
           onTransposeClip={transposeSelectedClip}
         />
       </section>
+
+      <LiveComparisonLab
+        externalAudioActive={isPlayingPreview}
+        onRunningChange={setLiveLabRunning}
+      />
 
       <CommandDock
         events={events}

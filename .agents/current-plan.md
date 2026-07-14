@@ -2,61 +2,52 @@
 
 ## Loop
 
-Q1-B and Q1-C — two disposable interaction costumes over the validated Q1-A
-clock and transition contract.
+Q2-L — one separate human listening and play session. Q1-B through Q1-D are
+technically complete.
 
 ## Target Outcome
 
-Run the same two-track performance scenario through a minimal Session Deck and
-a minimal Mutation Instrument, with identical timing, voices, and approximate
-musical material, then capture evidence without finishing either product.
+Decide whether the Session Deck's lower cognitive load or the Mutation
+Instrument's stronger identity creates more desire for another run while
+listening, not merely while reading the interface.
 
 ## Product Contract
 
-- Both prototypes consume the same `liveSession` API.
-- Two tracks, fixed BPM, fixed 4/4, and next-bar quantization only.
-- Session Deck: two prepared sources per track; start, replace, cancel, stop.
-- Mutation Instrument: one anchor per track; transpose, rotate, restore, cancel,
-  stop.
-- Identical voices and comparable musical material prevent sound-quality bias.
-- No prototype state enters `Song`, persistence, undo, or redo.
+- Use the same Pulse and Glass voices at 112 BPM.
+- Give each costume one uninterrupted run before switching.
+- Judge while listening rather than staring at transition labels.
+- Record which next gesture felt obvious and whether return-to-anchor felt safe.
+- Do not add controls or polish during the listening session.
 
 ## Files To Create Or Modify
 
 - `.agents/current-plan.md`
 - `.agents/queue.md`
-- one deliberately isolated comparison component and styles
-- focused interaction tests for both costumes
-- a real-browser comparison capture for each costume
-- one decision report promoting, pausing, or killing each path
+- `docs/NANODAW_TWO_COSTUMES_DECISION_2026-07-14.md`
+- one short listening note appended after the human session
 
 ## Commands To Run
 
 ```bash
-pnpm nanodaw:test
-pnpm typecheck
 pnpm nanodaw:dev
-git diff --check
-git status --short --branch
 ```
 
 ## Validation Steps
 
-- start both tracks;
-- queue two changes for one shared next-bar boundary;
-- replace or cancel one pending request;
-- execute and distinguish pending from observed state;
-- stop one track while the other and the clock continue;
-- return to a known musical state without opening the detailed editor.
+- play Session Deck through start, replace, and independent stop;
+- play Mutation through start, transpose, rotate or cancel, restore, and stop;
+- answer which interface invited the next gesture without visual search;
+- answer which result made another run feel worthwhile.
 
 ## Evidence Boundary
 
-- Browser automation proves clarity and deterministic state changes, not desire.
-- Human listening remains the final preference signal.
-- No scenes, slots, recording, macros, capture, or production mobile campaign.
+- The current browser videos are visual only and contain no audio.
+- The prototype adapter observes JS-time transitions near Tone boundaries; it is
+  not evidence of sample-accurate scheduling.
+- No product winner is declared from automated evidence alone.
 
 ## Exit Condition
 
-- both costumes complete the shared scenario in tests and a real browser;
-- one meaningful preference, rejection, or exact unresolved question is written;
-- the shared kernel stays, while neither skin becomes persistent product schema.
+- one costume is promoted for the next implementation quest, or both are paused
+  with one exact invalidating signal;
+- the decision does not migrate scenes, slots, or mutations into `Song`.

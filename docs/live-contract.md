@@ -91,3 +91,12 @@ The pure test scenario proves:
 This proves deterministic state semantics only. Browser timer jitter, Tone.js
 scheduling, late observations, sound quality, gesture clarity, and the desire to
 play another run remain evidence for later quest steps.
+
+## Prototype Adapter Boundary
+
+The Q1-B/Q1-C comparison uses one Tone.js Transport, two fixed synth voices, and
+a short JavaScript lookahead to apply observed states near the resolved bar.
+Editor preview and live-lab playback are mutually exclusive because both use the
+same global Tone transport. This adapter is enough to hear and compare the two
+costumes; it is not the production scheduler and does not prove sample-accurate
+execution or late-event recovery.

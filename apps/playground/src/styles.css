@@ -29,7 +29,7 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr auto auto;
   gap: 16px;
   min-height: 100vh;
   padding: 18px;
@@ -38,7 +38,8 @@ button {
 .transport-strip,
 .timeline-surface,
 .inspector,
-.command-dock {
+.command-dock,
+.live-lab {
   border: 1px solid #d6ded4;
   border-radius: 8px;
   background: #ffffff;
@@ -242,8 +243,312 @@ h2 {
 
 .timeline-surface,
 .inspector,
-.command-dock {
+.command-dock,
+.live-lab {
   padding: 14px;
+}
+
+.live-lab {
+  display: grid;
+  gap: 14px;
+}
+
+.live-lab-header,
+.live-lab-title,
+.live-clock-rail,
+.live-clock-actions,
+.live-track-heading,
+.live-track-actions button,
+.live-cancel-action {
+  display: flex;
+  align-items: center;
+}
+
+.live-lab-header {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.live-lab-title {
+  gap: 9px;
+  min-width: 0;
+}
+
+.live-lab-title > div {
+  display: grid;
+  gap: 3px;
+}
+
+.live-lab-title p,
+.live-track-heading p {
+  color: #68736e;
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.live-costume-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: min(420px, 100%);
+  border: 1px solid #b9c6bf;
+  border-radius: 8px;
+  padding: 3px;
+  background: #f4f7f2;
+}
+
+.live-costume-switch button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 12px;
+  color: #5a6661;
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.live-costume-switch button[aria-pressed="true"] {
+  color: #ffffff;
+  background: #17201f;
+}
+
+.live-clock-rail {
+  display: grid;
+  grid-template-columns: minmax(190px, auto) minmax(180px, 1fr) auto;
+  gap: 14px;
+  min-height: 68px;
+  border: 1px solid #d6ded4;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f4f7f2;
+}
+
+.live-clock-state {
+  display: grid;
+  gap: 2px;
+  min-width: 190px;
+}
+
+.live-clock-state span {
+  color: #68736e;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.live-clock-state.running span {
+  color: #2d7f73;
+}
+
+.live-clock-state strong {
+  font-size: 0.92rem;
+}
+
+.live-clock-state small {
+  color: #68736e;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.live-clock-progress {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dbe4d9;
+}
+
+.live-clock-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #2d7f73;
+  transition: width 40ms linear;
+}
+
+.live-clock-actions {
+  gap: 8px;
+}
+
+.live-clock-actions .tool-button {
+  min-width: 132px;
+}
+
+.live-lab-error {
+  border: 1px solid #d85b40;
+  border-radius: 8px;
+  padding: 9px 11px;
+  color: #7c2419;
+  background: #fae4dd;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.live-track-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.live-track {
+  --track-color: #2d7f73;
+  display: grid;
+  gap: 11px;
+  min-width: 0;
+  border: 1px solid #dbe4d9;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfa;
+  box-shadow: inset 4px 0 0 var(--track-color);
+}
+
+.live-track-heading {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 9px;
+}
+
+.live-track-swatch {
+  width: 10px;
+  height: 34px;
+  border-radius: 4px;
+  background: var(--track-color);
+}
+
+.live-track-heading h3 {
+  margin: 0 0 2px;
+  font-size: 0.94rem;
+}
+
+.live-observed-state {
+  display: grid;
+  min-width: 104px;
+  border: 1px solid #d6ded4;
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: #5a6661;
+  background: #ffffff;
+  text-align: right;
+}
+
+.live-observed-state.active {
+  border-color: #86b69b;
+  color: #133d35;
+  background: #dff0e5;
+}
+
+.live-observed-state small,
+.live-pending-state span {
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.live-observed-state strong,
+.live-pending-state strong {
+  overflow: hidden;
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-pending-state {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  min-height: 48px;
+  border: 1px dashed #b9c6bf;
+  border-radius: 8px;
+  padding: 7px 9px;
+  color: #68736e;
+  background: #ffffff;
+}
+
+.live-pending-state.pending {
+  border-style: solid;
+  border-color: #d7bd6f;
+  color: #62420f;
+  background: #fff7d8;
+}
+
+.live-pending-state.scheduled {
+  border-style: solid;
+  border-color: #9aa6d6;
+  color: #342954;
+  background: #e7e0ff;
+}
+
+.live-track-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.live-track-actions button {
+  justify-content: flex-start;
+  gap: 7px;
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid #b9c6bf;
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: #17201f;
+  background: #ffffff;
+  text-align: left;
+}
+
+.live-track-actions button:hover:not(:disabled),
+.live-track-actions button:focus-visible:not(:disabled),
+.live-cancel-action:hover:not(:disabled),
+.live-cancel-action:focus-visible:not(:disabled) {
+  outline: 2px solid #e9b949;
+  outline-offset: 2px;
+}
+
+.live-track-actions button:disabled,
+.live-cancel-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.live-track-actions button.stop {
+  color: #7c2419;
+}
+
+.live-track-actions button span {
+  display: grid;
+  min-width: 0;
+}
+
+.live-track-actions button strong,
+.live-track-actions button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-track-actions button strong {
+  font-size: 0.76rem;
+}
+
+.live-track-actions button small {
+  color: #68736e;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.live-cancel-action {
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 7px;
+  color: #62420f;
+  background: #f7e3af;
+  font-size: 0.7rem;
+  font-weight: 850;
 }
 
 .timeline-surface {
@@ -940,6 +1245,36 @@ h2 {
 
   .command-palette {
     max-height: calc(100vh - 24px);
+  }
+
+  .live-lab-header,
+  .live-clock-rail {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .live-lab-header {
+    display: grid;
+  }
+
+  .live-costume-switch {
+    min-width: 0;
+  }
+
+  .live-clock-progress {
+    width: 100%;
+  }
+
+  .live-clock-actions {
+    flex-wrap: wrap;
+  }
+
+  .live-track-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .live-track-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .palette-action {
