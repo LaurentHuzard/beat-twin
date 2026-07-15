@@ -21,7 +21,7 @@ Statuses: `Ready`, `In progress`, `Blocked`, `Done`, `Parked`.
 | 2 | BT-202 | Prove the offline package, typecheck, and NanoDAW test baseline | P0 | M | Done | BT-201 |
 | 3 | BT-203 | Run a real-browser NanoDAW smoke without Bitwig, MCP, gateway, or S25 | P0 | M | Done | BT-202 |
 | 4 | BT-204 | Prove edit, audition, save/load, undo/redo, and reload persistence in standalone mode | P0 | L | Done | BT-203 |
-| 5 | BT-205 | Make Standalone mode and unavailable external targets explicit in the UI | P1 | M | Ready | BT-203 |
+| 5 | BT-205 | Make Standalone mode and unavailable external targets explicit in the UI | P1 | M | Done | BT-203 |
 
 ## Evidence Quest - Two Costumes, One Clock
 
@@ -45,8 +45,8 @@ BT-204 proves the current standalone loop.
 
 | Order | ID | Task | Priority | Size | Status | Depends on |
 | --- | --- | --- | --- | --- | --- | --- |
-| 6 | BT-206 | Detect the Bitwig desktop process and return a structured local status | P0 | M | Ready | - |
-| 7 | BT-207 | Distinguish app stopped, controller missing, TCP unavailable, MCP unavailable, and ready | P0 | M | Ready | BT-206 |
+| 6 | BT-206 | Detect the Bitwig desktop process and return a structured local status | P0 | M | Done | - |
+| 7 | BT-207 | Distinguish app stopped, controller missing, TCP unavailable, MCP unavailable, and ready | P0 | M | Done | BT-206 |
 | 8 | BT-208 | Expose the dependency state to TwinPilot without giving TwinPilot Beat Twin-specific logic | P1 | M | Ready | BT-207, TP-202 |
 
 ## Later - Connected Agent Mode
