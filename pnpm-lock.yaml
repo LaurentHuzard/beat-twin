@@ -100,6 +100,18 @@ importers:
         specifier: ^4.0.0
         version: 4.1.10(jsdom@27.4.0)(vite@7.3.6)
 
+  packages/adapters/bitwig:
+    dependencies:
+      '@beat-twin/commands':
+        specifier: workspace:*
+        version: link:../../commands
+      '@beat-twin/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@beat-twin/daw-contract':
+        specifier: workspace:*
+        version: link:../../daw-contract
+
   packages/adapters/nanodaw:
     dependencies:
       '@beat-twin/commands':

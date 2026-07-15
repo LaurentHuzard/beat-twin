@@ -11,6 +11,8 @@ Scope: live manual verification notes for Beat Twin with Bitwig Studio. Do not t
 - Node dependencies are installed for the MCP server.
 - No important recording session is armed or running.
 - The operator understands that write tools are blocked by default unless policy env vars are set.
+- A high-entropy `Bridge secret` is configured in the Beat Twin controller and
+  the same value is available as `BITWIG_BRIDGE_SECRET` for any write check.
 
 ## Before Launch
 
@@ -56,7 +58,8 @@ In Bitwig:
 1. Open a disposable project or a copy of a real project.
 2. Add or enable the `Beat Twin` controller.
 3. Confirm that the controller listens on `127.0.0.1:8888`.
-4. Keep transport stopped before the first tool call.
+4. Set `Beat Twin Security` -> `Bridge secret` and keep transport stopped before
+   the first tool call.
 
 Expected:
 
@@ -158,4 +161,6 @@ Rollback:
 - Timeout: controller accepted the socket but did not respond with newline-delimited JSON.
 - Parse error: inspect the controller log and protocol framing.
 - Policy blocked: expected unless the required `BITWIG_MCP_WRITE_POLICY` is enabled.
+- Authentication blocked: the controller `Bridge secret` is empty or does not
+  match `BITWIG_BRIDGE_SECRET`.
 - Partial read errors: acceptable for inspection if the response is explicit and no mutation occurred.

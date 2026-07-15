@@ -90,7 +90,9 @@ and execution rejects stale revisions before mutation.
 - `apps/gateway/src/browser-nanodaw-websocket.js`: authenticated loopback proxy
   for that browser-owned port; it keeps no song snapshot. See
   [`BROWSER_NANODAW_WEBSOCKET.md`](BROWSER_NANODAW_WEBSOCKET.md).
-- `packages/adapters/bitwig`: future home for Bitwig-specific translation after a compatibility pass.
+- `packages/adapters/bitwig`: authenticated, target-bound launcher-slot
+  translation with strict musical bounds, stop-first-failure semantics, and
+  exact note readback.
 - `packages/mcp`: future extracted MCP server wiring, if the root CLI grows too large.
 - `packages/ui`: shared UI primitives once the playground repeats enough component patterns.
 - `packages/utils`: small shared helpers only when duplication appears.

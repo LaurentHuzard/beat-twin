@@ -2,40 +2,41 @@
 
 ## Loop
 
-BT-211 — complete. Explicit connected Agent mode now composes the BT-210
-browser proxy with the existing guarded Gateway plan flow.
+BT-212 — complete. The Bitwig controller and adapter now expose an authenticated,
+target-bound, bounded launcher-slot execution path with exact readback.
 
 ## Target Outcome
 
-Let a player opt into a local Agent connection, inspect a proposal, and confirm
-one fixed NanoDAW plan without weakening standalone editing or creating another
-owner of browser song state.
+Enable BT-213 to prove the same portable patch through separately previewed and
+confirmed NanoDAW and Bitwig plans without conflating their mutation semantics.
 
 ## Product Contract
 
-- Agent mode starts Off and never connects automatically.
-- Pairing accepts only a loopback Gateway origin and clears the visible secret.
-- Gemma can inspect and propose; it cannot confirm or execute.
-- A preview causes no browser mutation or autosave.
-- One confirmation dispatches one CAS command batch.
-- A successful batch creates one revision, autosave, and undo checkpoint.
-- A post-confirmation error retires the plan and is never offered for retry.
+- Bitwig reads remain available before write authentication.
+- Every Agent-mode write requires the configured bridge secret.
+- Preview binds controller, project, track/scene positions, and target generation.
+- One empty launcher target accepts only the `bitwig-launcher-v1` bounds.
+- Clip creation is dispatched once; readiness polling is read-only.
+- A success requires exact tempo, track, clip, and note readback.
+- Any uncertain dispatch or readback is `partial` and never retried.
 
 ## Validation
 
-- Playground typecheck passed.
+- Root tests passed 145/145, including the historical 57-tool snapshot.
 - NanoDAW tests passed 39/39.
-- Desktop and 390 px mobile headless-Chrome renders passed without clipping.
-- Full repository validation is recorded in the BT-211 feature report.
+- Repository typecheck and production build passed.
+- Package smoke passed for nine packages.
+- Full evidence is recorded in the BT-212 feature report.
 
 ## Evidence Boundary
 
-- Browser UI and transport behavior use deterministic Gateway/session fixtures.
-- No live S25 model, Gateway daemon, Bitwig process, or MCP server was started.
-- BT-212 still owns authenticated bounded Bitwig execution and live readback.
+- Auth, target races, clip-readiness delay, post-dispatch failure, divergent
+  readback, and no-retry behavior use deterministic fixtures.
+- No live Bitwig write was executed. That remains BT-213's disposable-project
+  human gate, separately from NanoDAW confirmation.
 
 ## Exit Condition
 
-- Met on 2026-07-15: standalone remains the default, proposal and confirmation
-  are distinct, and the browser remains the sole NanoDAW state owner.
-- BT-212 is Ready; BT-213 stays Blocked on its Bitwig adapter dependency.
+- Met on 2026-07-15: authentication, strict bounds, target identity, exact note
+  readback, and honest partial execution are proven deterministically.
+- BT-213 is Ready and must begin with a disposable Bitwig project.

@@ -305,7 +305,7 @@ confirmed NanoDAW and Bitwig flows.
 
 - Priority: P1
 - Size: XL
-- Status: Ready
+- Status: Done
 - Depends on: BT-207, BT-211
 
 Acceptance:
@@ -315,11 +315,21 @@ Acceptance:
 - target identity and note readback are available before writes are enabled;
 - partial execution is reported honestly.
 
+Evidence (2026-07-15): `bitwig-launcher-v1` binds one empty launcher slot by
+controller instance, project, track/scene positions, and target generation. The
+controller authenticates every write connection, keeps read inspection open,
+uses a dedicated anchored 64-step cursor, and exposes bounded target mutations.
+The adapter validates the complete patch before authentication, polls clip
+readiness without retrying creation, stops at the first uncertain outcome, and
+requires exact tempo, track, clip-length, and note readback. Root tests passed
+145/145, the 57-tool snapshot stayed unchanged, package smoke passed for nine
+packages, and typecheck/build passed. No live Bitwig write is claimed here.
+
 ### BT-213 - Prove separate target execution
 
 - Priority: P2
 - Size: XL
-- Status: Blocked
+- Status: Ready
 - Depends on: BT-211, BT-212
 
 Acceptance:

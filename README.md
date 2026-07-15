@@ -151,16 +151,15 @@ for local verification commands and troubleshooting.
 
 ## Safety Model
 
-Beat Twin is read-only by default. At the MCP entry point, write tools are not listed by MCP clients and are blocked if called through the MCP server without an enabling policy.
-
-This gate is enforced by the Node MCP server only. The Bitwig controller's TCP bridge (default `127.0.0.1:8888`) is unauthenticated and executes any JSON-RPC command it receives. It does not apply the write policy. Anything able to reach that port can drive Bitwig regardless of the MCP write policy, so the MCP gate is not a barrier at the DAW itself. As a known limitation of this local proof of concept, treat the bridge as trusted-local-only: firewall the port and do not expose it on untrusted networks.
+Beat Twin is read-only by default. At the MCP entry point, write tools are not listed by MCP clients and are blocked without an enabling policy. The Bitwig controller also requires per-connection authentication for every non-read RPC. Configure its `Bridge secret` preference and pass the same value as `BITWIG_BRIDGE_SECRET`; keep the default bridge on loopback and never expose it to untrusted networks.
 
 The future Agent Gateway does not expose these Bitwig MCP write tools to Gemma.
 It validates a constrained SongPatch, materializes executable IDs, previews the
 exact plan without mutation, and requires a short-lived human confirmation.
-Bitwig adapter writes remain blocked until the controller bridge is
-authenticated and the adapter can validate bounds, identify the intended
-track and clip reliably, and read back the written notes.
+The `bitwig-launcher-v1` adapter now authenticates, validates one bounded empty
+launcher target, binds every mutation to its confirmed identity, and requires
+tempo/clip/note readback. Its first live write belongs to the separately
+confirmed BT-213 disposable-project proof.
 
 To enable a narrow write class:
 
