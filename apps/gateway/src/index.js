@@ -17,6 +17,13 @@ import {
 } from "@beat-twin/gateway-core";
 import { LiteRtProviderError } from "@beat-twin/litert-provider";
 
+export {
+  BROWSER_NANODAW_PROTOCOL,
+  BrowserNanoDawProxyError,
+  createBrowserNanoDawWebSocketProxy,
+  encodeBrowserPairingProtocol,
+} from "./browser-nanodaw-websocket.js";
+
 export const DEFAULT_BODY_LIMIT_BYTES = 64 * 1024;
 export const DEFAULT_PAIRING_TTL_MS = 60 * 60 * 1000;
 export const DEFAULT_PAIRING_MAX_REQUESTS = 1_000;

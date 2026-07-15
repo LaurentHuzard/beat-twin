@@ -54,8 +54,8 @@ BT-204 proves the current standalone loop.
 | ID | Task | Priority | Size | Status | Depends on |
 | --- | --- | --- | --- | --- | --- |
 | BT-209 | Capture the exact three-tool payload against the live S25 | P1 | M | Done | - |
-| BT-210 | Implement the authenticated browser WebSocket proxy over `BrowserNanoDawPort` | P1 | L | Ready | BT-204 |
-| BT-211 | Add explicit connected Agent mode while preserving browser-owned state | P1 | L | Blocked | BT-210, BT-209 |
+| BT-210 | Implement the authenticated browser WebSocket proxy over `BrowserNanoDawPort` | P1 | L | Done | BT-204 |
+| BT-211 | Add explicit connected Agent mode while preserving browser-owned state | P1 | L | Ready | BT-210, BT-209 |
 | BT-212 | Implement the authenticated bounded `BitwigAdapter` | P1 | XL | Blocked | BT-207, BT-211 |
 | BT-213 | Prove separately confirmed NanoDAW and Bitwig execution flows | P2 | XL | Blocked | BT-211, BT-212 |
 | BT-214 | Package the gateway, adapters, controller, and NanoDAW install flow | P2 | L | Parked | BT-213 |

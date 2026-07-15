@@ -255,8 +255,15 @@ Acceptance:
 
 - Priority: P1
 - Size: L
-- Status: Ready
+- Status: Done
 - Depends on: BT-204
+
+Evidence (2026-07-15): a loopback-only WebSocket proxy authenticates browser
+sessions through pairing, validates Origin and protocol frames, accepts one
+browser owner, and forwards inspection plus one atomic CAS batch without storing
+song state. Disconnects after dispatch return an unknown outcome, while adapter
+and gateway status contracts preserve no-retry recovery. Root tests passed
+132/132.
 
 Acceptance:
 
@@ -269,7 +276,7 @@ Acceptance:
 
 - Priority: P1
 - Size: L
-- Status: Blocked
+- Status: Ready
 - Depends on: BT-209, BT-210
 
 Acceptance:
