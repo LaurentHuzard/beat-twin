@@ -2,14 +2,14 @@
 
 ## Loop
 
-Q2-L — one separate human listening and play session. Q1-B through Q1-D are
-technically complete.
+Q2-L — complete. Human validation confirmed the provisional Session Deck
+direction after Q1-B through Q1-D.
 
 ## Target Outcome
 
-Decide whether the Session Deck's lower cognitive load or the Mutation
-Instrument's stronger identity creates more desire for another run while
-listening, not merely while reading the interface.
+Promote Session Deck as the next implementation grammar. Keep Mutation
+Instrument paused as the R&D challenger rather than merging either costume
+into the persistent song model.
 
 ## Product Contract
 
@@ -48,6 +48,6 @@ pnpm nanodaw:dev
 
 ## Exit Condition
 
-- one costume is promoted for the next implementation quest, or both are paused
-  with one exact invalidating signal;
-- the decision does not migrate scenes, slots, or mutations into `Song`.
+- Met on 2026-07-15: Session Deck is promoted for the next implementation
+  quest; Mutation Instrument remains paused as the challenger.
+- The decision does not migrate scenes, slots, or mutations into `Song`.

@@ -1,7 +1,7 @@
 # NanoDAW Two Costumes Decision
 
 Date: 2026-07-14
-Status: provisional interaction verdict; listening confirmation required
+Status: confirmed by human listening gate on 2026-07-15
 
 ## Decision
 
@@ -15,6 +15,10 @@ Keep the **Mutation Instrument as the R&D challenger**. Its anchor, transpose,
 rotate, and restore grammar is more distinctive and preserves reversible
 causality, but it presents more decisions before the player has heard whether
 that depth feels rewarding.
+
+The human gate confirms **Session Deck as the grammar to promote for the next
+implementation quest**. Mutation Instrument remains paused as a challenger; it
+is not rejected and none of its mutation concepts move into `Song`.
 
 ## What The Comparison Proved
 
@@ -44,3 +48,15 @@ Run one uninterrupted pass per costume. While listening, record:
 Only that answer may promote a product grammar. Until then, the 4 x 4 launcher,
 scenes, slots, recording, macros, Capture Jam, and rolling recovery remain
 frozen.
+
+## Human Listening Note — 2026-07-15
+
+The user explicitly validated Q2-L and did not report an invalidating signal
+against the provisional Session Deck direction. This confirms the Deck's lower
+cognitive-load grammar for the next implementation quest. No additional
+qualitative listening observations were provided, so this note does not claim
+specific findings about sound quality, scheduler timing, or Mutation's musical
+pull.
+
+Scenes, slots, recording, macros, Capture Jam, and rolling recovery remain
+frozen until separately authorized.

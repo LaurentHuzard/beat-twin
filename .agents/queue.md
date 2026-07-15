@@ -39,7 +39,7 @@ BT-204 proves the current standalone loop.
 
 | Step | Evidence question | Status | Depends on |
 | --- | --- | --- | --- |
-| Q2-L | Does a human listening run confirm the Deck's clarity or reveal stronger musical pull in the Mutation Instrument? | Ready | Q1-D |
+| Q2-L | Does a human listening run confirm the Deck's clarity or reveal stronger musical pull in the Mutation Instrument? | Done | Q1-D |
 
 ## Next - Honest Bitwig Dependency Health
 
