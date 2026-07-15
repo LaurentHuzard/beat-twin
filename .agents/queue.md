@@ -47,7 +47,7 @@ BT-204 proves the current standalone loop.
 | --- | --- | --- | --- | --- | --- | --- |
 | 6 | BT-206 | Detect the Bitwig desktop process and return a structured local status | P0 | M | Done | - |
 | 7 | BT-207 | Distinguish app stopped, controller missing, TCP unavailable, MCP unavailable, and ready | P0 | M | Done | BT-206 |
-| 8 | BT-208 | Expose the dependency state to TwinPilot without giving TwinPilot Beat Twin-specific logic | P1 | M | Ready | BT-207, TP-202 |
+| 8 | BT-208 | Expose the dependency state to TwinPilot without giving TwinPilot Beat Twin-specific logic | P1 | M | Done | BT-207, TP-202 |
 
 ## Later - Connected Agent Mode
 

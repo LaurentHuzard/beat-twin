@@ -25,6 +25,25 @@ For generic MCP clients, adapt [`../llm-mcp/mcp.example.json`](../llm-mcp/mcp.ex
 and keep local secrets or machine-specific paths in an untracked file such as
 `llm-mcp/mcp.json`.
 
+The example also declares the generic MCP metadata field:
+
+```json
+{
+  "requiredProcesses": ["BitwigStudio"]
+}
+```
+
+Dependency-aware clients such as TwinPilot can inspect this process name before
+spawning the configured MCP server and render `process_not_running` with a safe
+repair hint. The client does not need a Beat Twin path or Bitwig-specific code.
+Generic MCP clients may ignore the field. Removing it keeps MCP startup
+independent from Bitwig, while `pnpm smoke:read-only` remains the structured,
+layered status command for explicit diagnostics.
+
+This metadata contains no command secret and does not enable any write policy.
+Do not put `BITWIG_MCP_WRITE_POLICY` or `BITWIG_MCP_ENABLE_WRITES` in a shared
+preset.
+
 Beat Twin is read-only by default. Do not add `BITWIG_MCP_WRITE_POLICY` or
 `BITWIG_MCP_ENABLE_WRITES` unless you are working in a disposable Bitwig project.
 

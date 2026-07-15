@@ -139,7 +139,7 @@ The focused NanoDAW suite remains 22/22 and typecheck passes.
 
 - Priority: P1
 - Size: M
-- Status: Ready
+- Status: Done
 - Depends on: BT-203
 
 Scope:
@@ -163,7 +163,7 @@ Goal: replace generic connection failures with a layered local diagnosis.
 
 - Priority: P0
 - Size: M
-- Status: Ready
+- Status: Done
 - Cross-project consumer: TwinPilot TP-202
 
 Scope:
@@ -186,7 +186,7 @@ Acceptance:
 
 - Priority: P0
 - Size: M
-- Status: Ready
+- Status: Done
 - Depends on: BT-206
 
 Required states:
@@ -214,8 +214,14 @@ Acceptance:
 
 - Priority: P1
 - Size: M
-- Status: Ready
+- Status: Done
 - Depends on: BT-207 and TwinPilot TP-202
+
+Evidence (2026-07-15): the portable MCP example declares the generic
+`requiredProcesses` field consumed by TwinPilot TP-202. A root test locks the
+process metadata and proves the shared preset contains neither secrets nor
+write-policy activation. TwinPilot's MCP config and health fixture suites passed
+unchanged against the generic contract.
 
 Acceptance:
 
