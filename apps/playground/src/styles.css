@@ -113,6 +113,32 @@ h2 {
   white-space: nowrap;
 }
 
+.runtime-mode {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 6px;
+  font-size: 0.7rem;
+}
+
+.runtime-mode strong {
+  border-radius: 999px;
+  padding: 3px 7px;
+  color: #133d35;
+  background: #dff0e5;
+}
+
+.runtime-mode span {
+  color: #2e3d3a;
+  font-weight: 700;
+}
+
+.runtime-mode small {
+  flex-basis: 100%;
+  color: #68736e;
+}
+
 .transport-meters {
   justify-content: start;
   flex-wrap: wrap;

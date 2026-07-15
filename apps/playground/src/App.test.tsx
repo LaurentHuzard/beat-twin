@@ -50,6 +50,17 @@ function mockPreviewAudioEngine(): PreviewAudioEngine {
 }
 
 describe("Playground", () => {
+  it("presents standalone mode without claiming optional targets are connected", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    const runtimeMode = screen.getByLabelText("Runtime mode");
+    expect(runtimeMode).toHaveTextContent("Standalone");
+    expect(runtimeMode).toHaveTextContent("NanoDAW ready");
+    expect(runtimeMode).toHaveTextContent("Bitwig and S25 are optional · not enabled");
+    expect(runtimeMode).not.toHaveTextContent(/connected/i);
+  });
+
   it("renders the transport and can create demo material", () => {
     mockPreviewAudioEngine();
     render(<App />);

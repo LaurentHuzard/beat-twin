@@ -517,6 +517,11 @@ function TransportStrip({
         <div>
           <h1>Beat Twin</h1>
           <p>{song?.title ?? "No song loaded"}</p>
+          <div className="runtime-mode" aria-label="Runtime mode">
+            <strong>Standalone</strong>
+            <span>NanoDAW ready</span>
+            <small>Bitwig and S25 are optional · not enabled</small>
+          </div>
         </div>
       </div>
 
