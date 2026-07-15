@@ -10,12 +10,18 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import {
+  resetAgentGatewaySessionFactory,
+  setAgentGatewaySessionFactory,
+} from "./AgentModePanel";
+import type { AgentPlanPreview } from "./agentGateway";
 import { PLAYGROUND_SONG_STORAGE_KEY } from "./persistence";
 import type { PreviewAudioEngine } from "./previewAudio";
 import { setPreviewAudioEngine, usePlaygroundStore } from "./store";
 
 afterEach(() => {
   cleanup();
+  resetAgentGatewaySessionFactory();
   localStorage.clear();
   const initialState = usePlaygroundStore.getInitialState();
   usePlaygroundStore.setState({
@@ -59,6 +65,150 @@ describe("Playground", () => {
     expect(runtimeMode).toHaveTextContent("NanoDAW ready");
     expect(runtimeMode).toHaveTextContent("Bitwig and S25 are optional · not enabled");
     expect(runtimeMode).not.toHaveTextContent(/connected/i);
+  });
+
+  it("keeps Agent mode opt-in and applies a confirmed plan as one saved undo checkpoint", async () => {
+    mockPreviewAudioEngine();
+    const preview: AgentPlanPreview = {
+      runId: "request-agent-1",
+      dawId: "nanodaw",
+      model: "gemma-s25",
+      steps: 2,
+      patch: {},
+      preview: { summary: ["Create one-track agent sketch"], commands: [{ type: "CreateSong" }] },
+      plan: {
+        planId: "plan-agent-1",
+        adapterId: "nanodaw",
+        baseRevision: 0,
+        requiredScopes: ["song.write"],
+        expiresAt: "2026-07-15T09:02:00.000Z",
+        commands: [{ type: "CreateSong", id: "song-agent", title: "Agent sketch" }],
+      },
+    };
+    setAgentGatewaySessionFactory((options) => {
+      let connected = false;
+      return {
+        connect: async () => {
+          connected = true;
+          options.onConnectionChange?.(true);
+        },
+        run: async () => preview,
+        confirmAndExecute: async (planId) => {
+          const batch = options.port.executeCommandBatch({
+            requestId: "request-agent-1",
+            expectedRevision: 0,
+            commands: [{ type: "CreateSong", id: "song-agent", title: "Agent sketch" }],
+          });
+          if (!batch.ok) throw new Error(batch.error);
+          return {
+            report: {
+              ok: true,
+              status: "succeeded",
+              planId,
+              finalSnapshot: batch.snapshot,
+            },
+          };
+        },
+        disconnect: () => {
+          connected = false;
+          options.onConnectionChange?.(false);
+        },
+        isConnected: () => connected,
+      };
+    });
+
+    render(<App />);
+    const agentMode = screen.getByLabelText("Agent mode");
+    expect(within(agentMode).getByText("Off")).toBeInTheDocument();
+    expect(within(agentMode).queryByLabelText("Gateway URL")).toBeNull();
+    expect(screen.getByLabelText("Runtime mode")).toHaveTextContent("Standalone");
+
+    fireEvent.click(within(agentMode).getByRole("button", { name: /enable agent mode/i }));
+    fireEvent.change(within(agentMode).getByLabelText("Operator secret"), {
+      target: { value: "operator secret value" },
+    });
+    fireEvent.click(within(agentMode).getByRole("button", { name: /pair gateway/i }));
+    await waitFor(() => expect(within(agentMode).getByText("Connected")).toBeInTheDocument());
+
+    fireEvent.change(within(agentMode).getByLabelText("Agent musical request"), {
+      target: { value: "Create a bass sketch" },
+    });
+    fireEvent.click(within(agentMode).getByRole("button", { name: /generate preview/i }));
+    await waitFor(() => expect(within(agentMode).getByLabelText("Agent plan preview")).toBeInTheDocument());
+    expect(within(agentMode).getByText(/preview only/i)).toBeInTheDocument();
+    expect(usePlaygroundStore.getState().commandState.revision).toBe(0);
+    expect(usePlaygroundStore.getState().undoStack).toHaveLength(0);
+    expect(localStorage.getItem(PLAYGROUND_SONG_STORAGE_KEY)).toBeNull();
+
+    fireEvent.click(within(agentMode).getByRole("button", { name: /confirm and apply once/i }));
+    await waitFor(() => expect(within(agentMode).getByText(/applied as one nanodaw batch/i)).toBeInTheDocument());
+    const applied = usePlaygroundStore.getState();
+    expect(applied.commandState.revision).toBe(1);
+    expect(applied.commandState.song?.title).toBe("Agent sketch");
+    expect(applied.undoStack).toHaveLength(1);
+    expect(localStorage.getItem(PLAYGROUND_SONG_STORAGE_KEY)).toContain("Agent sketch");
+
+    applied.undo();
+    expect(usePlaygroundStore.getState().commandState.song).toBeNull();
+  });
+
+  it("retires a confirmed preview when execution cannot be verified", async () => {
+    mockPreviewAudioEngine();
+    const preview: AgentPlanPreview = {
+      runId: "request-agent-uncertain",
+      dawId: "nanodaw",
+      model: "gemma-s25",
+      steps: 2,
+      patch: {},
+      preview: { summary: ["Create a guarded sketch"], commands: [{ type: "CreateSong" }] },
+      plan: {
+        planId: "plan-agent-uncertain",
+        adapterId: "nanodaw",
+        baseRevision: 0,
+        requiredScopes: ["song.write"],
+        expiresAt: "2026-07-15T09:02:00.000Z",
+        commands: [{ type: "CreateSong", id: "song-uncertain", title: "Guarded sketch" }],
+      },
+    };
+    setAgentGatewaySessionFactory((options) => {
+      let connected = false;
+      return {
+        connect: async () => {
+          connected = true;
+          options.onConnectionChange?.(true);
+        },
+        run: async () => preview,
+        confirmAndExecute: async () => {
+          throw new Error("adapter outcome is unknown after execution dispatch");
+        },
+        disconnect: () => {
+          connected = false;
+          options.onConnectionChange?.(false);
+        },
+        isConnected: () => connected,
+      };
+    });
+
+    render(<App />);
+    const agentMode = screen.getByLabelText("Agent mode");
+    fireEvent.click(within(agentMode).getByRole("button", { name: /enable agent mode/i }));
+    fireEvent.change(within(agentMode).getByLabelText("Operator secret"), {
+      target: { value: "operator secret value" },
+    });
+    fireEvent.click(within(agentMode).getByRole("button", { name: /pair gateway/i }));
+    await waitFor(() => expect(within(agentMode).getByText("Connected")).toBeInTheDocument());
+    fireEvent.change(within(agentMode).getByLabelText("Agent musical request"), {
+      target: { value: "Create a guarded sketch" },
+    });
+    fireEvent.click(within(agentMode).getByRole("button", { name: /generate preview/i }));
+    await waitFor(() => expect(within(agentMode).getByLabelText("Agent plan preview")).toBeInTheDocument());
+    fireEvent.click(within(agentMode).getByRole("button", { name: /confirm and apply once/i }));
+
+    await waitFor(() => expect(within(agentMode).getByText(/do not retry this plan/i)).toBeInTheDocument());
+    expect(within(agentMode).queryByLabelText("Agent plan preview")).toBeNull();
+    expect(within(agentMode).queryByRole("button", { name: /confirm and apply once/i })).toBeNull();
+    expect(usePlaygroundStore.getState().commandState.revision).toBe(0);
+    expect(localStorage.getItem(PLAYGROUND_SONG_STORAGE_KEY)).toBeNull();
   });
 
   it("renders the transport and can create demo material", () => {

@@ -6,9 +6,13 @@ import {
   executeCommandBatch,
   materializeCommandBatch,
   restoreCommandState,
+  snapshotCommandState,
   type BeatTwinCommand,
+  type CommandBatchResult,
   type CommandEvent,
+  type CommandSnapshot,
   type CommandState,
+  type ExecuteCommandBatchRequest,
   type IdScope,
 } from "@beat-twin/commands";
 import type { Song } from "@beat-twin/core";
@@ -68,7 +72,7 @@ const defaultPersistenceState: PersistenceState = {
   hasSavedSong: hasSavedSong(),
 };
 
-type PlaygroundStore = {
+export type PlaygroundStore = {
   readonly commandState: CommandState;
   readonly undoStack: readonly CommandState[];
   readonly redoStack: readonly CommandState[];
@@ -83,6 +87,8 @@ type PlaygroundStore = {
   readonly preview: PreviewState;
   readonly lastError: string | null;
   readonly dispatch: (command: BeatTwinCommand) => void;
+  readonly inspectRemoteSession: () => CommandSnapshot;
+  readonly executeRemoteCommandBatch: (request: ExecuteCommandBatchRequest) => CommandBatchResult;
   readonly undo: () => void;
   readonly redo: () => void;
   readonly createDemo: () => void;
@@ -570,6 +576,38 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
         lastError: null,
       };
     });
+  },
+
+  inspectRemoteSession: () => snapshotCommandState(get().commandState),
+
+  executeRemoteCommandBatch: (request) => {
+    void previewAudioEngine.stop();
+    let response: CommandBatchResult | null = null;
+    set((current) => {
+      const result = executeCommandBatch(current.commandState, request);
+      response = result;
+      if (!result.ok) {
+        return { lastError: result.error };
+      }
+
+      const persistence = autosaveSong(result.state.song);
+      return {
+        commandState: result.state,
+        undoStack: [...current.undoStack, current.commandState],
+        redoStack: [],
+        ...deriveSelection(result.state),
+        persistence: persistence ?? current.persistence,
+        editingNoteId: null,
+        noteDraft: defaultNoteDraft,
+        preview: idlePreviewState,
+        lastError: null,
+      };
+    });
+
+    if (!response) {
+      throw new Error("remote command batch did not complete synchronously");
+    }
+    return response;
   },
 
   undo: () => {

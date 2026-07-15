@@ -2,52 +2,40 @@
 
 ## Loop
 
-Q2-L — complete. Human validation confirmed the provisional Session Deck
-direction after Q1-B through Q1-D.
+BT-211 — complete. Explicit connected Agent mode now composes the BT-210
+browser proxy with the existing guarded Gateway plan flow.
 
 ## Target Outcome
 
-Promote Session Deck as the next implementation grammar. Keep Mutation
-Instrument paused as the R&D challenger rather than merging either costume
-into the persistent song model.
+Let a player opt into a local Agent connection, inspect a proposal, and confirm
+one fixed NanoDAW plan without weakening standalone editing or creating another
+owner of browser song state.
 
 ## Product Contract
 
-- Use the same Pulse and Glass voices at 112 BPM.
-- Give each costume one uninterrupted run before switching.
-- Judge while listening rather than staring at transition labels.
-- Record which next gesture felt obvious and whether return-to-anchor felt safe.
-- Do not add controls or polish during the listening session.
+- Agent mode starts Off and never connects automatically.
+- Pairing accepts only a loopback Gateway origin and clears the visible secret.
+- Gemma can inspect and propose; it cannot confirm or execute.
+- A preview causes no browser mutation or autosave.
+- One confirmation dispatches one CAS command batch.
+- A successful batch creates one revision, autosave, and undo checkpoint.
+- A post-confirmation error retires the plan and is never offered for retry.
 
-## Files To Create Or Modify
+## Validation
 
-- `.agents/current-plan.md`
-- `.agents/queue.md`
-- `docs/NANODAW_TWO_COSTUMES_DECISION_2026-07-14.md`
-- one short listening note appended after the human session
-
-## Commands To Run
-
-```bash
-pnpm nanodaw:dev
-```
-
-## Validation Steps
-
-- play Session Deck through start, replace, and independent stop;
-- play Mutation through start, transpose, rotate or cancel, restore, and stop;
-- answer which interface invited the next gesture without visual search;
-- answer which result made another run feel worthwhile.
+- Playground typecheck passed.
+- NanoDAW tests passed 39/39.
+- Desktop and 390 px mobile headless-Chrome renders passed without clipping.
+- Full repository validation is recorded in the BT-211 feature report.
 
 ## Evidence Boundary
 
-- The current browser videos are visual only and contain no audio.
-- The prototype adapter observes JS-time transitions near Tone boundaries; it is
-  not evidence of sample-accurate scheduling.
-- No product winner is declared from automated evidence alone.
+- Browser UI and transport behavior use deterministic Gateway/session fixtures.
+- No live S25 model, Gateway daemon, Bitwig process, or MCP server was started.
+- BT-212 still owns authenticated bounded Bitwig execution and live readback.
 
 ## Exit Condition
 
-- Met on 2026-07-15: Session Deck is promoted for the next implementation
-  quest; Mutation Instrument remains paused as the challenger.
-- The decision does not migrate scenes, slots, or mutations into `Song`.
+- Met on 2026-07-15: standalone remains the default, proposal and confirmation
+  are distinct, and the browser remains the sole NanoDAW state owner.
+- BT-212 is Ready; BT-213 stays Blocked on its Bitwig adapter dependency.

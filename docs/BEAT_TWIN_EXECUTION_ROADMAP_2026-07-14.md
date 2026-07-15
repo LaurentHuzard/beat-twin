@@ -276,7 +276,7 @@ Acceptance:
 
 - Priority: P1
 - Size: L
-- Status: Ready
+- Status: Done
 - Depends on: BT-209, BT-210
 
 Acceptance:
@@ -288,6 +288,14 @@ Acceptance:
 - one accepted patch becomes one atomic NanoDAW batch, revision, autosave, and
   undo checkpoint.
 
+Evidence (2026-07-15): NanoDAW now starts with Agent mode Off, pairs explicitly
+to a loopback Gateway, serves the browser-owned command snapshot over the BT-210
+WebSocket proxy, and keeps proposal generation separate from confirmation. A
+confirmed plan enters the store through one CAS batch and produces one revision,
+autosave, and undo checkpoint. Post-confirmation errors retire the preview and
+show an explicit no-retry warning. NanoDAW tests passed 39/39; desktop and 390 px
+headless-Chrome layout checks passed; the root suite passed 132/132.
+
 ## Milestone BT-M3 - Authenticated Dual Target
 
 Goal: execute the same portable musical patch through separate, explicitly
@@ -297,7 +305,7 @@ confirmed NanoDAW and Bitwig flows.
 
 - Priority: P1
 - Size: XL
-- Status: Blocked
+- Status: Ready
 - Depends on: BT-207, BT-211
 
 Acceptance:

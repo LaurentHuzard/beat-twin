@@ -35,6 +35,7 @@ import {
 
 import type { Clip, Note, Song, Track } from "@beat-twin/core";
 
+import { AgentModePanel } from "./AgentModePanel";
 import { LiveComparisonLab } from "./LiveComparisonLab";
 import { buildPreviewAudition, type PreviewState } from "./previewAudio";
 import {
@@ -286,6 +287,8 @@ function App() {
         onStopPreview={stopPreview}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
       />
+
+      <AgentModePanel />
 
       <section className="workspace-grid" aria-label="Beat Twin workspace">
         <Timeline
