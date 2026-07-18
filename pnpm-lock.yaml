@@ -126,6 +126,9 @@ importers:
       '@beat-twin/commands':
         specifier: workspace:*
         version: link:../commands
+      '@beat-twin/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       typescript:
         specifier: ^5.9.0

@@ -2,7 +2,7 @@
   "name": "@beat-twin/agent-contract",
   "version": "0.0.0",
   "private": true,
-  "description": "Strict SongPatchV1 validation, deterministic command compilation, and mutation-free previews.",
+  "description": "Versioned SongPatch validation, deterministic command compilation, and mutation-free previews.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -18,7 +18,8 @@
     "typecheck": "tsc -p tsconfig.build.json --noEmit"
   },
   "dependencies": {
-    "@beat-twin/commands": "workspace:*"
+    "@beat-twin/commands": "workspace:*",
+    "@beat-twin/core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.0"

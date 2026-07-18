@@ -2,8 +2,8 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 
 import {
-  compileSongPatchV1,
-  previewSongPatchV1,
+  compileSongPatch,
+  previewSongPatch,
 } from "@beat-twin/agent-contract";
 import {
   validateDawCapabilities,
@@ -209,8 +209,8 @@ export function createGatewayRequestHandler(options) {
         });
 
         const compileOptions = { idSeed: requestId, snapshot: snapshot.commandSnapshot };
-        const commands = compileSongPatchV1(run.patch, compileOptions);
-        const preview = previewSongPatchV1(run.patch, compileOptions);
+        const commands = compileSongPatch(run.patch, compileOptions);
+        const preview = previewSongPatch(run.patch, compileOptions);
         const requiredScopes = deriveRequiredCommandScopes(commands);
         validatePlanCapabilities(capabilities, commands, requiredScopes);
         const plan = await config.planStore.createPlan({

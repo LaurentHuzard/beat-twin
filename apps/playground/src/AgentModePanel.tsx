@@ -267,6 +267,13 @@ function connectionLabel(state: ConnectionState): string {
 
 function commandName(command: unknown): string {
   if (command && typeof command === "object" && "type" in command && typeof command.type === "string") {
+    if (
+      command.type === "CreateTrack" &&
+      "instrumentId" in command &&
+      typeof command.instrumentId === "string"
+    ) {
+      return `${command.type} · ${command.instrumentId}`;
+    }
     return command.type;
   }
   return "Unknown command";

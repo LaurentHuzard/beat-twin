@@ -21,7 +21,7 @@ const baseTransport = {
 
 function makeSong(overrides: Partial<Song> = {}): Song {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: "song-1",
     title: "Scheduler Test",
     transport: baseTransport,
@@ -72,6 +72,7 @@ test("converts clip-relative notes into absolute beat and second events", () => 
       trackId: "track-1",
       trackName: "Keys",
       trackKind: "instrument",
+      instrumentId: "lead",
       trackIndex: 0,
       clipId: "clip-1",
       clipName: "Hook",

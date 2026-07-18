@@ -136,6 +136,7 @@ const COMMAND_STATUSES = new Set<CommandExecutionStatus>([
 const COMMAND_TYPES = new Set<ExecutableCommandType>([
   "CreateSong",
   "CreateTrack",
+  "SetTrackInstrument",
   "CreateClip",
   "AddNote",
   "UpdateNote",
@@ -591,9 +592,17 @@ function validateExecutableCommand(value: unknown, index: number): ValidationRes
       valid = id("id") && optionalString("title") && optionalPositive("bpm");
       break;
     case "CreateTrack":
-      keys = ["id", "name", "kind", "color"];
+      keys = ["id", "name", "kind", "instrumentId", "color"];
       valid = id("id") && optionalString("name") && optionalString("color") &&
-        (command.kind === undefined || ["instrument", "audio", "effect", "group"].includes(command.kind as string));
+        (command.kind === undefined || ["instrument", "audio", "effect", "group"].includes(command.kind as string)) &&
+        (command.instrumentId === undefined ||
+          (["drums", "bass", "chords", "lead"].includes(command.instrumentId as string) &&
+            (command.kind === undefined || command.kind === "instrument")));
+      break;
+    case "SetTrackInstrument":
+      keys = ["trackId", "instrumentId"];
+      valid = id("trackId") &&
+        ["drums", "bass", "chords", "lead"].includes(command.instrumentId as string);
       break;
     case "CreateClip":
       keys = ["id", "trackId", "name", "startBeat", "lengthBeats"];

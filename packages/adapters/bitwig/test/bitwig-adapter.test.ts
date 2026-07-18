@@ -260,6 +260,25 @@ test("invalid names and notes beyond the clip are rejected before authentication
   assert.equal(overflowPort.calls.length, 0);
 });
 
+test("explicit NanoDAW instruments remain unsupported in Bitwig before authentication", async () => {
+  const port = new MemoryBitwigPort();
+  const instance = adapter(port);
+  const snapshot = await instance.inspect();
+  const explicitInstrument = commands().map((command) =>
+    command.type === "CreateTrack"
+      ? { ...command, instrumentId: "bass" as const }
+      : command);
+
+  const execution = await instance.execute(plan(snapshot.commandSnapshot.revision, {
+    commands: explicitInstrument,
+  }));
+  assert.equal(execution.ok, false);
+  assert.equal(execution.ok ? null : execution.error.code, "unsupported_capability");
+  assert.match(execution.ok ? "" : execution.error.message, /not mapped/);
+  assert.equal(port.authenticateCount, 0);
+  assert.equal(port.calls.length, 0);
+});
+
 test("authentication and target replacement fail before the first mutation", async () => {
   const deniedPort = new MemoryBitwigPort();
   deniedPort.failAuthentication = true;

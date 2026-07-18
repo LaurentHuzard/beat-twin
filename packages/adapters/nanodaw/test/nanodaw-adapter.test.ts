@@ -34,7 +34,7 @@ function planFor(
     planId,
     requestId: overrides.requestId ?? `request:${planId}`,
     adapterId: "nanodaw",
-    capabilityVersion: "nanodaw-v1",
+    capabilityVersion: "nanodaw-v2",
     baseRevision: snapshot.commandSnapshot.revision,
     commands: Object.freeze([{ type: "CreateSong", id: "song-1", title: "Port-owned" }] as const),
     requiredScopes: Object.freeze(["song.write"]),
@@ -97,7 +97,7 @@ test("inspection/preview and every invalid preflight leave the port untouched", 
       planId: "bad-capability",
       requestId: "bad-capability",
       digest: "digest:bad-capability",
-      capabilityVersion: "nanodaw-v2",
+      capabilityVersion: "nanodaw-v1",
     },
     {
       planId: "bad-scope",
@@ -138,7 +138,13 @@ test("one valid multi-command plan makes exactly one atomic port mutation and on
     digest: "digest:arrangement",
     commands: Object.freeze([
       { type: "CreateSong", id: "song-1", title: "Arrangement", bpm: 126 },
-      { type: "CreateTrack", id: "track-1", name: "Keys", kind: "instrument" },
+      {
+        type: "CreateTrack",
+        id: "track-1",
+        name: "Night Bass",
+        kind: "instrument",
+        instrumentId: "bass",
+      },
       { type: "CreateClip", id: "clip-1", trackId: "track-1", name: "Hook", lengthBeats: 4 },
       {
         type: "AddNote",
@@ -158,11 +164,37 @@ test("one valid multi-command plan makes exactly one atomic port mutation and on
   assert.equal(report.finalSnapshot.revision, 1);
   assert.equal(port.batchExecutionCount, 1);
   assert.equal(runtime.inspect().song?.tracks[0]?.clips[0]?.pattern.notes.length, 1);
+  assert.equal(runtime.inspect().song?.tracks[0]?.instrumentId, "bass");
 
   const replay = await adapter.execute(plan);
   assert.equal(replay, report);
   assert.equal(port.batchExecutionCount, 1);
   assert.equal(runtime.inspect().revision, 1);
+});
+
+test("unknown instrument IDs fail preflight before the atomic port mutation", async () => {
+  const { adapter, port, runtime } = fixture();
+  const snapshot = await adapter.inspect();
+  const plan = planFor(snapshot, {
+    planId: "unknown-instrument",
+    requestId: "unknown-instrument",
+    digest: "digest:unknown-instrument",
+    commands: Object.freeze([
+      { type: "CreateSong", id: "song-1" },
+      {
+        type: "CreateTrack",
+        id: "track-1",
+        kind: "instrument",
+        instrumentId: "organ",
+      },
+    ] as never),
+  });
+
+  const report = await adapter.execute(plan);
+  assert.equal(report.ok, false);
+  assert.equal(report.ok ? null : report.error.code, "invalid_command");
+  assert.equal(port.batchExecutionCount, 0);
+  assert.deepEqual(runtime.inspect(), { song: null, revision: 0 });
 });
 
 test("concurrent idempotent replays are coalesced before the mutating port call", async () => {

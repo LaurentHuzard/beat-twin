@@ -509,6 +509,13 @@ function validateBoundedPatch(
           index,
         );
       }
+      if (command.instrumentId !== undefined) {
+        return failure(
+          "unsupported_capability",
+          "Bitwig built-in instrument selection is not mapped",
+          index,
+        );
+      }
       const name = command.name ?? "Beat Twin";
       if (name.length < 1 || name.length > 64) {
         return failure(
