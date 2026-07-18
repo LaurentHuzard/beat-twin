@@ -25,6 +25,25 @@ For generic MCP clients, adapt [`../llm-mcp/mcp.example.json`](../llm-mcp/mcp.ex
 and keep local secrets or machine-specific paths in an untracked file such as
 `llm-mcp/mcp.json`.
 
+The example also declares the generic MCP metadata field:
+
+```json
+{
+  "requiredProcesses": ["BitwigStudio"]
+}
+```
+
+Dependency-aware clients such as TwinPilot can inspect this process name before
+spawning the configured MCP server and render `process_not_running` with a safe
+repair hint. The client does not need a Beat Twin path or Bitwig-specific code.
+Generic MCP clients may ignore the field. Removing it keeps MCP startup
+independent from Bitwig, while `pnpm smoke:read-only` remains the structured,
+layered status command for explicit diagnostics.
+
+This metadata contains no command secret and does not enable any write policy.
+Do not put `BITWIG_MCP_WRITE_POLICY` or `BITWIG_MCP_ENABLE_WRITES` in a shared
+preset.
+
 Beat Twin is read-only by default. Do not add `BITWIG_MCP_WRITE_POLICY` or
 `BITWIG_MCP_ENABLE_WRITES` unless you are working in a disposable Bitwig project.
 
@@ -32,14 +51,14 @@ To expose every implemented write tool for an explicit local test:
 
 ```bash
 codex mcp remove beat-twin
-codex mcp add beat-twin --env BITWIG_HOST=127.0.0.1 --env BITWIG_PORT=8888 --env BITWIG_MCP_ENABLE_WRITES=1 -- node /absolute/path/to/beat-twin/index.js
+codex mcp add beat-twin --env BITWIG_HOST=127.0.0.1 --env BITWIG_PORT=8888 --env BITWIG_BRIDGE_SECRET=replace-with-controller-secret --env BITWIG_MCP_ENABLE_WRITES=1 -- node /absolute/path/to/beat-twin/index.js
 ```
 
 To expose only application-level track creation:
 
 ```bash
 codex mcp remove beat-twin
-codex mcp add beat-twin --env BITWIG_HOST=127.0.0.1 --env BITWIG_PORT=8888 --env BITWIG_MCP_WRITE_POLICY=application_write -- node /absolute/path/to/beat-twin/index.js
+codex mcp add beat-twin --env BITWIG_HOST=127.0.0.1 --env BITWIG_PORT=8888 --env BITWIG_BRIDGE_SECRET=replace-with-controller-secret --env BITWIG_MCP_WRITE_POLICY=application_write -- node /absolute/path/to/beat-twin/index.js
 ```
 
 MCP clients may cache the server process and the `listTools` response. After
@@ -82,6 +101,10 @@ Beat Twin -> Beat Twin
 The controller must be enabled before the MCP server can connect. Installing the
 file is not enough: Bitwig only opens the TCP bridge after it loads the
 controller instance.
+
+For any write check, set a high-entropy value in the controller's
+`Beat Twin Security` -> `Bridge secret` preference and pass the same value as
+`BITWIG_BRIDGE_SECRET`. Read-only inspection does not require it.
 
 ## 5. Verify The Bridge
 
@@ -138,3 +161,5 @@ read-error details when Bitwig only returns a partial snapshot.
   restart Bitwig.
 - Mutating tools are missing: expected in default read-only mode, or after a
   policy change if the MCP client has not been restarted.
+- A mutating tool returns an authentication error: the controller secret is
+  empty or does not match `BITWIG_BRIDGE_SECRET`.

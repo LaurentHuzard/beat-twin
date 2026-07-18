@@ -12,6 +12,12 @@ This Linear-style roadmap separates three concerns that must not be conflated:
 `.agents/queue.md` is the short execution view. This document owns detailed
 scope, dependencies, and acceptance criteria.
 
+The launcher-first reflection remains an exploration. The Council decision in
+[`NANODAW_LIVE_COUNCIL_DECISION_2026-07-14.md`](NANODAW_LIVE_COUNCIL_DECISION_2026-07-14.md)
+requires the standalone evidence gate before a shared-clock comparison between
+the Session Deck and Mutation Instrument. No persistent scene/slot model,
+recording, macro, or capture architecture is authorized by that spike.
+
 ## Conventions
 
 - Priority: `P0` protects the standalone or diagnostic baseline, `P1` unlocks
@@ -50,8 +56,11 @@ Acceptance:
 
 - Priority: P0
 - Size: M
-- Status: Ready
+- Status: Done
 - Depends on: BT-201
+- Evidence: 116 root tests, 22 NanoDAW tests, typecheck, and the eight-package
+  smoke passed locally on 2026-07-14. Node 26 emitted an engine warning because
+  the supported matrix remains Node 22/24.
 
 Checks:
 
@@ -72,7 +81,7 @@ Acceptance:
 
 - Priority: P0
 - Size: M
-- Status: Ready
+- Status: Done
 - Depends on: BT-202
 
 Target flow:
@@ -90,11 +99,18 @@ Acceptance:
   interaction, desktop screenshot, and mobile screenshot are captured;
 - the app does not stall on an unavailable external dependency.
 
+Evidence (2026-07-14): Chromium loaded `Beat Twin Playground`, rendered the
+timeline and inspector, and completed a visible note edit. Console finished at
+0 errors and 0 warnings after adding an inline favicon. Desktop 1440 x 1000 and
+mobile 390 x 844 were inspected; the mobile body width stayed at 390 px. All 48
+captured requests were successful and limited to `127.0.0.1` or a local `blob:`
+URL. No Bitwig, MCP, gateway, S25, or cloud target was started or contacted.
+
 ### BT-204 - Prove the standalone musical loop
 
 - Priority: P0
 - Size: L
-- Status: Ready
+- Status: Done
 - Depends on: BT-203
 
 Scope:
@@ -112,11 +128,18 @@ Acceptance:
 - audition failure, including browser autoplay restrictions, is explained;
 - no external DAW receives a command.
 
+Evidence (2026-07-14): the real-browser flow produced pitch `37`, undo restored
+`36`, redo restored `37`, and save/reload/load restored `37`. Tone.js audition
+started from an explicit click. Preview transport was removed from persistent
+command history after the gate exposed a mismatch between stopped audio and a
+serialized `transport.isPlaying: true`; the persisted value now remains `false`.
+The focused NanoDAW suite remains 22/22 and typecheck passes.
+
 ### BT-205 - Make runtime mode explicit
 
 - Priority: P1
 - Size: M
-- Status: Ready
+- Status: Done
 - Depends on: BT-203
 
 Scope:
@@ -140,7 +163,7 @@ Goal: replace generic connection failures with a layered local diagnosis.
 
 - Priority: P0
 - Size: M
-- Status: Ready
+- Status: Done
 - Cross-project consumer: TwinPilot TP-202
 
 Scope:
@@ -163,7 +186,7 @@ Acceptance:
 
 - Priority: P0
 - Size: M
-- Status: Ready
+- Status: Done
 - Depends on: BT-206
 
 Required states:
@@ -191,8 +214,14 @@ Acceptance:
 
 - Priority: P1
 - Size: M
-- Status: Ready
+- Status: Done
 - Depends on: BT-207 and TwinPilot TP-202
+
+Evidence (2026-07-15): the portable MCP example declares the generic
+`requiredProcesses` field consumed by TwinPilot TP-202. A root test locks the
+process metadata and proves the shared preset contains neither secrets nor
+write-policy activation. TwinPilot's MCP config and health fixture suites passed
+unchanged against the generic contract.
 
 Acceptance:
 
@@ -226,8 +255,15 @@ Acceptance:
 
 - Priority: P1
 - Size: L
-- Status: Ready
+- Status: Done
 - Depends on: BT-204
+
+Evidence (2026-07-15): a loopback-only WebSocket proxy authenticates browser
+sessions through pairing, validates Origin and protocol frames, accepts one
+browser owner, and forwards inspection plus one atomic CAS batch without storing
+song state. Disconnects after dispatch return an unknown outcome, while adapter
+and gateway status contracts preserve no-retry recovery. Root tests passed
+132/132.
 
 Acceptance:
 
@@ -240,7 +276,7 @@ Acceptance:
 
 - Priority: P1
 - Size: L
-- Status: Blocked
+- Status: Done
 - Depends on: BT-209, BT-210
 
 Acceptance:
@@ -252,6 +288,14 @@ Acceptance:
 - one accepted patch becomes one atomic NanoDAW batch, revision, autosave, and
   undo checkpoint.
 
+Evidence (2026-07-15): NanoDAW now starts with Agent mode Off, pairs explicitly
+to a loopback Gateway, serves the browser-owned command snapshot over the BT-210
+WebSocket proxy, and keeps proposal generation separate from confirmation. A
+confirmed plan enters the store through one CAS batch and produces one revision,
+autosave, and undo checkpoint. Post-confirmation errors retire the preview and
+show an explicit no-retry warning. NanoDAW tests passed 39/39; desktop and 390 px
+headless-Chrome layout checks passed; the root suite passed 132/132.
+
 ## Milestone BT-M3 - Authenticated Dual Target
 
 Goal: execute the same portable musical patch through separate, explicitly
@@ -261,7 +305,7 @@ confirmed NanoDAW and Bitwig flows.
 
 - Priority: P1
 - Size: XL
-- Status: Blocked
+- Status: Done
 - Depends on: BT-207, BT-211
 
 Acceptance:
@@ -271,11 +315,21 @@ Acceptance:
 - target identity and note readback are available before writes are enabled;
 - partial execution is reported honestly.
 
+Evidence (2026-07-15): `bitwig-launcher-v1` binds one empty launcher slot by
+controller instance, project, track/scene positions, and target generation. The
+controller authenticates every write connection, keeps read inspection open,
+uses a dedicated anchored 64-step cursor, and exposes bounded target mutations.
+The adapter validates the complete patch before authentication, polls clip
+readiness without retrying creation, stops at the first uncertain outcome, and
+requires exact tempo, track, clip-length, and note readback. Root tests passed
+145/145, the 57-tool snapshot stayed unchanged, package smoke passed for nine
+packages, and typecheck/build passed. No live Bitwig write is claimed here.
+
 ### BT-213 - Prove separate target execution
 
 - Priority: P2
 - Size: XL
-- Status: Blocked
+- Status: Ready
 - Depends on: BT-211, BT-212
 
 Acceptance:

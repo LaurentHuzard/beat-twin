@@ -209,17 +209,10 @@ plan.
 ## Bitwig execution boundary
 
 `BitwigAdapter` preserves the existing MCP server and all 57 historical tool
-definitions. Read-only inspection and diagnostics may be extracted first.
-
-Bitwig writes remain blocked until all of these gates pass:
-
-- controller bridge authentication is implemented and verified;
-- parameters and musical bounds are validated strictly before dispatch;
-- stable identifiers for the target track and clip are resolved and bound to
-  the plan before preview rather than inferred from a fragile selection;
-- created notes can be read back from that exact target and compared with the
-  plan;
-- required policy scopes are enabled before the first mutation.
+definitions. BT-212 implements the required gates: controller authentication,
+strict pre-dispatch musical bounds, generation-aware target binding before
+preview, read-only clip readiness polling, and exact target/note readback.
+Read-only inspection remains available without authentication.
 
 Bitwig may not support atomic multi-operation execution. It stops after the
 first failure and returns an honest `partial_execution` boundary with no

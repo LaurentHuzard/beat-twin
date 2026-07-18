@@ -28,6 +28,7 @@ The browser NanoDAW is the native reference target. Bitwig is the first external
 - Keep `@beat-twin/commands` as the canonical mutation language.
 - Keep browser save/load schema-versioned.
 - Keep NanoDAW audition and editing independent from Bitwig.
+- Keep NanoDAW MCP preparation separate from browser-owned confirmation and execution.
 - Validate the existing Bitwig controller manually in disposable projects.
 - Document only behavior that exists or is directly testable.
 

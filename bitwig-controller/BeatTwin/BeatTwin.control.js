@@ -9,10 +9,21 @@ var sceneBank;
 var cursorTrack;
 var cursorDevice;
 var cursorClip;
+var boundedCursorClip;
 var remoteControlsBank;
 var deviceBanks = [];
 var popupBrowser;
 var browserResultBank;
+var bridgeSecretSetting;
+var controllerInstanceId;
+var cursorClipTrack;
+var cursorClipSlot;
+var targetGeneration = 0;
+var lastTargetSignature = null;
+
+var BRIDGE_PROTOCOL_VERSION = "beat-twin-bitwig-v2";
+var TARGET_GRID_STEPS = 64;
+var TARGET_STEP_SIZE_BEATS = 0.25;
 
 // Connection state
 var isConnected = false;
@@ -27,6 +38,16 @@ function init() {
   transport.isArrangerRecordEnabled().markInterested();
 
   application = host.createApplication();
+  application.projectName().markInterested();
+
+  bridgeSecretSetting = host.getPreferences().getStringSetting(
+    "Bridge secret",
+    "Beat Twin Security",
+    128,
+    ""
+  );
+  bridgeSecretSetting.markInterested();
+  controllerInstanceId = createControllerInstanceId();
 
   // --- Track Control Setup ---
   // Create a Cursor Track (follows selection)
@@ -49,6 +70,30 @@ function init() {
   cursorClip.getPlayStart().markInterested();
   cursorClip.getPlayStop().markInterested();
   cursorClip.playingStep().markInterested();
+
+  // Agent-mode writes use a dedicated cursor clip so the historical MCP note
+  // tools cannot shift its step/key viewport behind the adapter's back.
+  boundedCursorClip = host.createLauncherCursorClip(TARGET_GRID_STEPS, 128);
+  boundedCursorClip.setStepSize(TARGET_STEP_SIZE_BEATS);
+  boundedCursorClip.exists().markInterested();
+  boundedCursorClip.getLoopLength().markInterested();
+
+  cursorClipTrack = boundedCursorClip.getTrack();
+  cursorClipTrack.exists().markInterested();
+  cursorClipTrack.position().markInterested();
+  cursorClipTrack.name().markInterested();
+
+  cursorClipSlot = boundedCursorClip.clipLauncherSlot();
+  cursorClipSlot.exists().markInterested();
+  cursorClipSlot.sceneIndex().markInterested();
+  cursorClipSlot.name().markInterested();
+  cursorClipSlot.hasContent().markInterested();
+
+  application.projectName().addValueObserver(refreshTargetGeneration);
+  cursorClipTrack.exists().addValueObserver(refreshTargetGeneration);
+  cursorClipTrack.position().addValueObserver(refreshTargetGeneration);
+  cursorClipSlot.exists().addValueObserver(refreshTargetGeneration);
+  cursorClipSlot.sceneIndex().addValueObserver(refreshTargetGeneration);
 
   cursorClip.addStepDataObserver(function (x, y, state) {
     if (isConnected) {
@@ -146,16 +191,18 @@ function init() {
     println("Client connected");
     isConnected = true;
     var receiveBuffer = "";
+    var bridgeSession = { authenticated: false };
 
     remoteConnection.setDisconnectCallback(function () {
       println("Client disconnected");
       isConnected = false;
       receiveBuffer = "";
+      bridgeSession.authenticated = false;
     });
 
     remoteConnection.setReceiveCallback(function (data) {
       receiveBuffer += bytesToString(data);
-      receiveBuffer = drainReceiveBuffer(receiveBuffer, remoteConnection);
+      receiveBuffer = drainReceiveBuffer(receiveBuffer, remoteConnection, bridgeSession);
     });
   });
 }
@@ -168,11 +215,11 @@ function bytesToString(data) {
   return msgString;
 }
 
-function drainReceiveBuffer(buffer, connection) {
+function drainReceiveBuffer(buffer, connection, bridgeSession) {
   while (buffer.length > 0) {
     if (buffer.charAt(0) === "{") {
       try {
-        handleRequest(JSON.parse(buffer), connection);
+        handleRequest(JSON.parse(buffer), connection, bridgeSession);
         return "";
       } catch (rawError) {
         println("Error parsing raw JSON: " + rawError);
@@ -202,7 +249,7 @@ function drainReceiveBuffer(buffer, connection) {
     buffer = buffer.substring(bodyLength + 4);
 
     try {
-      handleRequest(JSON.parse(body), connection);
+      handleRequest(JSON.parse(body), connection, bridgeSession);
     } catch (frameError) {
       println("Error parsing framed JSON: " + frameError);
       sendError(connection, null, -32700, "Parse error");
@@ -225,11 +272,169 @@ function invalidParams(message) {
   return err;
 }
 
+function bridgeError(code, message) {
+  var err = new Error(message);
+  err.jsonrpcCode = code;
+  return err;
+}
+
+function createControllerInstanceId() {
+  return "btw_" + Date.now().toString(36) + "_" + Math.floor(Math.random() * 0x7fffffff).toString(36);
+}
+
+function secretsEqual(left, right) {
+  if (typeof left !== "string" || typeof right !== "string" || left.length !== right.length) {
+    return false;
+  }
+  var difference = 0;
+  for (var i = 0; i < left.length; i++) {
+    difference |= left.charCodeAt(i) ^ right.charCodeAt(i);
+  }
+  return difference === 0;
+}
+
+function isBridgeReadMethod(method) {
+  return method === "ping" ||
+    method === "bridge.identity" ||
+    method === "target.inspect" ||
+    method === "transport.getTempo" ||
+    method === "transport.getPosition" ||
+    method === "transport.getIsPlaying" ||
+    method === "transport.getIsRecording" ||
+    method === "track.bank.get_status" ||
+    method === "scene.list" ||
+    method === "clip.get_info" ||
+    method === "track.selected.get_status" ||
+    method === "device.get_status" ||
+    method === "device.get_remote_controls" ||
+    method === "device.list" ||
+    method === "browser.get_status" ||
+    method === "browser.list_results";
+}
+
+function targetSignature() {
+  return [
+    application.projectName().get(),
+    cursorClipTrack.exists().get(),
+    cursorClipTrack.position().get(),
+    cursorClipSlot.exists().get(),
+    cursorClipSlot.sceneIndex().get()
+  ].join("|");
+}
+
+function refreshTargetGeneration() {
+  var nextSignature = targetSignature();
+  if (lastTargetSignature !== null && nextSignature !== lastTargetSignature) {
+    targetGeneration += 1;
+  }
+  lastTargetSignature = nextSignature;
+}
+
+function anchorBoundedGrid() {
+  boundedCursorClip.scrollToStep(0);
+  boundedCursorClip.scrollToKey(0);
+}
+
+function currentTargetBinding() {
+  refreshTargetGeneration();
+  return {
+    controllerInstanceId: controllerInstanceId,
+    projectName: application.projectName().get(),
+    trackPosition: cursorClipTrack.position().get(),
+    slotSceneIndex: cursorClipSlot.sceneIndex().get(),
+    targetGeneration: targetGeneration
+  };
+}
+
+function sameTargetBinding(left, right) {
+  return left && right &&
+    left.controllerInstanceId === right.controllerInstanceId &&
+    left.projectName === right.projectName &&
+    left.trackPosition === right.trackPosition &&
+    left.slotSceneIndex === right.slotSceneIndex &&
+    left.targetGeneration === right.targetGeneration;
+}
+
+function requireCurrentTarget(binding) {
+  if (!binding || typeof binding !== "object") {
+    throw invalidParams("Missing target binding");
+  }
+  var current = currentTargetBinding();
+  if (!sameTargetBinding(binding, current)) {
+    throw bridgeError(-32003, "Target identity changed; create and confirm a fresh plan");
+  }
+  if (!cursorClipTrack.exists().get() || !cursorClipSlot.exists().get() || current.trackPosition < 0 || current.slotSceneIndex < 0) {
+    throw bridgeError(-32004, "No stable launcher target is selected");
+  }
+  return current;
+}
+
+function isIntegerInRange(value, minimum, maximum) {
+  return typeof value === "number" && isFinite(value) && Math.floor(value) === value && value >= minimum && value <= maximum;
+}
+
+function isQuarterBeat(value) {
+  return typeof value === "number" && isFinite(value) && value > 0 && Math.abs(value * 4 - Math.round(value * 4)) < 0.0000001;
+}
+
+function readTargetNotes() {
+  if (!boundedCursorClip.exists().get() || !cursorClipSlot.hasContent().get()) {
+    return [];
+  }
+  anchorBoundedGrid();
+  var notes = [];
+  for (var step = 0; step < TARGET_GRID_STEPS; step++) {
+    for (var pitch = 0; pitch < 128; pitch++) {
+      var note = boundedCursorClip.getStep(0, step, pitch);
+      if (String(note.state()) === "NoteOn") {
+        notes.push({
+          channel: note.channel(),
+          step: step,
+          pitch: pitch,
+          velocity: Math.max(1, Math.min(127, Math.round(note.velocity() * 127))),
+          durationBeats: note.duration()
+        });
+      }
+    }
+  }
+  return notes;
+}
+
+function inspectBoundTarget(bridgeSession) {
+  var binding = currentTargetBinding();
+  var available = cursorClipTrack.exists().get() && cursorClipSlot.exists().get() && binding.trackPosition >= 0 && binding.slotSceneIndex >= 0;
+  return {
+    protocolVersion: BRIDGE_PROTOCOL_VERSION,
+    controllerInstanceId: controllerInstanceId,
+    projectName: binding.projectName,
+    writeAuthenticated: Boolean(bridgeSession.authenticated),
+    target: {
+      available: available,
+      binding: binding,
+      trackName: cursorClipTrack.name().get(),
+      slotName: cursorClipSlot.name().get(),
+      hasContent: cursorClipSlot.hasContent().get(),
+      clipExists: boundedCursorClip.exists().get(),
+      clipLengthBeats: boundedCursorClip.exists().get() ? boundedCursorClip.getLoopLength().get() : null
+    },
+    transport: {
+      tempoBpm: transport.tempo().value().getRaw(),
+      positionBeats: transport.getPosition().get(),
+      isPlaying: transport.isPlaying().get()
+    },
+    grid: {
+      stepSizeBeats: TARGET_STEP_SIZE_BEATS,
+      maxSteps: TARGET_GRID_STEPS
+    },
+    notes: available ? readTargetNotes() : []
+  };
+}
+
 function isValidTrackIndex(index) {
   return typeof index === "number" && index >= 0 && index < 8 && Math.floor(index) === index;
 }
 
-function handleRequest(request, connection) {
+function handleRequest(request, connection, bridgeSession) {
   if (!request.method) {
     sendError(connection, request.id, -32600, "Invalid Request");
     return;
@@ -237,7 +442,122 @@ function handleRequest(request, connection) {
 
   var result;
   try {
+    if (
+      request.method !== "bridge.authenticate" &&
+      !isBridgeReadMethod(request.method) &&
+      !bridgeSession.authenticated
+    ) {
+      throw bridgeError(-32001, "Write authentication is required");
+    }
+
     switch (request.method) {
+      case "bridge.authenticate":
+        var configuredSecret = bridgeSecretSetting.get();
+        var suppliedSecret = request.params && request.params[0];
+        if (!configuredSecret || !secretsEqual(configuredSecret, suppliedSecret)) {
+          bridgeSession.authenticated = false;
+          throw bridgeError(-32001, "Bridge secret is missing or invalid");
+        }
+        bridgeSession.authenticated = true;
+        result = {
+          authenticated: true,
+          protocolVersion: BRIDGE_PROTOCOL_VERSION,
+          controllerInstanceId: controllerInstanceId
+        };
+        break;
+
+      case "bridge.identity":
+        result = {
+          protocolVersion: BRIDGE_PROTOCOL_VERSION,
+          controllerInstanceId: controllerInstanceId,
+          projectName: application.projectName().get(),
+          writeAuthentication: "required"
+        };
+        break;
+
+      case "target.inspect":
+        result = inspectBoundTarget(bridgeSession);
+        break;
+
+      case "target.set_track_name":
+        var renameBinding = request.params && request.params[0];
+        var trackName = request.params && request.params[1];
+        requireCurrentTarget(renameBinding);
+        if (typeof trackName !== "string" || trackName.length < 1 || trackName.length > 64) {
+          throw invalidParams("Track name must contain 1-64 characters");
+        }
+        cursorClipTrack.setName(trackName);
+        result = "OK";
+        break;
+
+      case "target.set_tempo":
+        var tempoBinding = request.params && request.params[0];
+        var targetTempoBpm = request.params && request.params[1];
+        requireCurrentTarget(tempoBinding);
+        if (typeof targetTempoBpm !== "number" || !isFinite(targetTempoBpm) || targetTempoBpm < 40 || targetTempoBpm > 240) {
+          throw invalidParams("Tempo must be between 40 and 240 BPM");
+        }
+        transport.tempo().value().setRaw(targetTempoBpm);
+        result = "OK";
+        break;
+
+      case "target.create_clip":
+        var createBinding = request.params && request.params[0];
+        var targetLengthBeats = request.params && request.params[1];
+        requireCurrentTarget(createBinding);
+        if (!isIntegerInRange(targetLengthBeats, 1, 16)) {
+          throw invalidParams("Clip length must be an integer from 1 to 16 beats");
+        }
+        if (cursorClipSlot.hasContent().get()) {
+          throw bridgeError(-32005, "Target launcher slot is not empty");
+        }
+        cursorClipSlot.createEmptyClip(targetLengthBeats);
+        result = "OK";
+        break;
+
+      case "target.set_note":
+        var noteBinding = request.params && request.params[0];
+        var noteStep = request.params && request.params[1];
+        var notePitch = request.params && request.params[2];
+        var noteVelocity = request.params && request.params[3];
+        var noteDuration = request.params && request.params[4];
+        requireCurrentTarget(noteBinding);
+        if (!cursorClipSlot.hasContent().get() || !boundedCursorClip.exists().get()) {
+          throw bridgeError(-32006, "Target launcher clip is unavailable");
+        }
+        if (!isIntegerInRange(noteStep, 0, TARGET_GRID_STEPS - 1)) {
+          throw invalidParams("Note step must be an integer from 0 to 63");
+        }
+        if (!isIntegerInRange(notePitch, 0, 127)) {
+          throw invalidParams("Note pitch must be an integer from 0 to 127");
+        }
+        if (!isIntegerInRange(noteVelocity, 1, 127)) {
+          throw invalidParams("Note velocity must be an integer from 1 to 127");
+        }
+        if (!isQuarterBeat(noteDuration) || noteStep * TARGET_STEP_SIZE_BEATS + noteDuration > boundedCursorClip.getLoopLength().get()) {
+          throw invalidParams("Note duration must be quarter-beat aligned and stay inside the clip");
+        }
+        anchorBoundedGrid();
+        boundedCursorClip.setStep(0, noteStep, notePitch, noteVelocity, noteDuration);
+        result = "OK";
+        break;
+
+      case "target.clear_note":
+        var clearBinding = request.params && request.params[0];
+        var clearStep = request.params && request.params[1];
+        var clearPitch = request.params && request.params[2];
+        requireCurrentTarget(clearBinding);
+        if (!cursorClipSlot.hasContent().get() || !boundedCursorClip.exists().get()) {
+          throw bridgeError(-32006, "Target launcher clip is unavailable");
+        }
+        if (!isIntegerInRange(clearStep, 0, TARGET_GRID_STEPS - 1) || !isIntegerInRange(clearPitch, 0, 127)) {
+          throw invalidParams("Clear target must use a step from 0-63 and pitch from 0-127");
+        }
+        anchorBoundedGrid();
+        boundedCursorClip.clearStep(0, clearStep, clearPitch);
+        result = "OK";
+        break;
+
       // --- Transport ---
       case "transport.play":
         transport.play();

@@ -61,8 +61,8 @@ test("read tool stays callable by default", async () => {
     },
     {
       env: {},
-      call: async (method, params) => {
-        calls.push({ method, params });
+      call: async (method, params, options) => {
+        calls.push({ method, params, options });
         return 128.5;
       },
     },
@@ -70,7 +70,11 @@ test("read tool stays callable by default", async () => {
 
   assert.equal(response.isError, undefined);
   assert.equal(parseToolText(response), 128.5);
-  assert.deepEqual(calls, [{ method: "transport.getTempo", params: [] }]);
+  assert.deepEqual(calls, [{
+    method: "transport.getTempo",
+    params: [],
+    options: { requiresAuthentication: false },
+  }]);
 });
 
 test("mutating tool is blocked by default without calling Bitwig", async () => {
@@ -119,8 +123,8 @@ test("mutating tool is callable when its policy is explicitly enabled", async ()
     },
     {
       env: { BITWIG_MCP_WRITE_POLICY: "transport,mixer_write" },
-      call: async (method, params) => {
-        calls.push({ method, params });
+      call: async (method, params, options) => {
+        calls.push({ method, params, options });
         return "OK";
       },
     },
@@ -134,7 +138,11 @@ test("mutating tool is callable when its policy is explicitly enabled", async ()
     params: [2, 0.75],
     result: "OK",
   });
-  assert.deepEqual(calls, [{ method: "track.bank.volume", params: [2, 0.75] }]);
+  assert.deepEqual(calls, [{
+    method: "track.bank.volume",
+    params: [2, 0.75],
+    options: { requiresAuthentication: true },
+  }]);
 });
 
 test("tool list exposes only the enabled write classes plus reads", () => {

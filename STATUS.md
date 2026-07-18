@@ -16,6 +16,7 @@ git@github.com:LaurentHuzard/beat-twin.git
 - MCP server entrypoint: `index.js`
 - Bitwig controller script: `bitwig-controller/BeatTwin/BeatTwin.control.js`
 - Browser NanoDAW: `apps/playground`
+- Standalone NanoDAW MCP planning server: `packages/mcp`
 - Pure runtime packages: `packages/core`, `packages/commands`, `packages/audio-tone`, `packages/daw-contract`, `packages/agent-contract`
 - Transactional NanoDAW adapter: `packages/adapters/nanodaw`
 - LiteRT-LM provider and bounded model loop: `packages/litert-provider`

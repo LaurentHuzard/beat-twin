@@ -7,6 +7,10 @@ import {
   BitwigProtocolClient,
   diagnoseBitwigConnection,
 } from "../index.js";
+import {
+  BITWIG_BRIDGE_PROTOCOL_VERSION,
+  createRpcBitwigBridgePort,
+} from "../packages/adapters/bitwig/dist/index.js";
 
 function createSilentLogger() {
   return {
@@ -154,6 +158,144 @@ test("write request preserves params and accepts OK response", async () => {
     assert.equal(result, "OK");
     client.destroy();
   });
+});
+
+test("authenticated writes send the bridge secret once per connection", async () => {
+  await withMockServer(async (socket) => {
+    const authentication = await readLengthPrefixedRequest(socket);
+    assert.deepEqual(authentication.request, {
+      jsonrpc: "2.0",
+      method: "bridge.authenticate",
+      params: ["bridge secret value"],
+      id: 0,
+    });
+    socket.write(`${JSON.stringify({
+      jsonrpc: "2.0",
+      id: authentication.request.id,
+      result: { authenticated: true },
+    })}\n`);
+
+    const firstWrite = await readLengthPrefixedRequest(socket);
+    assert.equal(firstWrite.request.method, "transport.setTempo");
+    socket.write(`${JSON.stringify({
+      jsonrpc: "2.0",
+      id: firstWrite.request.id,
+      result: "OK",
+    })}\n`);
+
+    const secondWrite = await readLengthPrefixedRequest(socket);
+    assert.equal(secondWrite.request.method, "target.set_track_name");
+    socket.write(`${JSON.stringify({
+      jsonrpc: "2.0",
+      id: secondWrite.request.id,
+      result: "OK",
+    })}\n`);
+  }, async ({ host, port }) => {
+    const client = new BitwigProtocolClient({
+      host,
+      port,
+      connectDelayMs: 0,
+      responseTimeoutMs: 200,
+      bridgeSecret: "bridge secret value",
+      logger: createSilentLogger(),
+    });
+
+    assert.equal(
+      await client.send("transport.setTempo", [112], { requiresAuthentication: true }),
+      "OK",
+    );
+    assert.equal(
+      await client.send(
+        "target.set_track_name",
+        [{ controllerInstanceId: "one" }, "Bass"],
+        { requiresAuthentication: true },
+      ),
+      "OK",
+    );
+    client.destroy();
+  });
+});
+
+test("Bitwig adapter port and protocol client share one authenticated connection", async () => {
+  const observedMethods = [];
+  await withMockServer(async (socket) => {
+    const authentication = await readLengthPrefixedRequest(socket);
+    observedMethods.push(authentication.request.method);
+    socket.write(`${JSON.stringify({
+      jsonrpc: "2.0",
+      id: authentication.request.id,
+      result: { authenticated: true },
+    })}\n`);
+
+    const inspection = await readLengthPrefixedRequest(socket);
+    observedMethods.push(inspection.request.method);
+    socket.write(`${JSON.stringify({
+      jsonrpc: "2.0",
+      id: inspection.request.id,
+      result: {
+        protocolVersion: BITWIG_BRIDGE_PROTOCOL_VERSION,
+        controllerInstanceId: "controller-1",
+        projectName: "Disposable",
+        writeAuthenticated: true,
+        target: {
+          available: true,
+          binding: {
+            controllerInstanceId: "controller-1",
+            projectName: "Disposable",
+            trackPosition: 0,
+            slotSceneIndex: 0,
+            targetGeneration: 1,
+          },
+          trackName: "Instrument 1",
+          slotName: "",
+          hasContent: false,
+          clipExists: false,
+          clipLengthBeats: null,
+        },
+        transport: { tempoBpm: 120, positionBeats: 0, isPlaying: false },
+        grid: { stepSizeBeats: 0.25, maxSteps: 64 },
+        notes: [],
+      },
+    })}\n`);
+
+    const mutation = await readLengthPrefixedRequest(socket);
+    observedMethods.push(mutation.request.method);
+    socket.write(`${JSON.stringify({
+      jsonrpc: "2.0",
+      id: mutation.request.id,
+      result: "OK",
+    })}\n`);
+  }, async ({ host, port }) => {
+    const client = new BitwigProtocolClient({
+      host,
+      port,
+      connectDelayMs: 0,
+      responseTimeoutMs: 200,
+      logger: createSilentLogger(),
+    });
+    const adapterPort = createRpcBitwigBridgePort({
+      bridgeSecret: "single shared secret",
+      call: (method, params, options) => client.send(method, params, options),
+    });
+
+    await adapterPort.authenticate();
+    await adapterPort.mutate("target.set_tempo", [
+      {
+        controllerInstanceId: "controller-1",
+        projectName: "Disposable",
+        trackPosition: 0,
+        slotSceneIndex: 0,
+        targetGeneration: 1,
+      },
+      112,
+    ]);
+    client.destroy();
+  });
+  assert.deepEqual(observedMethods, [
+    "bridge.authenticate",
+    "target.inspect",
+    "target.set_tempo",
+  ]);
 });
 
 test("timeout rejects when Bitwig stays silent", async () => {

@@ -22,6 +22,7 @@ const BITWIG_DIAGNOSTIC_TIMEOUT_MS = Number.parseInt(
   process.env.BITWIG_DIAGNOSTIC_TIMEOUT_MS ?? "1000",
   10,
 );
+const BITWIG_BRIDGE_SECRET = process.env.BITWIG_BRIDGE_SECRET ?? "";
 
 function connectionHint(error) {
   const code = error?.code;
@@ -111,6 +112,7 @@ export class BitwigProtocolClient {
     port = BITWIG_PORT,
     connectDelayMs = BITWIG_CONNECT_DELAY_MS,
     responseTimeoutMs = BITWIG_RESPONSE_TIMEOUT_MS,
+    bridgeSecret = BITWIG_BRIDGE_SECRET,
     createSocket = () => new net.Socket(),
     logger = console,
   } = {}) {
@@ -118,6 +120,7 @@ export class BitwigProtocolClient {
     this.port = port;
     this.connectDelayMs = connectDelayMs;
     this.responseTimeoutMs = responseTimeoutMs;
+    this.bridgeSecret = bridgeSecret;
     this.createSocket = createSocket;
     this.logger = logger;
     this.socket = null;
@@ -125,6 +128,8 @@ export class BitwigProtocolClient {
     this.requestId = 0;
     this.pendingRequests = new Map();
     this.responseBuffer = "";
+    this.authenticated = false;
+    this.authenticationPromise = null;
   }
 
   async connect() {
@@ -137,6 +142,8 @@ export class BitwigProtocolClient {
     }
 
     this.responseBuffer = "";
+    this.authenticated = false;
+    this.authenticationPromise = null;
     this.connectPromise = new Promise((resolve, reject) => {
       const socket = this.createSocket();
       this.socket = socket;
@@ -157,6 +164,8 @@ export class BitwigProtocolClient {
         settled = true;
         this.connectPromise = null;
         this.socket = null;
+        this.authenticated = false;
+        this.authenticationPromise = null;
         reject(error);
       };
 
@@ -168,6 +177,8 @@ export class BitwigProtocolClient {
         this.logger.error("Connection to Bitwig closed");
         this.socket = null;
         this.responseBuffer = "";
+        this.authenticated = false;
+        this.authenticationPromise = null;
         this.rejectPending(new Error("Connection to Bitwig closed"));
       });
 
@@ -187,13 +198,56 @@ export class BitwigProtocolClient {
     return this.connectPromise;
   }
 
-  async send(method, params = []) {
+  async send(
+    method,
+    params = [],
+    { requiresAuthentication = false, bridgeSecret = this.bridgeSecret } = {},
+  ) {
     if (!this.socket || this.socket.destroyed) {
       try {
         await this.connect();
       } catch (error) {
         throw new Error("Could not connect to Bitwig. Is it running?");
       }
+    }
+
+    if (requiresAuthentication) {
+      await this.authenticate(bridgeSecret);
+    }
+
+    return this.sendConnected(method, params);
+  }
+
+  async authenticate(bridgeSecret = this.bridgeSecret) {
+    if (this.authenticated) {
+      return;
+    }
+    if (this.authenticationPromise) {
+      return this.authenticationPromise;
+    }
+    if (typeof bridgeSecret !== "string" || !bridgeSecret.trim()) {
+      throw new Error("BITWIG_BRIDGE_SECRET is required for Bitwig writes");
+    }
+    const authentication = (async () => {
+      const result = await this.sendConnected("bridge.authenticate", [bridgeSecret]);
+      if (!result || result.authenticated !== true) {
+        throw new Error("Bitwig bridge authentication failed");
+      }
+      this.authenticated = true;
+    })();
+    this.authenticationPromise = authentication;
+    try {
+      await authentication;
+    } finally {
+      if (this.authenticationPromise === authentication) {
+        this.authenticationPromise = null;
+      }
+    }
+  }
+
+  sendConnected(method, params = []) {
+    if (!this.socket || this.socket.destroyed) {
+      throw new Error("Bitwig protocol client is not connected");
     }
 
     const id = this.requestId++;
@@ -284,6 +338,8 @@ export class BitwigProtocolClient {
   destroy(error = new Error("Bitwig protocol client destroyed")) {
     this.rejectPending(error);
     this.responseBuffer = "";
+    this.authenticated = false;
+    this.authenticationPromise = null;
     if (this.socket && !this.socket.destroyed) {
       this.socket.destroy();
     }
@@ -294,8 +350,12 @@ export class BitwigProtocolClient {
 
 const protocolClient = new BitwigProtocolClient();
 
-export function callBitwig(method, params = []) {
-  return protocolClient.send(method, params);
+export function callBitwig(method, params = [], options = {}) {
+  return protocolClient.send(method, params, options);
+}
+
+export function callBitwigAuthenticated(method, params = []) {
+  return protocolClient.send(method, params, { requiresAuthentication: true });
 }
 
 async function readInspectionValue(call, method, params = []) {
@@ -1404,7 +1464,11 @@ export async function handleToolCall(
     }
 
     const params = tool.mapArgs ? tool.mapArgs(args) : [];
-    const result = await call(tool.method, params);
+    const result = await call(
+      tool.method,
+      params,
+      { requiresAuthentication: tool.policy !== "read" },
+    );
 
     if (tool.policy === "read") {
       return serializeToolResult(result);

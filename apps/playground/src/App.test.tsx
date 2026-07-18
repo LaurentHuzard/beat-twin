@@ -10,12 +10,18 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import {
+  resetAgentGatewaySessionFactory,
+  setAgentGatewaySessionFactory,
+} from "./AgentModePanel";
+import type { AgentPlanPreview } from "./agentGateway";
 import { PLAYGROUND_SONG_STORAGE_KEY } from "./persistence";
 import type { PreviewAudioEngine } from "./previewAudio";
 import { setPreviewAudioEngine, usePlaygroundStore } from "./store";
 
 afterEach(() => {
   cleanup();
+  resetAgentGatewaySessionFactory();
   localStorage.clear();
   const initialState = usePlaygroundStore.getInitialState();
   usePlaygroundStore.setState({
@@ -50,6 +56,219 @@ function mockPreviewAudioEngine(): PreviewAudioEngine {
 }
 
 describe("Playground", () => {
+  it("presents standalone mode without claiming optional targets are connected", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    const runtimeMode = screen.getByLabelText("Runtime mode");
+    expect(runtimeMode).toHaveTextContent("Standalone");
+    expect(runtimeMode).toHaveTextContent("NanoDAW ready");
+    expect(runtimeMode).toHaveTextContent("Bitwig and S25 are optional · not enabled");
+    expect(runtimeMode).not.toHaveTextContent(/connected/i);
+  });
+
+  it("loads an MCP plan without mutation and applies it as one saved undo checkpoint after confirmation", async () => {
+    const engine = mockPreviewAudioEngine();
+    const commands = [
+      { type: "CreateSong", id: "song-agent", title: "Night Bass", bpm: 120 },
+      {
+        type: "CreateTrack",
+        id: "track-agent",
+        name: "Night Bass",
+        kind: "instrument",
+        instrumentId: "bass",
+      },
+      {
+        type: "CreateClip",
+        id: "clip-agent",
+        trackId: "track-agent",
+        name: "Verse",
+        lengthBeats: 4,
+      },
+      {
+        type: "AddNote",
+        id: "note-agent",
+        trackId: "track-agent",
+        clipId: "clip-agent",
+        pitch: 36,
+        velocity: 110,
+        startBeat: 0,
+        lengthBeats: 1,
+      },
+    ] as const;
+    const preview: AgentPlanPreview = {
+      runId: "request-agent-1",
+      dawId: "nanodaw",
+      model: "gemma-s25",
+      steps: 2,
+      patch: {
+        schemaVersion: 2,
+        tempoBpm: 120,
+        track: {
+          kind: "instrument",
+          name: "Night Bass",
+          instrumentId: "bass",
+          clip: {
+            name: "Verse",
+            lengthBeats: 4,
+            notes: [{ pitch: 36, velocity: 110, startBeat: 0, lengthBeats: 1 }],
+          },
+        },
+      },
+      preview: {
+        summary: ["Add instrument track \"Night Bass\"", "Instrument: Bass (bass)"],
+        commands,
+      },
+      plan: {
+        planId: "plan-agent-1",
+        adapterId: "nanodaw",
+        baseRevision: 0,
+        requiredScopes: ["song.write"],
+        expiresAt: "2026-07-15T09:02:00.000Z",
+        commands,
+      },
+    };
+    setAgentGatewaySessionFactory((options) => {
+      let connected = false;
+      return {
+        connect: async () => {
+          connected = true;
+          options.onConnectionChange?.(true);
+        },
+        run: async () => preview,
+        loadMcpPlan: async () => preview,
+        confirmAndExecute: async (planId) => {
+          const batch = options.port.executeCommandBatch({
+            requestId: "request-agent-1",
+            expectedRevision: 0,
+            commands: commands as never,
+          });
+          if (!batch.ok) throw new Error(batch.error);
+          return {
+            report: {
+              ok: true,
+              status: "succeeded",
+              planId,
+              finalSnapshot: batch.snapshot,
+            },
+          };
+        },
+        disconnect: () => {
+          connected = false;
+          options.onConnectionChange?.(false);
+        },
+        isConnected: () => connected,
+      };
+    });
+
+    render(<App />);
+    const agentMode = screen.getByLabelText("Agent mode");
+    expect(within(agentMode).getByText("Off")).toBeInTheDocument();
+    expect(within(agentMode).queryByLabelText("Gateway URL")).toBeNull();
+    expect(screen.getByLabelText("Runtime mode")).toHaveTextContent("Standalone");
+
+    fireEvent.click(within(agentMode).getByRole("button", { name: /enable agent mode/i }));
+    fireEvent.change(within(agentMode).getByLabelText("Operator secret"), {
+      target: { value: "operator secret value" },
+    });
+    fireEvent.click(within(agentMode).getByRole("button", { name: /pair gateway/i }));
+    await waitFor(() => expect(within(agentMode).getByText("Connected")).toBeInTheDocument());
+
+    fireEvent.change(within(agentMode).getByLabelText("MCP plan id"), {
+      target: { value: "plan-agent-1" },
+    });
+    fireEvent.click(within(agentMode).getByRole("button", { name: /load mcp plan/i }));
+    await waitFor(() => expect(within(agentMode).getByLabelText("Agent plan preview")).toBeInTheDocument());
+    expect(within(agentMode).getByText(/mcp plan loaded for review/i)).toBeInTheDocument();
+    expect(within(agentMode).getByText(/plan plan-agent-1/i)).toBeInTheDocument();
+    expect(within(agentMode).getAllByText(/bass/i).length).toBeGreaterThan(0);
+    expect(usePlaygroundStore.getState().commandState.revision).toBe(0);
+    expect(usePlaygroundStore.getState().undoStack).toHaveLength(0);
+    expect(localStorage.getItem(PLAYGROUND_SONG_STORAGE_KEY)).toBeNull();
+
+    fireEvent.click(within(agentMode).getByRole("button", { name: /confirm and apply once/i }));
+    await waitFor(() => expect(within(agentMode).getByText(/applied as one nanodaw batch/i)).toBeInTheDocument());
+    const applied = usePlaygroundStore.getState();
+    expect(applied.commandState.revision).toBe(1);
+    expect(applied.commandState.song?.title).toBe("Night Bass");
+    expect(applied.commandState.song?.tracks[0]?.instrumentId).toBe("bass");
+    expect(applied.commandState.song?.tracks[0]?.clips[0]?.name).toBe("Verse");
+    expect(applied.undoStack).toHaveLength(1);
+    expect(localStorage.getItem(PLAYGROUND_SONG_STORAGE_KEY)).toContain('"instrumentId": "bass"');
+    expect(screen.getByLabelText("Track instrument")).toHaveValue("bass");
+
+    fireEvent.click(screen.getByRole("button", { name: /play preview/i }));
+    await waitFor(() => expect(engine.play).toHaveBeenCalledTimes(1));
+    expect(engine.play).toHaveBeenCalledWith(expect.objectContaining({
+      instrumentId: "bass",
+      trackName: "Night Bass",
+      clipName: "Verse",
+    }));
+
+    applied.undo();
+    expect(usePlaygroundStore.getState().commandState.song).toBeNull();
+  });
+
+  it("retires a confirmed preview when execution cannot be verified", async () => {
+    mockPreviewAudioEngine();
+    const preview: AgentPlanPreview = {
+      runId: "request-agent-uncertain",
+      dawId: "nanodaw",
+      model: "gemma-s25",
+      steps: 2,
+      patch: {},
+      preview: { summary: ["Create a guarded sketch"], commands: [{ type: "CreateSong" }] },
+      plan: {
+        planId: "plan-agent-uncertain",
+        adapterId: "nanodaw",
+        baseRevision: 0,
+        requiredScopes: ["song.write"],
+        expiresAt: "2026-07-15T09:02:00.000Z",
+        commands: [{ type: "CreateSong", id: "song-uncertain", title: "Guarded sketch" }],
+      },
+    };
+    setAgentGatewaySessionFactory((options) => {
+      let connected = false;
+      return {
+        connect: async () => {
+          connected = true;
+          options.onConnectionChange?.(true);
+        },
+        run: async () => preview,
+        loadMcpPlan: async () => preview,
+        confirmAndExecute: async () => {
+          throw new Error("adapter outcome is unknown after execution dispatch");
+        },
+        disconnect: () => {
+          connected = false;
+          options.onConnectionChange?.(false);
+        },
+        isConnected: () => connected,
+      };
+    });
+
+    render(<App />);
+    const agentMode = screen.getByLabelText("Agent mode");
+    fireEvent.click(within(agentMode).getByRole("button", { name: /enable agent mode/i }));
+    fireEvent.change(within(agentMode).getByLabelText("Operator secret"), {
+      target: { value: "operator secret value" },
+    });
+    fireEvent.click(within(agentMode).getByRole("button", { name: /pair gateway/i }));
+    await waitFor(() => expect(within(agentMode).getByText("Connected")).toBeInTheDocument());
+    fireEvent.change(within(agentMode).getByLabelText("Agent musical request"), {
+      target: { value: "Create a guarded sketch" },
+    });
+    fireEvent.click(within(agentMode).getByRole("button", { name: /generate preview/i }));
+    await waitFor(() => expect(within(agentMode).getByLabelText("Agent plan preview")).toBeInTheDocument());
+    fireEvent.click(within(agentMode).getByRole("button", { name: /confirm and apply once/i }));
+
+    await waitFor(() => expect(within(agentMode).getByText(/do not retry this plan/i)).toBeInTheDocument());
+    expect(within(agentMode).queryByLabelText("Agent plan preview")).toBeNull();
+    expect(within(agentMode).queryByRole("button", { name: /confirm and apply once/i })).toBeNull();
+    expect(usePlaygroundStore.getState().commandState.revision).toBe(0);
+    expect(localStorage.getItem(PLAYGROUND_SONG_STORAGE_KEY)).toBeNull();
+  });
+
   it("renders the transport and can create demo material", () => {
     mockPreviewAudioEngine();
     render(<App />);
@@ -60,6 +279,27 @@ describe("Playground", () => {
     expect(screen.getAllByText("Drums").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Kick Ladder").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Inspector")).toHaveTextContent("Kick Ladder");
+  });
+
+  it("edits the selected instrument through one undoable autosaved command", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    const selector = screen.getByLabelText("Track instrument");
+    expect(selector).toHaveValue("drums");
+
+    fireEvent.change(selector, { target: { value: "chords" } });
+    expect(usePlaygroundStore.getState().commandState.song?.tracks[0]?.instrumentId).toBe("chords");
+    expect(screen.getByLabelText("Command log")).toHaveTextContent("TrackInstrumentSet");
+    expect(localStorage.getItem(PLAYGROUND_SONG_STORAGE_KEY)).toContain(
+      '"instrumentId": "chords"',
+    );
+
+    usePlaygroundStore.getState().undo();
+    expect(usePlaygroundStore.getState().commandState.song?.tracks[0]?.instrumentId).toBe("drums");
+    usePlaygroundStore.getState().redo();
+    expect(usePlaygroundStore.getState().commandState.song?.tracks[0]?.instrumentId).toBe("chords");
   });
 
   it("shows selected timeline density and note markers", () => {
@@ -203,6 +443,7 @@ describe("Playground", () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    const durableStateBeforePreview = usePlaygroundStore.getState();
     fireEvent.click(screen.getByRole("button", { name: /play preview/i }));
 
     await waitFor(() => expect(engine.play).toHaveBeenCalledTimes(1));
@@ -216,11 +457,19 @@ describe("Playground", () => {
       }),
     );
     expect(screen.getByText("Auditioning Kick Ladder")).toBeInTheDocument();
+    expect(usePlaygroundStore.getState().commandState.song?.transport.isPlaying).toBe(false);
+    expect(usePlaygroundStore.getState().undoStack).toHaveLength(
+      durableStateBeforePreview.undoStack.length,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /stop preview/i }));
 
     await waitFor(() => expect(engine.stop).toHaveBeenCalledTimes(1));
     expect(screen.getByText("Preview idle")).toBeInTheDocument();
+    expect(usePlaygroundStore.getState().commandState.song?.transport.isPlaying).toBe(false);
+    expect(usePlaygroundStore.getState().undoStack).toHaveLength(
+      durableStateBeforePreview.undoStack.length,
+    );
   });
 
   it("reports preview engine failures without touching Web Audio", async () => {

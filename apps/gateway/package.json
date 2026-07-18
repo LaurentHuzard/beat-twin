@@ -16,8 +16,10 @@
   },
   "dependencies": {
     "@beat-twin/agent-contract": "workspace:*",
+    "@beat-twin/commands": "workspace:*",
     "@beat-twin/daw-contract": "workspace:*",
     "@beat-twin/gateway-core": "workspace:*",
-    "@beat-twin/litert-provider": "workspace:*"
+    "@beat-twin/litert-provider": "workspace:*",
+    "ws": "^8.21.0"
   }
 }

@@ -240,20 +240,26 @@ before confirmation remains local and non-mutating.
 
 ## Bitwig transport
 
-The existing bridge is useful for read-only inspection and diagnostics but is
-currently trusted-local and unauthenticated. Agent-mode Bitwig writes remain
-blocked until:
+BT-212 adds an authenticated Agent-mode path alongside the historical 57-tool
+MCP surface. Read-only inspection remains available without a secret. Writes
+require a controller preference secret matching `BITWIG_BRIDGE_SECRET` and are
+limited by the `bitwig-launcher-v1` capability:
 
-- bridge authentication is implemented;
-- every parameter and musical bound is validated;
-- stable track and clip identifiers are resolved and bound before preview, so
-  execution never relies on the current selection;
-- required policies are enabled before the first mutation;
-- notes are read back from the exact target and compared with the plan.
+- one empty selected launcher slot is captured before preview with controller,
+  project, position, scene, and target-generation identity;
+- one instrument track, one 1-16 beat clip, 1-16 sixteenth-grid notes, MIDI
+  bounds, track-name bounds, and 40-240 BPM are validated before authentication;
+- every mutation carries the confirmed target binding;
+- clip readiness is polled read-only after creation; the creation call itself
+  is never retried;
+- exact target, tempo, clip length, track name, and notes are read back before
+  success is reported.
 
 The adapter stops at the first failure, reports `partial_execution` honestly,
 and never automatically retries after a possible mutation. Existing
 `pnpm smoke:read-only` diagnostics and the root MCP path remain intact.
+The first live write remains a separate BT-213 human-gated check in a disposable
+Bitwig project; BT-212's evidence is deterministic and does not claim that run.
 
 ## Gateway safety
 

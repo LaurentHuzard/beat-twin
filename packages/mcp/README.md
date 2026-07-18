@@ -1,5 +1,8 @@
-# @beat-twin/mcp
+# NanoDAW MCP
 
-Reserved for a future extracted MCP surface.
+This package exposes a standalone NanoDAW MCP surface. It never owns song
+state and it never confirms or executes a plan: the connected browser remains
+the sole NanoDAW owner and the user must review and apply the exact plan there.
 
-Sprint 0+1 leaves the production MCP server in the root `index.js` file so existing MCP client configuration and the `beat-twin` binary keep working unchanged.
+See [`../../docs/NANODAW_MCP.md`](../../docs/NANODAW_MCP.md) for setup and the
+end-to-end flow.

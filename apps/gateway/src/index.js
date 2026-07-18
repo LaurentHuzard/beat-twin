@@ -2,8 +2,8 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 
 import {
-  compileSongPatchV1,
-  previewSongPatchV1,
+  compileSongPatch,
+  previewSongPatch,
 } from "@beat-twin/agent-contract";
 import {
   validateDawCapabilities,
@@ -16,6 +16,13 @@ import {
   MAX_PAIRING_TTL_MS,
 } from "@beat-twin/gateway-core";
 import { LiteRtProviderError } from "@beat-twin/litert-provider";
+
+export {
+  BROWSER_NANODAW_PROTOCOL,
+  BrowserNanoDawProxyError,
+  createBrowserNanoDawWebSocketProxy,
+  encodeBrowserPairingProtocol,
+} from "./browser-nanodaw-websocket.js";
 
 export const DEFAULT_BODY_LIMIT_BYTES = 64 * 1024;
 export const DEFAULT_PAIRING_TTL_MS = 60 * 60 * 1000;
@@ -202,8 +209,8 @@ export function createGatewayRequestHandler(options) {
         });
 
         const compileOptions = { idSeed: requestId, snapshot: snapshot.commandSnapshot };
-        const commands = compileSongPatchV1(run.patch, compileOptions);
-        const preview = previewSongPatchV1(run.patch, compileOptions);
+        const commands = compileSongPatch(run.patch, compileOptions);
+        const preview = previewSongPatch(run.patch, compileOptions);
         const requiredScopes = deriveRequiredCommandScopes(commands);
         validatePlanCapabilities(capabilities, commands, requiredScopes);
         const plan = await config.planStore.createPlan({

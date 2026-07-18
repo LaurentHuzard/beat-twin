@@ -6,12 +6,16 @@ import {
   executeCommandBatch,
   materializeCommandBatch,
   restoreCommandState,
+  snapshotCommandState,
   type BeatTwinCommand,
+  type CommandBatchResult,
   type CommandEvent,
+  type CommandSnapshot,
   type CommandState,
+  type ExecuteCommandBatchRequest,
   type IdScope,
 } from "@beat-twin/commands";
-import type { Song } from "@beat-twin/core";
+import type { BuiltInInstrumentId, Song } from "@beat-twin/core";
 
 import {
   buildPreviewAudition,
@@ -68,7 +72,7 @@ const defaultPersistenceState: PersistenceState = {
   hasSavedSong: hasSavedSong(),
 };
 
-type PlaygroundStore = {
+export type PlaygroundStore = {
   readonly commandState: CommandState;
   readonly undoStack: readonly CommandState[];
   readonly redoStack: readonly CommandState[];
@@ -83,12 +87,15 @@ type PlaygroundStore = {
   readonly preview: PreviewState;
   readonly lastError: string | null;
   readonly dispatch: (command: BeatTwinCommand) => void;
+  readonly inspectRemoteSession: () => CommandSnapshot;
+  readonly executeRemoteCommandBatch: (request: ExecuteCommandBatchRequest) => CommandBatchResult;
   readonly undo: () => void;
   readonly redo: () => void;
   readonly createDemo: () => void;
   readonly addTrack: () => void;
   readonly addClipToSelection: () => void;
   readonly setTempo: (bpm: number) => void;
+  readonly setSelectedTrackInstrument: (instrumentId: BuiltInInstrumentId) => void;
   readonly playPreview: () => Promise<void>;
   readonly stopPreview: () => Promise<void>;
   readonly duplicateSelectedClip: () => void;
@@ -572,6 +579,38 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     });
   },
 
+  inspectRemoteSession: () => snapshotCommandState(get().commandState),
+
+  executeRemoteCommandBatch: (request) => {
+    void previewAudioEngine.stop();
+    let response: CommandBatchResult | null = null;
+    set((current) => {
+      const result = executeCommandBatch(current.commandState, request);
+      response = result;
+      if (!result.ok) {
+        return { lastError: result.error };
+      }
+
+      const persistence = autosaveSong(result.state.song);
+      return {
+        commandState: result.state,
+        undoStack: [...current.undoStack, current.commandState],
+        redoStack: [],
+        ...deriveSelection(result.state),
+        persistence: persistence ?? current.persistence,
+        editingNoteId: null,
+        noteDraft: defaultNoteDraft,
+        preview: idlePreviewState,
+        lastError: null,
+      };
+    });
+
+    if (!response) {
+      throw new Error("remote command batch did not complete synchronously");
+    }
+    return response;
+  },
+
   undo: () => {
     void previewAudioEngine.stop();
     set((current) => {
@@ -631,6 +670,8 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
         type: "CreateTrack",
         id: trackId,
         name: "Drums",
+        kind: "instrument",
+        instrumentId: "drums",
         color: trackColors[1],
       },
       {
@@ -725,6 +766,24 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     get().dispatch({ type: "SetTempo", bpm });
   },
 
+  setSelectedTrackInstrument: (instrumentId) => {
+    const { commandState, selectedTrackId } = get();
+    const track = commandState.song?.tracks.find((candidate) => candidate.id === selectedTrackId);
+    if (!track) {
+      set({ lastError: "Select a track before choosing an instrument." });
+      return;
+    }
+    if (track.kind !== "instrument") {
+      set({ lastError: "Only instrument tracks can select a built-in instrument." });
+      return;
+    }
+    get().dispatch({
+      type: "SetTrackInstrument",
+      trackId: track.id,
+      instrumentId,
+    });
+  },
+
   playPreview: async () => {
     const { commandState, selectedTrackId, selectedClipId } = get();
     const audition = buildPreviewAudition(commandState.song, selectedTrackId, selectedClipId);
@@ -744,15 +803,13 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       preview: {
         phase: "playing",
         label: `Auditioning ${audition.clipName}`,
-        detail: `${audition.trackName} - ${audition.bpm} BPM`,
+        detail: `${audition.trackName} · ${audition.instrumentId} · ${audition.bpm} BPM`,
       },
     });
-    get().dispatch({ type: "StartPlayback", positionBeats: 0 });
 
     try {
       await previewAudioEngine.play(audition);
     } catch (error) {
-      get().dispatch({ type: "StopPlayback" });
       set({
         preview: {
           phase: "error",
@@ -777,7 +834,6 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       return;
     }
 
-    get().dispatch({ type: "StopPlayback" });
     set({ preview: idlePreviewState });
   },
 

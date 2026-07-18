@@ -5,6 +5,9 @@
       "args": [
         "/path/to/beat-twin/index.js"
       ],
+      "requiredProcesses": [
+        "BitwigStudio"
+      ],
       "env": {
         "BITWIG_HOST": "127.0.0.1",
         "BITWIG_PORT": "8888"
