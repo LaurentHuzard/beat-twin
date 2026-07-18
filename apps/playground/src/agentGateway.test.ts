@@ -154,4 +154,47 @@ describe("Agent Gateway browser client", () => {
       port: { inspect: () => ({ song: null, revision: 0 }), executeCommandBatch: vi.fn() },
     })).toThrow(/loopback/i);
   });
+
+  it("loads an MCP-created plan for review without confirming it", async () => {
+    FakeWebSocket.instances = [];
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ token: "btp_mcp-review" }, 201))
+      .mockResolvedValueOnce(jsonResponse({
+        runId: "mcp-request-1",
+        dawId: "nanodaw",
+        model: "structured-mcp",
+        steps: 0,
+        patch: { schemaVersion: 2 },
+        preview: {
+          summary: ["Add instrument track \"Night Bass\"", "Instrument: Bass (bass)"],
+          commands: [{ type: "CreateTrack", instrumentId: "bass" }],
+        },
+        plan: {
+          planId: "plan-mcp-1",
+          adapterId: "nanodaw",
+          baseRevision: 0,
+          requiredScopes: ["song.write"],
+          expiresAt: "2026-07-18T14:02:00.000Z",
+          commands: [{ type: "CreateTrack", instrumentId: "bass" }],
+        },
+      }));
+    const session = createAgentGatewaySession({
+      baseUrl: "http://127.0.0.1:8787",
+      operatorSecret: "operator secret value",
+      port: { inspect: () => ({ song: null, revision: 0 }), executeCommandBatch: vi.fn() },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+    });
+
+    await session.connect();
+    const preview = await session.loadMcpPlan("plan-mcp-1");
+
+    expect(preview.model).toBe("structured-mcp");
+    expect(preview.plan.planId).toBe("plan-mcp-1");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(String(fetchImpl.mock.calls[1][0])).toContain("/v1/mcp/plans/plan-mcp-1");
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/confirm"))).toBe(false);
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/execute"))).toBe(false);
+    session.disconnect();
+  });
 });

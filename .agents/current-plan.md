@@ -1,47 +1,57 @@
-# Current Beat Twin Orbit
+# Completed Beat Twin Orbit
 
 ## Loop
 
-Issue #36 — deterministic slice complete. Deliver the smallest complete explicit-instrument
-NanoDAW slice on top of `dev/nanodaw-standalone`.
+BT-MCP-001 — expose the first standalone NanoDAW MCP vertical slice on top of
+`origin/agent/nanodaw-instrument-slice`.
 
 ## Target Outcome
 
-An explicit bounded instrument selected in a versioned agent patch is previewed,
-compiled into one materialized command batch, applied once by the browser-owned
-NanoDAW runtime, read back with the same identity, persisted, and routed to a
-distinct browser voice for playback.
+An MCP client can inspect the connected browser-owned NanoDAW and prepare one
+strict built-in instrument track with one bounded MIDI clip. The exact immutable
+plan is then loaded in NanoDAW and can only be executed by a separate human
+confirmation in the browser.
+
+## Delivered Files
+
+- `packages/mcp/**`
+- `apps/playground/src/agentGateway.ts`
+- `apps/playground/src/AgentModePanel.tsx`
+- focused MCP and Playground tests and responsive styles
+- root package scripts and lockfile
+- `docs/NANODAW_MCP.md` plus repository status/navigation docs
+- `.agents/queue.md`, `.agents/current-plan.md`, and the loop report
 
 ## Product Contract
 
-- The catalog is limited to `drums`, `bass`, `chords`, and `lead`.
-- Existing Song v1 and SongPatchV1 payloads remain readable with `lead` as the
-  documented deterministic migration/default instrument.
-- The frozen S25 SongPatchV1 tool projection is not changed without a fresh
-  real-provider capture; explicit selection uses SongPatchV2 internally.
-- Unknown instruments and instruments on non-instrument tracks fail before
-  mutation.
-- One accepted agent plan remains one CAS batch, one revision, one autosave,
-  and one undo checkpoint.
-- The browser remains the sole owner of NanoDAW state.
+- No Bitwig process, controller, MCP bridge, S25, or external DAW is required.
+- The browser remains the only owner of NanoDAW song state.
+- The MCP can inspect and prepare a plan but cannot confirm or execute it.
+- The user reviews exact commands and confirms once in the NanoDAW UI.
+- The catalog stays limited to `drums`, `bass`, `chords`, and `lead`.
+- Unknown fields, stale revisions, disconnected browsers, expired plans, and
+  unsupported instruments fail closed before mutation.
 
-## Validation
+## Verification Result
 
-- Focused core, commands, agent-contract, adapter, audio, and Playground tests.
-- Root test, typecheck, NanoDAW test, Playground build, package smoke, and
-  `git diff --check` when the focused slice is green.
-- No live Bitwig or S25 claim will be made from deterministic evidence.
+- The MCP test file passes and the root suite passes 160/160.
+- `pnpm typecheck`, `pnpm nanodaw:test` (41/41), the Playground production
+  build, package smoke, and `git diff --check` pass.
+- A real Playwright browser connected NanoDAW, loaded one MCP-created plan with
+  zero prior mutation, displayed five exact commands, then applied one bass
+  track, one four-beat clip, and two notes after one browser confirmation.
+- Desktop and 390x844 responsive checks completed with no console errors or
+  warnings. No listening claim was made.
 
-## Evidence Boundary
+## Human Gates
 
-- Deterministic tests will prove schema migration, validation, compilation,
-  atomic execution, readback, persistence, undo/redo, voice routing, and node
-  disposal.
-- Real audible character still requires a human browser listening check.
-- Live model-selected V2 output remains gated on a new reviewed S25 fixture.
+- The MCP exposes no confirmation or execution tool.
+- Applying a prepared plan requires an explicit browser click.
+- No push, PR, merge, publication, live Bitwig write, or branch deletion is
+  authorized by this loop.
 
 ## Exit Condition
 
-- Met on 2026-07-18: implementation, deterministic tests, documentation, and
-  adversarial review are complete. Draft PR publication remains the final
-  repository operation.
+Met. One MCP-prepared instrument/clip plan is proven end to end in NanoDAW with
+exact offline evidence and an honest browser/live boundary. `Orbit Ready` is
+empty; the next loop requires a new activation signal.

@@ -67,7 +67,7 @@ describe("Playground", () => {
     expect(runtimeMode).not.toHaveTextContent(/connected/i);
   });
 
-  it("keeps Agent mode opt-in and applies a confirmed plan as one saved undo checkpoint", async () => {
+  it("loads an MCP plan without mutation and applies it as one saved undo checkpoint after confirmation", async () => {
     const engine = mockPreviewAudioEngine();
     const commands = [
       { type: "CreateSong", id: "song-agent", title: "Night Bass", bpm: 120 },
@@ -136,6 +136,7 @@ describe("Playground", () => {
           options.onConnectionChange?.(true);
         },
         run: async () => preview,
+        loadMcpPlan: async () => preview,
         confirmAndExecute: async (planId) => {
           const batch = options.port.executeCommandBatch({
             requestId: "request-agent-1",
@@ -173,12 +174,13 @@ describe("Playground", () => {
     fireEvent.click(within(agentMode).getByRole("button", { name: /pair gateway/i }));
     await waitFor(() => expect(within(agentMode).getByText("Connected")).toBeInTheDocument());
 
-    fireEvent.change(within(agentMode).getByLabelText("Agent musical request"), {
-      target: { value: "Create a bass sketch" },
+    fireEvent.change(within(agentMode).getByLabelText("MCP plan id"), {
+      target: { value: "plan-agent-1" },
     });
-    fireEvent.click(within(agentMode).getByRole("button", { name: /generate preview/i }));
+    fireEvent.click(within(agentMode).getByRole("button", { name: /load mcp plan/i }));
     await waitFor(() => expect(within(agentMode).getByLabelText("Agent plan preview")).toBeInTheDocument());
-    expect(within(agentMode).getByText(/preview only/i)).toBeInTheDocument();
+    expect(within(agentMode).getByText(/mcp plan loaded for review/i)).toBeInTheDocument();
+    expect(within(agentMode).getByText(/plan plan-agent-1/i)).toBeInTheDocument();
     expect(within(agentMode).getAllByText(/bass/i).length).toBeGreaterThan(0);
     expect(usePlaygroundStore.getState().commandState.revision).toBe(0);
     expect(usePlaygroundStore.getState().undoStack).toHaveLength(0);
@@ -233,6 +235,7 @@ describe("Playground", () => {
           options.onConnectionChange?.(true);
         },
         run: async () => preview,
+        loadMcpPlan: async () => preview,
         confirmAndExecute: async () => {
           throw new Error("adapter outcome is unknown after execution dispatch");
         },

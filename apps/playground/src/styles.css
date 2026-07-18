@@ -336,7 +336,8 @@ h2 {
 }
 
 .agent-connect-grid,
-.agent-request-grid {
+.agent-request-grid,
+.mcp-plan-grid {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
   gap: 10px;
@@ -347,8 +348,17 @@ h2 {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.mcp-plan-grid {
+  grid-template-columns: minmax(0, 1fr) auto;
+  border: 1px solid #d6ded4;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f4f7f2;
+}
+
 .agent-connect-grid label,
-.agent-request-grid label {
+.agent-request-grid label,
+.mcp-plan-grid label {
   display: grid;
   gap: 5px;
   min-width: 0;
@@ -358,7 +368,8 @@ h2 {
 }
 
 .agent-connect-grid input,
-.agent-request-grid textarea {
+.agent-request-grid textarea,
+.mcp-plan-grid input {
   width: 100%;
   min-width: 0;
   border: 1px solid #b9c6bf;
@@ -369,6 +380,10 @@ h2 {
 }
 
 .agent-connect-grid input {
+  height: 40px;
+}
+
+.mcp-plan-grid input {
   height: 40px;
 }
 
@@ -1438,6 +1453,7 @@ h2 {
   .agent-mode-heading,
   .agent-connect-grid,
   .agent-request-grid,
+  .mcp-plan-grid,
   .agent-plan-preview {
     grid-template-columns: 1fr;
   }
