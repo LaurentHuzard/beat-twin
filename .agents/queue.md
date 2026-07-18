@@ -1,8 +1,8 @@
 # Beat Twin Execution Queue
 
 Updated: 2026-07-18
-Branch: `agent/nanodaw-mcp`
-Worktree: `/tmp/beat-twin-nanodaw-mcp`
+Branch: `dev/nanodaw-standalone`
+Worktree: `/home/lolo/Workspace/lolOS/Projects/beat-twin-nanodaw-standalone`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -12,6 +12,10 @@ Armada launch prompt:
 `.agents/prompts/ARMADA_BEAT_TWIN_NANODAW_ROADMAP_2026-07-14.md`.
 
 Statuses: `Ready`, `In progress`, `Blocked`, `Done`, `Parked`.
+
+Under Orbit Program Kit governance, the legacy status `Ready` means eligible
+candidate (`later`), not implementation authorization. Only the section below
+may authorize a bounded product loop.
 
 ## Orbit Ready
 

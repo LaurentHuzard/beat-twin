@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "repository": {
+    "identity": "LaurentHuzard/beat-twin",
+    "defaultBranch": "main"
+  },
+  "sourceOfTruth": {
+    "kind": "local",
+    "readinessFile": ".agents/queue.md"
+  },
+  "readiness": {
+    "states": {
+      "tracking": "In progress",
+      "ready": "Orbit Ready",
+      "blocked": "Blocked",
+      "later": "Ready",
+      "parked": "Parked"
+    },
+    "maximumReadyItems": 1
+  },
+  "pullRequests": {
+    "maximumOpenImplementation": 1,
+    "draftRequired": true,
+    "humanMergeRequired": true
+  },
+  "branches": {
+    "implementationPattern": "agent/{slug}",
+    "classificationFile": ".agents/branch-classification.json"
+  },
+  "documents": {
+    "required": [
+      "AGENTS.md",
+      "docs/product-constitution.md",
+      "docs/ORBIT_PROGRAM.md",
+      ".agents/current-plan.md",
+      ".agents/queue.md"
+    ],
+    "conceptEvidence": []
+  },
+  "reports": {
+    "directory": ".agents/reports",
+    "requiredSections": [
+      "Loop",
+      "Product Outcome",
+      "Generic Contract",
+      "Project-Specific Boundary",
+      "Changes",
+      "Verification",
+      "Fixture Validation",
+      "Adversarial Review",
+      "Documentation",
+      "Provider State",
+      "Remaining Risks",
+      "Metrics",
+      "Next Activation Signal"
+    ]
+  },
+  "verification": {
+    "commands": [
+      {
+        "id": "test",
+        "argv": ["pnpm", "test"],
+        "cwd": ".",
+        "required": true,
+        "evidence": {
+          "kind": "package-script",
+          "file": "package.json",
+          "name": "test"
+        }
+      },
+      {
+        "id": "typecheck",
+        "argv": ["pnpm", "typecheck"],
+        "cwd": ".",
+        "required": true,
+        "evidence": {
+          "kind": "package-script",
+          "file": "package.json",
+          "name": "typecheck"
+        }
+      },
+      {
+        "id": "live-read-only-smoke",
+        "argv": ["pnpm", "smoke:read-only"],
+        "cwd": ".",
+        "required": false,
+        "evidence": {
+          "kind": "package-script",
+          "file": "package.json",
+          "name": "smoke:read-only"
+        }
+      }
+    ]
+  },
+  "safety": {
+    "protectedActions": ["merge", "deploy", "publish", "daw-write"],
+    "forbiddenActions": ["force-push", "remote-branch-delete"],
+    "maximumCiRepairAttempts": 3,
+    "noClobber": true
+  },
+  "humanGates": [
+    "readiness",
+    "product-constitution",
+    "live-provider",
+    "daw-write",
+    "merge",
+    "destructive-action",
+    "publication"
+  ],
+  "goldenPath": {
+    "document": "docs/product-constitution.md"
+  },
+  "invariants": {
+    "documents": ["docs/product-constitution.md"]
+  },
+  "activationSignals": {
+    "document": ".agents/queue.md",
+    "mayChangeReadiness": false
+  },
+  "extensions": {
+    "org.orbit-program-kit.adaptation": {
+      "mode": "manual-loop-0",
+      "legacyReadyMeans": "later"
+    }
+  }
+}
