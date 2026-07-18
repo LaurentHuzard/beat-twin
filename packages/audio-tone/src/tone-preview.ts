@@ -1,4 +1,8 @@
-import type { Song } from "@beat-twin/core";
+import {
+  BUILT_IN_INSTRUMENTS,
+  type BuiltInInstrumentId,
+  type Song,
+} from "@beat-twin/core";
 
 import {
   scheduleSongNotes,
@@ -20,7 +24,11 @@ export type TonePreviewStartOptions = {
 };
 
 export type TonePreviewEngineOptions = {
+  /** Test seam and advanced host seam. Normal browser callers load Tone.js lazily. */
+  readonly tone?: ToneModuleLike;
+  /** Legacy single-voice seam retained for compatibility. */
   readonly synth?: TonePreviewSynth;
+  readonly voiceFactory?: TonePreviewVoiceFactory;
 };
 
 export type TonePreviewSynth = {
@@ -35,12 +43,15 @@ export type TonePreviewSynth = {
   dispose?: () => void;
 };
 
+export type TonePreviewVoiceFactory = (
+  instrumentId: BuiltInInstrumentId,
+  trackId: string,
+) => TonePreviewSynth;
+
 type ToneTransportEventId = number | string;
 
-type ToneTransportLike = {
-  readonly bpm?: {
-    value: number;
-  };
+export type ToneTransportLike = {
+  readonly bpm?: { value: number };
   schedule: (
     callback: (time: number) => void,
     time: number,
@@ -51,20 +62,38 @@ type ToneTransportLike = {
   cancel?: (after?: number) => void;
 };
 
-type ToneModuleLike = {
+export type ToneSynthConstructor = new (options?: unknown) => TonePreviewSynth;
+export type TonePolySynthConstructor = new (
+  voice?: ToneSynthConstructor,
+  options?: unknown,
+) => TonePreviewSynth;
+
+export type ToneModuleLike = {
   Transport?: ToneTransportLike;
   getTransport?: () => ToneTransportLike;
-  PolySynth?: new () => TonePreviewSynth;
-  Synth?: new () => TonePreviewSynth;
+  PolySynth?: TonePolySynthConstructor;
+  Synth?: ToneSynthConstructor;
+  MonoSynth?: ToneSynthConstructor;
+  MembraneSynth?: ToneSynthConstructor;
   start?: () => Promise<void>;
+};
+
+type OwnedVoice = {
+  readonly instrumentId: BuiltInInstrumentId;
+  readonly voice: TonePreviewSynth;
 };
 
 export async function createTonePreviewEngine(
   options: TonePreviewEngineOptions = {},
 ): Promise<TonePreviewEngine> {
-  const tone = await loadToneModule();
+  const tone = options.tone ?? await loadToneModule();
   const transport = resolveTransport(tone);
-  const synth = options.synth ?? createDefaultSynth(tone);
+  const voiceFactory = options.voiceFactory ?? (
+    options.synth
+      ? () => options.synth!
+      : createBuiltInInstrumentVoiceFactory(tone)
+  );
+  const voices = new Map<string, OwnedVoice>();
   const scheduledIds: ToneTransportEventId[] = [];
 
   function clearScheduledEvents(): void {
@@ -74,7 +103,6 @@ export async function createTonePreviewEngine(
       }
       return;
     }
-
     scheduledIds.splice(0);
     transport.cancel?.(0);
   }
@@ -82,20 +110,54 @@ export async function createTonePreviewEngine(
   function stop(): void {
     transport.stop();
     clearScheduledEvents();
-    synth.releaseAll?.();
+    for (const { voice } of voices.values()) {
+      voice.releaseAll?.();
+      voice.dispose?.();
+    }
+    voices.clear();
+  }
+
+  function synchronizeVoices(events: readonly ScheduledNoteEvent[]): void {
+    const active = new Map<string, BuiltInInstrumentId>();
+    for (const event of events) {
+      active.set(event.trackId, event.instrumentId);
+    }
+
+    for (const [trackId, owned] of voices) {
+      const instrumentId = active.get(trackId);
+      if (instrumentId === undefined || instrumentId !== owned.instrumentId) {
+        owned.voice.releaseAll?.();
+        owned.voice.dispose?.();
+        voices.delete(trackId);
+      }
+    }
+
+    for (const [trackId, instrumentId] of active) {
+      if (!voices.has(trackId)) {
+        voices.set(trackId, {
+          instrumentId,
+          voice: voiceFactory(instrumentId, trackId),
+        });
+      }
+    }
   }
 
   function schedule(song: Song): readonly ScheduledNoteEvent[] {
     clearScheduledEvents();
     const events = scheduleSongNotes(song);
+    synchronizeVoices(events);
     if (transport.bpm) {
       transport.bpm.value = song.transport.bpm;
     }
 
     for (const event of events) {
+      const voice = voices.get(event.trackId)?.voice;
+      if (!voice) {
+        throw new Error(`No preview voice for track ${event.trackId}`);
+      }
       const eventId = transport.schedule((time) => {
-        synth.triggerAttackRelease(
-          midiPitchToNoteName(event.pitch),
+        voice.triggerAttackRelease(
+          midiPitchToInstrumentNoteName(event.instrumentId, event.pitch),
           event.durationSeconds,
           time,
           midiVelocityToGain(event.velocity),
@@ -119,8 +181,77 @@ export async function createTonePreviewEngine(
     stop,
     dispose() {
       stop();
-      synth.dispose?.();
     },
+  };
+}
+
+export function createBuiltInInstrumentVoiceFactory(
+  tone: ToneModuleLike,
+): TonePreviewVoiceFactory {
+  return (instrumentId) => {
+    if (!BUILT_IN_INSTRUMENTS.some((instrument) => instrument.id === instrumentId)) {
+      throw new Error(`Unknown built-in instrument: ${String(instrumentId)}`);
+    }
+
+    let voice: TonePreviewSynth;
+    switch (instrumentId) {
+      case "drums": {
+        const Drums = tone.MembraneSynth ?? tone.Synth;
+        if (!Drums) throw missingVoiceConstructor(instrumentId);
+        voice = new Drums({
+          pitchDecay: 0.04,
+          octaves: 5,
+          envelope: { attack: 0.001, decay: 0.18, sustain: 0, release: 0.08 },
+        });
+        break;
+      }
+      case "bass": {
+        const Bass = tone.MonoSynth ?? tone.Synth;
+        if (!Bass) throw missingVoiceConstructor(instrumentId);
+        voice = new Bass({
+          oscillator: { type: "square" },
+          filter: { Q: 2, type: "lowpass", rolloff: -24 },
+          envelope: { attack: 0.01, decay: 0.2, sustain: 0.35, release: 0.25 },
+          filterEnvelope: {
+            attack: 0.01,
+            decay: 0.18,
+            sustain: 0.15,
+            release: 0.2,
+            baseFrequency: 70,
+            octaves: 2.5,
+          },
+        });
+        break;
+      }
+      case "chords": {
+        if (tone.PolySynth) {
+          voice = new tone.PolySynth(tone.Synth, {
+            oscillator: { type: "triangle" },
+            envelope: { attack: 0.02, decay: 0.2, sustain: 0.5, release: 0.8 },
+          });
+        } else if (tone.Synth) {
+          voice = new tone.Synth({ oscillator: { type: "triangle" } });
+        } else {
+          throw missingVoiceConstructor(instrumentId);
+        }
+        break;
+      }
+      case "lead": {
+        if (tone.Synth) {
+          voice = new tone.Synth({
+            oscillator: { type: "sawtooth" },
+            envelope: { attack: 0.01, decay: 0.12, sustain: 0.25, release: 0.18 },
+          });
+        } else if (tone.PolySynth) {
+          voice = new tone.PolySynth();
+        } else {
+          throw missingVoiceConstructor(instrumentId);
+        }
+        break;
+      }
+    }
+
+    return voice.toDestination?.() ?? voice;
   };
 }
 
@@ -134,6 +265,18 @@ export async function startTonePreview(
   const engine = await createTonePreviewEngine();
   const events = await engine.start(song, options);
   return { engine, events };
+}
+
+export function midiPitchToInstrumentNoteName(
+  instrumentId: BuiltInInstrumentId,
+  pitch: number,
+): string {
+  if (instrumentId !== "drums") {
+    return midiPitchToNoteName(pitch);
+  }
+
+  const normalized = normalizeDrumPitch(pitch);
+  return midiPitchToNoteName(normalized);
 }
 
 export function midiPitchToNoteName(pitch: number): string {
@@ -154,6 +297,15 @@ export function midiVelocityToGain(velocity: number): number {
   return velocity / 127;
 }
 
+function normalizeDrumPitch(pitch: number): number {
+  midiPitchToNoteName(pitch);
+  if (pitch === 36 || pitch === 38 || pitch === 42 || pitch === 46) {
+    return pitch;
+  }
+  const mapped = [36, 38, 42, 46] as const;
+  return mapped[pitch % mapped.length]!;
+}
+
 async function loadToneModule(): Promise<ToneModuleLike> {
   try {
     return (await import("tone")) as unknown as ToneModuleLike;
@@ -170,16 +322,9 @@ function resolveTransport(tone: ToneModuleLike): ToneTransportLike {
   if (!transport) {
     throw new Error("Tone.js transport is unavailable");
   }
-
   return transport;
 }
 
-function createDefaultSynth(tone: ToneModuleLike): TonePreviewSynth {
-  const Synth = tone.PolySynth ?? tone.Synth;
-  if (!Synth) {
-    throw new Error("Tone.js synth constructor is unavailable");
-  }
-
-  const synth = new Synth();
-  return synth.toDestination?.() ?? synth;
+function missingVoiceConstructor(instrumentId: BuiltInInstrumentId): Error {
+  return new Error(`Tone.js has no compatible constructor for ${instrumentId}`);
 }

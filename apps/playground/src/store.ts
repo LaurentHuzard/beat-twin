@@ -15,7 +15,7 @@ import {
   type ExecuteCommandBatchRequest,
   type IdScope,
 } from "@beat-twin/commands";
-import type { Song } from "@beat-twin/core";
+import type { BuiltInInstrumentId, Song } from "@beat-twin/core";
 
 import {
   buildPreviewAudition,
@@ -95,6 +95,7 @@ export type PlaygroundStore = {
   readonly addTrack: () => void;
   readonly addClipToSelection: () => void;
   readonly setTempo: (bpm: number) => void;
+  readonly setSelectedTrackInstrument: (instrumentId: BuiltInInstrumentId) => void;
   readonly playPreview: () => Promise<void>;
   readonly stopPreview: () => Promise<void>;
   readonly duplicateSelectedClip: () => void;
@@ -669,6 +670,8 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
         type: "CreateTrack",
         id: trackId,
         name: "Drums",
+        kind: "instrument",
+        instrumentId: "drums",
         color: trackColors[1],
       },
       {
@@ -763,6 +766,24 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     get().dispatch({ type: "SetTempo", bpm });
   },
 
+  setSelectedTrackInstrument: (instrumentId) => {
+    const { commandState, selectedTrackId } = get();
+    const track = commandState.song?.tracks.find((candidate) => candidate.id === selectedTrackId);
+    if (!track) {
+      set({ lastError: "Select a track before choosing an instrument." });
+      return;
+    }
+    if (track.kind !== "instrument") {
+      set({ lastError: "Only instrument tracks can select a built-in instrument." });
+      return;
+    }
+    get().dispatch({
+      type: "SetTrackInstrument",
+      trackId: track.id,
+      instrumentId,
+    });
+  },
+
   playPreview: async () => {
     const { commandState, selectedTrackId, selectedClipId } = get();
     const audition = buildPreviewAudition(commandState.song, selectedTrackId, selectedClipId);
@@ -782,7 +803,7 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       preview: {
         phase: "playing",
         label: `Auditioning ${audition.clipName}`,
-        detail: `${audition.trackName} - ${audition.bpm} BPM`,
+        detail: `${audition.trackName} · ${audition.instrumentId} · ${audition.bpm} BPM`,
       },
     });
 

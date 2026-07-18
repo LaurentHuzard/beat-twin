@@ -788,6 +788,7 @@ function isTransportCommand(type: string): boolean {
 function isSongCommand(type: string): boolean {
   return type === "CreateSong" ||
     type === "CreateTrack" ||
+    type === "SetTrackInstrument" ||
     type === "CreateClip" ||
     type === "AddNote" ||
     type === "UpdateNote" ||

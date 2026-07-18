@@ -7,12 +7,18 @@ import { createCommandState, executeCommandBatch } from "@beat-twin/commands";
 import {
   SONG_PATCH_V1_JSON_SCHEMA,
   SONG_PATCH_V1_TOOL_SCHEMA,
+  SONG_PATCH_V2_JSON_SCHEMA,
   SongPatchValidationError,
+  compileSongPatch,
   compileSongPatchV1,
+  compileSongPatchV2,
   materializeSongPatchIds,
   previewSongPatchV1,
+  previewSongPatchV2,
+  safeValidateSongPatchV2,
   safeValidateSongPatchV1,
   validateSongPatchV1,
+  validateSongPatchV2,
 } from "../src/index.ts";
 
 function validPatch() {
@@ -30,6 +36,17 @@ function validPatch() {
           { pitch: 43, velocity: 96, startBeat: 1.25, lengthBeats: 0.5 },
         ],
       },
+    },
+  };
+}
+
+function validPatchV2(instrumentId = "bass") {
+  return {
+    ...validPatch(),
+    schemaVersion: 2,
+    track: {
+      ...validPatch().track,
+      instrumentId,
     },
   };
 }
@@ -79,6 +96,47 @@ test("tempo is optional and no implicit tempo command is introduced", () => {
   assert.equal(commands.some((command) => command.type === "SetTempo"), false);
   assert.equal(commands.length, 5);
   assert.equal(commands[0]?.type, "CreateSong");
+});
+
+test("keeps V1 readable with a deterministic lead default", () => {
+  const patch = validateSongPatchV1(validPatch());
+  const commands = compileSongPatchV1(patch, { idSeed: "legacy-v1" });
+  const createTrack = commands.find((command) => command.type === "CreateTrack");
+  assert.equal(createTrack?.type, "CreateTrack");
+  if (createTrack?.type === "CreateTrack") {
+    assert.equal(createTrack.instrumentId, undefined);
+  }
+
+  const result = executeCommandBatch(createCommandState(), {
+    requestId: "legacy-v1",
+    expectedRevision: 0,
+    commands,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.snapshot.song?.tracks[0]?.instrumentId, "lead");
+  assert.equal(previewSongPatchV1(patch).diff.instrumentId, "lead");
+});
+
+test("validates and compiles explicit bounded SongPatchV2 instruments", () => {
+  const patch = validateSongPatchV2(validPatchV2());
+  assert.equal(patch.track.instrumentId, "bass");
+  assert.equal(safeValidateSongPatchV2(validPatchV2("organ")).ok, false);
+
+  const commands = compileSongPatchV2(patch, { idSeed: "night-bass" });
+  assert.deepEqual(commands, compileSongPatch(patch, { idSeed: "night-bass" }));
+  const createTrack = commands.find((command) => command.type === "CreateTrack");
+  assert.equal(createTrack?.type, "CreateTrack");
+  if (createTrack?.type === "CreateTrack") {
+    assert.equal(createTrack.instrumentId, "bass");
+  }
+
+  const preview = previewSongPatchV2(patch, { idSeed: "night-bass" });
+  assert.equal(preview.diff.instrumentId, "bass");
+  assert.ok(preview.summary.includes("Instrument: Bass (bass)"));
+  assert.equal(
+    SONG_PATCH_V2_JSON_SCHEMA.properties.track.properties.instrumentId.enum.includes("bass"),
+    true,
+  );
 });
 
 test("rejects unknown fields at every level and excluded domains", () => {
@@ -331,7 +389,7 @@ test("previews a deterministic summary without mutating patch or snapshot", () =
   const snapshot = {
     revision: 7,
     song: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       id: "song-existing",
       title: "Existing",
       transport: {
@@ -345,6 +403,7 @@ test("previews a deterministic summary without mutating patch or snapshot", () =
           id: "track-existing",
           name: "Existing Track",
           kind: "instrument",
+          instrumentId: "lead",
           color: "#fff",
           clips: [],
         },
@@ -383,6 +442,7 @@ test("previews a deterministic summary without mutating patch or snapshot", () =
   assert.deepEqual(preview.summary, [
     "Tempo: 120 -> 128 BPM",
     'Add instrument track "Glass Bass"',
+    "Instrument: Lead (lead)",
     'Add clip "Pulse" (4 beats)',
     "Add 2 notes",
   ]);

@@ -19,6 +19,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -861,6 +862,14 @@ h2 {
   white-space: nowrap;
 }
 
+.track-name small {
+  margin-left: auto;
+  color: #68736e;
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .track-swatch {
   flex: 0 0 12px;
   width: 12px;
@@ -986,6 +995,25 @@ h2 {
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.instrument-selector {
+  display: grid;
+  grid-template-columns: 1fr minmax(110px, 1.2fr);
+  gap: 10px;
+  align-items: center;
+  color: #68736e;
+  font-size: 0.78rem;
+}
+
+.instrument-selector select {
+  min-height: 36px;
+  border: 1px solid #b9c6bf;
+  border-radius: 8px;
+  padding: 0 9px;
+  color: #17201f;
+  background: #fbfcfa;
+  font-weight: 750;
 }
 
 .note-strip {

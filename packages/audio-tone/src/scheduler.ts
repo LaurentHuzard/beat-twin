@@ -1,4 +1,9 @@
-import type { Song, TrackKind } from "@beat-twin/core";
+import {
+  DEFAULT_BUILT_IN_INSTRUMENT_ID,
+  type BuiltInInstrumentId,
+  type Song,
+  type TrackKind,
+} from "@beat-twin/core";
 
 export type ScheduledNoteEvent = {
   readonly id: string;
@@ -7,6 +12,7 @@ export type ScheduledNoteEvent = {
   readonly trackId: string;
   readonly trackName: string;
   readonly trackKind: TrackKind;
+  readonly instrumentId: BuiltInInstrumentId;
   readonly trackIndex: number;
   readonly clipId: string;
   readonly clipName: string;
@@ -40,6 +46,10 @@ export function scheduleSongNotes(song: Song): readonly ScheduledNoteEvent[] {
   const events: ScheduledNoteEvent[] = [];
 
   song.tracks.forEach((track, trackIndex) => {
+    if (track.kind !== "instrument") {
+      return;
+    }
+    const instrumentId = track.instrumentId ?? DEFAULT_BUILT_IN_INSTRUMENT_ID;
     track.clips.forEach((clip, clipIndex) => {
       clip.pattern.notes.forEach((note, noteIndex) => {
         const startBeat = clip.startBeat + note.startBeat;
@@ -57,6 +67,7 @@ export function scheduleSongNotes(song: Song): readonly ScheduledNoteEvent[] {
             trackId: track.id,
             trackName: track.name,
             trackKind: track.kind,
+            instrumentId,
             trackIndex,
             clipId: clip.id,
             clipName: clip.name,
