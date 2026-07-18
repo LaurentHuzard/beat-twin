@@ -6,10 +6,12 @@
 
 Beat Twin is an experimental, local-first orchestration layer between musical agents and DAWs.
 
-Its current repo contains two working musical surfaces:
+Its current repo contains three working musical surfaces:
 
 - a Bitwig Studio MCP bridge with explicit write-policy gates;
-- a standalone browser NanoDAW built on the canonical Beat Twin song and command models.
+- a standalone browser NanoDAW built on the canonical Beat Twin song and command models;
+- a NanoDAW MCP planning surface that prepares instrument-track and MIDI-clip
+  plans for explicit review and confirmation in the browser, without Bitwig.
 
 The DAW/agent contracts, transactional NanoDAW memory adapter, LiteRT-LM
 provider, Gateway security core, and loopback HTTP API are implemented. The
@@ -64,6 +66,16 @@ Browser keyboard shortcuts invoke existing local NanoDAW actions only.
 Browser timeline feedback is derived from local song state and does not call Bitwig.
 Browser command palette actions reuse the same local NanoDAW action boundary.
 Browser command drafts parse known local phrases only; they are not an AI chat path.
+
+The standalone NanoDAW MCP path is separate from the historical Bitwig MCP:
+
+```text
+MCP client -> NanoDAW MCP -> immutable plan -> browser review -> human confirm
+```
+
+It exposes catalog, inspection, and plan-preparation tools only. It never owns
+song state and has no confirmation or execution tool. See
+[`docs/NANODAW_MCP.md`](docs/NANODAW_MCP.md).
 
 The Agent architecture keeps the browser as the only owner of NanoDAW song
 state and puts Beat Twin on the laptop between the UI, the phone-hosted model,

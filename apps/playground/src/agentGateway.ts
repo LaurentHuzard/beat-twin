@@ -57,6 +57,7 @@ export type AgentGatewaySessionOptions = {
 export type AgentGatewaySession = {
   readonly connect: () => Promise<void>;
   readonly run: (request: string) => Promise<AgentPlanPreview>;
+  readonly loadMcpPlan: (planId: string) => Promise<AgentPlanPreview>;
   readonly confirmAndExecute: (planId: string) => Promise<AgentExecution>;
   readonly disconnect: () => void;
   readonly isConnected: () => boolean;
@@ -136,6 +137,17 @@ export function createAgentGatewaySession(
     return validatePlanPreview(body);
   }
 
+  async function loadMcpPlan(planId: string): Promise<AgentPlanPreview> {
+    const activeToken = requireConnectedToken();
+    if (!isNonBlankString(planId)) throw new Error("MCP plan id is required.");
+    const body = await requestJson(
+      fetchImpl,
+      new URL(`/v1/mcp/plans/${encodeURIComponent(planId.trim())}`, baseUrl),
+      { method: "GET", headers: authorizationHeaders(activeToken, false) },
+    );
+    return validatePlanPreview(body);
+  }
+
   async function confirmAndExecute(planId: string): Promise<AgentExecution> {
     const activeToken = requireConnectedToken();
     if (!isNonBlankString(planId)) throw new Error("Plan id is required.");
@@ -179,6 +191,7 @@ export function createAgentGatewaySession(
   return Object.freeze({
     connect,
     run,
+    loadMcpPlan,
     confirmAndExecute,
     disconnect,
     isConnected: () => Boolean(token && socket?.readyState === WebSocketImpl.OPEN),
