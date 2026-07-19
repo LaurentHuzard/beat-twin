@@ -19,6 +19,7 @@ This directory contains the current technical notes for the public Beat Twin pro
 - [`NANODAW_MCP.md`](NANODAW_MCP.md): standalone MCP tools for preparing a built-in instrument track and MIDI clip before browser-owned human confirmation.
 - [`S25-TOOL-CALL-GATE.md`](S25-TOOL-CALL-GATE.md): the mandatory real LiteRT-LM `tool_calls` capture before provider implementation.
 - [`PLAYGROUND_ARCHITECTURE.md`](PLAYGROUND_ARCHITECTURE.md): browser-first architecture, package map, and compatibility boundary.
+- [`NANODAW_LIVE_RUNTIME_ARCHITECTURE.md`](NANODAW_LIVE_RUNTIME_ARCHITECTURE.md): pure ephemeral performance state, audio-observation handshake, and future capture boundary.
 - [`SPRINT-2-BROWSER-AUDITION.md`](SPRINT-2-BROWSER-AUDITION.md): browser playback/audition boundary, Bitwig safety rules, and validation commands.
 - [`SPRINT-3-NOTE-EDITOR.md`](SPRINT-3-NOTE-EDITOR.md): browser note editing commands, units, safety boundary, and validation commands.
 - [`SPRINT-4-SAVE-LOAD.md`](SPRINT-4-SAVE-LOAD.md): browser-local Playground save/load, JSON import/export, and validation commands.

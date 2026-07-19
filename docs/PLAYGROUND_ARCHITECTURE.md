@@ -19,6 +19,9 @@ Sprint 9 command palette boundaries live in
 [`SPRINT-9-COMMAND-PALETTE.md`](SPRINT-9-COMMAND-PALETTE.md).
 Sprint 10 draft command parser boundaries live in
 [`SPRINT-10-DRAFT-COMMAND-PARSER.md`](SPRINT-10-DRAFT-COMMAND-PARSER.md).
+The ephemeral live performance reducer, audio-observation handshake, and future
+capture boundary live in
+[`NANODAW_LIVE_RUNTIME_ARCHITECTURE.md`](NANODAW_LIVE_RUNTIME_ARCHITECTURE.md).
 
 ## Current Browser Stack
 
@@ -140,6 +143,13 @@ Playground store actions. They do not parse chat text, call Bitwig, or bypass
 Browser command drafts use a small deterministic parser for known action
 phrases only. Unknown or context-blocked drafts are reported in the local
 command log instead of being guessed or sent to an external service.
+
+Live performance gestures use a separate pure `PerformanceState` reducer in
+the same browser store. That state contains opaque song IDs and runtime facts,
+not a second `Song`. Its actions do not enter command history or persistence,
+and active clip state changes only after an identified audio execution is
+observed. The complete ownership and capture rules are documented in
+[`NANODAW_LIVE_RUNTIME_ARCHITECTURE.md`](NANODAW_LIVE_RUNTIME_ARCHITECTURE.md).
 
 ## Validation
 

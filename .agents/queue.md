@@ -1,8 +1,8 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-07-18
-Branch: `dev/nanodaw-standalone`
-Worktree: `/home/lolo/Workspace/lolOS/Projects/beat-twin-nanodaw-standalone`
+Updated: 2026-07-19
+Branch: `agent/bt-live-101-performance-runtime`
+Worktree: `/tmp/beat-twin-orbit-26`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -19,7 +19,10 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-None.
+None. BT-LIVE-101 / GitHub #26 is complete locally on
+`agent/bt-live-101-performance-runtime` and awaits human review. GitHub #27 is
+the next eligible activation; #28, #30, and #31 remain dependency-ordered
+follow-ups. This section must be updated before implementation continues.
 
 ## Standalone NanoDAW MCP
 
