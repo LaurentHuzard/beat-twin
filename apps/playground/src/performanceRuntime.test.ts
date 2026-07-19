@@ -721,6 +721,12 @@ describe("performance scenes, recording, and mix", () => {
     state = reduce(state,
       { type: "StartTransport", atBeat: state.currentBeat },
       {
+        type: "ArmRecordSlot",
+        trackId: "track-a",
+        slotId: "slot-a1",
+        clipId: "clip-a",
+      },
+      {
         type: "StartOverdub",
         trackId: "track-a",
         slotId: "slot-a1",
@@ -729,6 +735,70 @@ describe("performance scenes, recording, and mix", () => {
       { type: "StopOverdub", trackId: "track-a" },
     );
     expect(state.recording.phase).toBe("idle");
+  });
+
+  it("cancels an armed or active recording without touching transport or tracks", () => {
+    let state = reduce(
+      createPerformanceState(),
+      { type: "StartTransport", atBeat: 0 },
+      {
+        type: "ArmRecordSlot",
+        trackId: "track-a",
+        slotId: "slot-a1",
+        clipId: null,
+      },
+    );
+    const tracks = state.tracks;
+    state = reducePerformanceState(state, {
+      type: "CancelRecording",
+      trackId: "track-a",
+    });
+    expect(state.recording.phase).toBe("idle");
+    expect(state.phase).toBe("playing");
+    expect(state.tracks).toEqual(tracks);
+
+    state = reduce(
+      state,
+      {
+        type: "ArmRecordSlot",
+        trackId: "track-a",
+        slotId: "slot-a1",
+        clipId: null,
+      },
+      { type: "StartRecording", trackId: "track-a" },
+      { type: "CancelRecording", trackId: "track-a" },
+    );
+    expect(state.recording.phase).toBe("idle");
+    expect(state.phase).toBe("playing");
+
+    state = activeTrack(state, "track-a", "clip-a", "recording-active-clip");
+    state = reduce(
+      state,
+      {
+        type: "ArmRecordSlot",
+        trackId: "track-a",
+        slotId: "slot-a1",
+        clipId: "clip-a",
+      },
+      {
+        type: "StartOverdub",
+        trackId: "track-a",
+        slotId: "slot-a1",
+        clipId: "clip-a",
+      },
+      { type: "CancelRecording", trackId: "track-a" },
+    );
+    expect(state.recording.phase).toBe("idle");
+    expect(state.tracks["track-a"]?.activeClipId).toBe("clip-a");
+    expect(() => reducePerformanceState(
+      reducePerformanceState(state, {
+        type: "ArmRecordSlot",
+        trackId: "track-a",
+        slotId: "slot-a1",
+        clipId: null,
+      }),
+      { type: "CancelRecording", trackId: "track-b" },
+    )).toThrow(/does not own/);
   });
 
   it("sets bounded mixer and macro values without changing another track", () => {

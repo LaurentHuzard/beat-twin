@@ -178,6 +178,21 @@ function hostHarness() {
 }
 
 describe("live audio controller", () => {
+  it("exposes only valid engine-owned active loop timing for overdub alignment", () => {
+    const stub = new StubEngine();
+    const harness = hostHarness();
+    const controller = createLiveAudioController({ engine: stub.engine, host: harness.host });
+    expect(controller.getActiveLoopTiming?.("track-a")).toBeNull();
+    stub.activeStartedAtBeats["track-a"] = 8;
+    stub.activeLengthBeats["track-a"] = 16;
+    expect(controller.getActiveLoopTiming?.("track-a")).toEqual({
+      startedAtBeat: 8,
+      lengthBeats: 16,
+    });
+    stub.activeLengthBeats["track-a"] = 0;
+    expect(controller.getActiveLoopTiming?.("track-a")).toBeNull();
+  });
+
   it("fails closed on an in-session tempo edit and a fresh start uses the new BPM", async () => {
     const stub = new StubEngine();
     const harness = hostHarness();

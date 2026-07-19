@@ -1,6 +1,7 @@
 # NanoDAW Live Runtime Architecture
 
-Status: BT-LIVE-101 implemented offline; no live audio proof is claimed.
+Status: BT-LIVE-101 through BT-LIVE-106 implemented. Browser validation is
+reported per Orbit loop; no external DAW or controller proof is implied.
 
 ## Ownership Boundaries
 
@@ -11,7 +12,7 @@ NanoDAW keeps one browser owner but two deliberately separate reducers:
 | Persistent document | `CommandState` containing the single `Song` | Yes | `BeatTwinCommand` / command batch |
 | Ephemeral performance | `PerformanceState` containing IDs and runtime facts only | No | `PerformanceAction` / pure reducer |
 | Audio execution | Future browser-owned live audio engine | No | Schedules a resolved transition ID and reports its outcome |
-| Capture | Future explicit capture command | Yes | One materialized command batch, revision, autosave, and undo checkpoint |
+| Capture | Ephemeral `MidiTakeSession`, then explicit commands | Only after commit | One materialized command batch, revision, autosave, and undo checkpoint |
 
 `PerformanceState` never embeds or copies `Song`, tracks, clips, notes, samples,
 or audio payloads. Its `trackId` and `clipId` values are opaque references to
@@ -97,11 +98,26 @@ clock and the 2 x 2 launcher without changing document ownership.
 
 ## Capture Boundary
 
-Capture Jam is not implemented. A future capture path must read an explicit,
-bounded performance snapshot or event selection, materialize document commands
-before mutation, and apply exactly one atomic command batch. It must not pass a
-`PerformanceState` object to persistence or make live gestures implicit song
-commands.
+`midiRecording.ts` owns a bounded, ephemeral take model. Keyboard, on-screen
+pads, and optional Web MIDI all normalize to source, channel, pitch, velocity,
+and a beat read from the existing live controller clock. Velocity zero is
+note-off; same-key retrigger closes the prior note before opening another.
+Starts quantize to 0.25 beat modulo the selected loop, lengths are at least
+0.25 beat, and no note may escape the loop.
+
+Empty-slot recording queues for the next exact bar. Overdub queues for the
+next exact boundary of the active engine loop so a multi-bar clip retains its
+musical phase. A completed take is still uncommitted and discardable. Only a
+successful finalization creates one explicit command batch: `CreateClip` plus
+`AddNote*` for an empty slot, or `AddNote*` for overdub. That batch produces one
+document revision, autosave, and undo checkpoint. Blur, hidden document,
+unmount, transport stop, active-clip replacement, and MIDI disconnect discard
+the whole uncommitted take and clear the one runtime recording owner.
+
+Web MIDI permission and support are optional; denial never removes keyboard or
+pad input. This tranche captures note data and plays the committed clip through
+the existing live engine. It does not add live input monitoring, microphone or
+audio recording, file import, Gateway/MCP writes, or an external DAW write.
 
 ## Source-Agnostic Follow-Up
 
@@ -113,8 +129,9 @@ without creating a parallel performance reducer.
 
 ## Offline Evidence
 
-Focused pure tests cover transport, quantization boundaries, launch,
+Focused pure and component tests cover transport, quantization boundaries, launch,
 replacement, cancellation, schedule/observation, stop, scenes, recording,
-overdub, mix, macros, reset, cross-track isolation, and store separation. These
-tests prove deterministic state behavior only; they do not prove Tone.js audio,
-browser timing, listening quality, or an external integration.
+overdub phase alignment, input cleanup, one-batch commit, undo ownership, mix,
+macros, reset, cross-track isolation, and store separation. Real-browser proof
+is recorded in the BT-LIVE-106 Orbit report; listening quality and external
+integration remain separate human gates.

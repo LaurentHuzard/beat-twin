@@ -31,6 +31,7 @@ import {
   LIVE_LAUNCHER_SLOT_COUNT,
   LIVE_LAUNCHER_TRACK_COUNT,
 } from "./launcherModel";
+import { MidiRecorder } from "./MidiRecorder";
 import { usePlaygroundStore } from "./store";
 
 const clockRefreshMs = 40;
@@ -288,6 +289,13 @@ export function LiveLauncher({
     }
   };
 
+  const syncRecordingClock = useCallback(() => {
+    const controller = controllerRef.current;
+    if (!controller) throw new Error("Live audio must be running before MIDI capture.");
+    controller.syncClock();
+    return usePlaygroundStore.getState().performanceState.currentBeat;
+  }, []);
+
   const tracks = projectLauncher(song);
   const hasOpenTrackTransition = tracks.some(({ track }) =>
     track ? Boolean(performance.tracks[track.id]?.pendingTransition) : false,
@@ -380,6 +388,14 @@ export function LiveLauncher({
           ) : null}
         </p>
       ) : null}
+
+      <MidiRecorder
+        isLive={isSessionActive && performance.phase === "playing"}
+        syncClock={syncRecordingClock}
+        getActiveLoopTiming={(trackId) =>
+          controllerRef.current?.getActiveLoopTiming?.(trackId) ?? null
+        }
+      />
 
       <div className="launcher-scenes" aria-label="Launcher scenes">
         {Array.from({ length: LIVE_LAUNCHER_SLOT_COUNT }, (_, sceneIndex) => {

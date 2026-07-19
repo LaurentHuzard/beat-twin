@@ -835,6 +835,193 @@ h2 {
   font-weight: 850;
 }
 
+.midi-recorder {
+  display: grid;
+  gap: 11px;
+  border: 1px solid #cfd9d1;
+  border-radius: 9px;
+  padding: 12px;
+  background: linear-gradient(135deg, #f7faf6, #eef5f0);
+}
+
+.midi-recorder-heading,
+.midi-recorder-heading h3,
+.midi-recorder-controls,
+.midi-recorder-inputs,
+.midi-recorder-inputs > div,
+.midi-recorder-inputs span {
+  display: flex;
+  align-items: center;
+}
+
+.midi-recorder-heading {
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.midi-recorder-heading > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.midi-recorder-heading h3 {
+  gap: 7px;
+  font-size: 0.9rem;
+}
+
+.midi-recorder-heading p:last-child,
+.midi-recorder-inputs small {
+  color: #68736e;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.midi-recorder-status {
+  display: grid;
+  min-width: 230px;
+  border: 1px solid #d6ded4;
+  border-radius: 8px;
+  padding: 7px 9px;
+  color: #41504a;
+  background: #ffffff;
+}
+
+.midi-recorder-status[data-phase="queued"] {
+  border-color: #d7bd6f;
+  color: #62420f;
+  background: #fff7d8;
+}
+
+.midi-recorder-status[data-phase="recording"],
+.midi-recorder-status[data-phase="overdubbing"] {
+  border-color: #d85b40;
+  color: #7c2419;
+  background: #fae4dd;
+}
+
+.midi-recorder-status strong {
+  font-size: 0.64rem;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.midi-recorder-status span {
+  margin-top: 2px;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.midi-recorder-controls {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.midi-recorder-controls > label {
+  display: grid;
+  gap: 2px;
+  color: #68736e;
+  font-size: 0.61rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.midi-recorder-controls select {
+  min-height: 32px;
+  border: 1px solid #b9c6bf;
+  border-radius: 6px;
+  padding: 0 26px 0 8px;
+  color: #17201f;
+  background: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.midi-recorder-segment {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #b9c6bf;
+  border-radius: 7px;
+}
+
+.midi-recorder-segment button {
+  min-height: 36px;
+  border: 0;
+  border-right: 1px solid #d6ded4;
+  padding: 0 10px;
+  color: #53605a;
+  background: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.midi-recorder-segment button:last-child {
+  border-right: 0;
+}
+
+.midi-recorder-segment button[aria-pressed="true"] {
+  color: #133d35;
+  background: #dff0e5;
+}
+
+.midi-recorder-inputs {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid #dbe4d9;
+  padding-top: 9px;
+}
+
+.midi-recorder-inputs > div {
+  gap: 10px;
+}
+
+.midi-recorder-inputs span {
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.midi-pad-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(44px, 1fr));
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.midi-pad-grid button {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 48px;
+  border: 1px solid #aebdb5;
+  border-radius: 7px;
+  color: #17201f;
+  background: #ffffff;
+  touch-action: manipulation;
+}
+
+.midi-pad-grid button:not(:disabled):active {
+  border-color: #d85b40;
+  color: #7c2419;
+  background: #fae4dd;
+  transform: translateY(1px);
+}
+
+.midi-pad-grid button strong {
+  font-size: 0.78rem;
+}
+
+.midi-pad-grid button small {
+  color: #68736e;
+  font-size: 0.61rem;
+  font-weight: 800;
+}
+
 .launcher-track-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2169,6 +2356,7 @@ h2 {
   .live-lab-header,
   .live-clock-rail,
   .launcher-header,
+  .midi-recorder-heading,
   .step-editor-header {
     align-items: stretch;
     grid-template-columns: 1fr;
@@ -2196,6 +2384,14 @@ h2 {
 
   .launcher-header {
     display: grid;
+  }
+
+  .midi-recorder-heading {
+    display: grid;
+  }
+
+  .midi-recorder-status {
+    min-width: 0;
   }
 
   .step-editor-header {

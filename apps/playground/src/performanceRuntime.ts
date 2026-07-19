@@ -233,6 +233,7 @@ export type PerformanceAction =
       readonly clipId: string;
     }
   | { readonly type: "StopOverdub"; readonly trackId: string }
+  | { readonly type: "CancelRecording"; readonly trackId: string }
   | { readonly type: "SetTrackLevel"; readonly trackId: string; readonly level: number }
   | { readonly type: "SetTrackMute"; readonly trackId: string; readonly muted: boolean }
   | { readonly type: "SetTrackSolo"; readonly trackId: string; readonly soloed: boolean }
@@ -752,6 +753,14 @@ export function reducePerformanceState(
       if (state.tracks[trackId]?.activeClipId !== clipId) {
         throw new Error(`clip ${clipId} must be active on track ${trackId} before overdub`);
       }
+      if (
+        state.recording.phase !== "armed" ||
+        state.recording.trackId !== trackId ||
+        state.recording.slotId !== slotId ||
+        state.recording.clipId !== clipId
+      ) {
+        throw new Error(`clip ${clipId} must own the armed slot before overdub`);
+      }
       return freezeState({
         ...state,
         recording: Object.freeze({
@@ -770,6 +779,15 @@ export function reducePerformanceState(
       }
       if (state.recording.trackId !== trackId) {
         throw new Error(`track ${trackId} does not own the overdub target`);
+      }
+      return freezeState({ ...state, recording: idleRecording() });
+    }
+
+    case "CancelRecording": {
+      const trackId = requiredId(action.trackId, "trackId");
+      if (state.recording.phase === "idle") return state;
+      if (state.recording.trackId !== trackId) {
+        throw new Error(`track ${trackId} does not own the recording target`);
       }
       return freezeState({ ...state, recording: idleRecording() });
     }
