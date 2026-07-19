@@ -67,7 +67,7 @@ export type LiveAudioPort = {
   readonly start: (atBeat: number) => void;
   readonly suspend: () => void;
   readonly resume: () => void;
-  readonly stop: () => void;
+  readonly stop: (audioTime?: number) => void;
   readonly reset: () => void;
   readonly createTrackBus: (trackId: string) => LiveTrackBus;
   readonly dispose: () => void;
@@ -245,9 +245,9 @@ export function createLiveAudioEngine(input: {
     source.prepared?.dispose(audioTime);
   }
 
-  function clearTrackSources(track: TrackRuntime): void {
-    clearSource(track.pending);
-    if (track.active !== track.pending) clearSource(track.active);
+  function clearTrackSources(track: TrackRuntime, audioTime?: number): void {
+    clearSource(track.pending, audioTime);
+    if (track.active !== track.pending) clearSource(track.active, audioTime);
     track.pending = null;
     track.active = null;
   }
@@ -315,13 +315,13 @@ export function createLiveAudioEngine(input: {
     }
   }
 
-  function cleanupAll(disposeBuses: boolean): void {
+  function cleanupAll(disposeBuses: boolean, audioTime?: number): void {
     if (transportStop) {
       port.cancel(transportStop.handle);
       transportStop = null;
     }
     for (const track of tracks.values()) {
-      clearTrackSources(track);
+      clearTrackSources(track, audioTime);
       if (disposeBuses) track.bus.dispose();
     }
     if (disposeBuses) tracks.clear();
@@ -605,12 +605,12 @@ export function createLiveAudioEngine(input: {
       }
       try {
         let handle: LiveScheduleHandle;
-        handle = port.scheduleAtBeat(targetBeat, () => {
+        handle = port.scheduleAtBeat(targetBeat, (audioTime) => {
           if (transportStop?.handle !== handle) return;
           transportStop = null;
           lifecycleGeneration += 1;
-          cleanupAll(false);
-          port.stop();
+          cleanupAll(false, audioTime);
+          port.stop(audioTime);
           phase = "stopped";
           emit({
             type: "transport-stopped",

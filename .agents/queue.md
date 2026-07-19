@@ -1,8 +1,8 @@
 # Beat Twin Execution Queue
 
 Updated: 2026-07-19
-Branch: `agent/bt-live-102-audio-engine`
-Worktree: `/tmp/beat-twin-orbit-27`
+Branch: `agent/bt-live-103-launcher`
+Worktree: `/tmp/beat-twin-orbit-28`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -24,13 +24,16 @@ slice on the reviewed performance runtime and persistent audio engine. This is
 the only authorized implementation item. GitHub #30 and #31 remain
 dependency-ordered follow-ups.
 
+The implementation and its deterministic/browser gates are complete. PR #42 is
+open with final CI and merge pending, so #28 stays the only active Orbit item.
+
 ## NanoDAW Live sequence
 
 | Order | ID | GitHub | Task | Status | Depends on |
 | --- | --- | --- | --- | --- | --- |
 | 1 | BT-LIVE-101 | #26 | Separate the ephemeral performance runtime | Done | - |
 | 2 | BT-LIVE-102 | #27 | Add one persistent clock and per-track audio graph | Done | BT-LIVE-101 |
-| 3 | BT-LIVE-103 | #28 | Prove a 2 x 2 quantized launcher vertical slice | Ready | BT-LIVE-102 |
+| 3 | BT-LIVE-103 | #28 | Prove a 2 x 2 quantized launcher vertical slice | In progress | BT-LIVE-102 |
 | 4 | BT-LIVE-105 | #30 | Add the playable 16-step editor and variations | Ready | BT-LIVE-103 |
 | 5 | BT-LIVE-106 | #31 | Add quantized MIDI loop recording and overdub | Ready | BT-LIVE-105 |
 

@@ -43,6 +43,7 @@ class FakeClockPort implements LiveAudioPort {
   readonly buses: FakeBus[] = [];
   starts = 0;
   stops = 0;
+  readonly stopTimes: Array<number | undefined> = [];
   resets = 0;
   disposed = 0;
   executingCallback = false;
@@ -104,9 +105,10 @@ class FakeClockPort implements LiveAudioPort {
     this.running = true;
   };
 
-  stop = (): void => {
+  stop = (audioTime?: number): void => {
     this.running = false;
     this.stops += 1;
+    this.stopTimes.push(audioTime);
   };
 
   reset = (): void => {
@@ -485,9 +487,11 @@ test("cleans scheduled events, sources, buses, and transport idempotently", asyn
 });
 
 test("schedules and cancels transport stop through an identified engine acknowledgement", async () => {
-  const { engine, observations, port } = harness();
+  const { engine, observations, port, prepared } = harness();
   await engine.unlock();
+  await engine.scheduleTransitions([launch("launch-a", "track-a", 0, midiMaterial("clip-a"))]);
   engine.start(0);
+  port.advanceTo(0);
   assert.equal(engine.scheduleTransportStop({ transitionId: "stop-1", targetBeat: 4 }).ok, true);
   assert.equal(engine.cancelTransportStop("wrong"), false);
   assert.equal(engine.cancelTransportStop("stop-1"), true);
@@ -499,6 +503,9 @@ test("schedules and cancels transport stop through an identified engine acknowle
   port.advanceTo(8);
   assert.equal(engine.getSnapshot().phase, "stopped");
   assert.equal(observations.some((entry) => entry.type === "transport-stopped"), true);
+  assert.deepEqual(port.stopTimes, [4]);
+  assert.deepEqual(prepared[0]?.releaseTimes, [4]);
+  assert.deepEqual(prepared[0]?.disposeTimes, [4]);
 });
 
 function launch(

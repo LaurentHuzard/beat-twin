@@ -41,6 +41,7 @@ button {
 .inspector,
 .command-dock,
 .live-lab,
+.live-launcher,
 .agent-mode-panel {
   border: 1px solid #d6ded4;
   border-radius: 8px;
@@ -458,8 +459,439 @@ h2 {
 .timeline-surface,
 .inspector,
 .command-dock,
-.live-lab {
+.live-lab,
+.live-launcher {
   padding: 14px;
+}
+
+.live-launcher {
+  display: grid;
+  gap: 14px;
+}
+
+.launcher-header,
+.launcher-title,
+.launcher-transport,
+.launcher-clock,
+.launcher-track-heading,
+.launcher-error,
+.launcher-track-stop {
+  display: flex;
+  align-items: center;
+}
+
+.launcher-header {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.launcher-title {
+  gap: 10px;
+  min-width: 0;
+}
+
+.launcher-title > div {
+  display: grid;
+  gap: 3px;
+}
+
+.launcher-title > svg {
+  flex: 0 0 auto;
+}
+
+.launcher-title p:last-child {
+  color: #68736e;
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.launcher-transport {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.launcher-transport .tool-button {
+  min-height: 44px;
+}
+
+.launcher-clock {
+  gap: 8px;
+  min-height: 40px;
+  border: 1px solid #d6ded4;
+  border-radius: 8px;
+  padding: 5px 10px;
+  color: #5a6661;
+  background: #f4f7f2;
+}
+
+.launcher-clock.running {
+  border-color: #86b69b;
+  color: #133d35;
+  background: #dff0e5;
+}
+
+.launcher-clock span {
+  display: grid;
+  gap: 1px;
+}
+
+.launcher-clock strong {
+  font-size: 0.74rem;
+}
+
+.launcher-clock small {
+  font-size: 0.64rem;
+  font-weight: 750;
+}
+
+.launcher-quantization {
+  display: grid;
+  gap: 2px;
+  color: #68736e;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.launcher-quantization select {
+  min-height: 26px;
+  border: 1px solid #b9c6bf;
+  border-radius: 6px;
+  padding: 0 26px 0 8px;
+  color: #17201f;
+  background: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.launcher-error {
+  gap: 9px;
+  border: 1px solid #d85b40;
+  border-radius: 8px;
+  padding: 9px 11px;
+  color: #7c2419;
+  background: #fae4dd;
+  font-size: 0.78rem;
+}
+
+.launcher-error span {
+  display: grid;
+  gap: 2px;
+}
+
+.launcher-error button {
+  margin-left: auto;
+  border: 1px solid #d85b40;
+  border-radius: 6px;
+  padding: 6px 9px;
+  color: #7c2419;
+  background: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.launcher-track-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.launcher-track {
+  --track-color: #2d7f73;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid #dbe4d9;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfa;
+  box-shadow: inset 4px 0 0 var(--track-color);
+}
+
+.launcher-track[data-status="error"] {
+  border-color: #d85b40;
+}
+
+.launcher-track-heading {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  gap: 9px;
+}
+
+.launcher-track-swatch {
+  width: 9px;
+  height: 34px;
+  border-radius: 4px;
+  background: var(--track-color);
+}
+
+.launcher-track-heading > div {
+  min-width: 0;
+}
+
+.launcher-track-heading small {
+  color: #68736e;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.launcher-track-heading h3 {
+  overflow: hidden;
+  margin: 1px 0 0;
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.launcher-state {
+  border: 1px solid #d6ded4;
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: #5a6661;
+  background: #ffffff;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.launcher-state.playing {
+  border-color: #86b69b;
+  color: #133d35;
+  background: #dff0e5;
+}
+
+.launcher-state.queued,
+.launcher-state.stop-queued {
+  border-color: #d7bd6f;
+  color: #62420f;
+  background: #fff7d8;
+}
+
+.launcher-state.error {
+  border-color: #d85b40;
+  color: #7c2419;
+  background: #fae4dd;
+}
+
+.launcher-state.unavailable {
+  color: #68736e;
+  background: #eef1ed;
+}
+
+.launcher-track-detail {
+  min-height: 18px;
+  overflow: hidden;
+  color: #68736e;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.launcher-scenes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.launcher-scene {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid #b9c6bf;
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: #17201f;
+  background: #f4f7f2;
+  text-align: left;
+}
+
+.launcher-scene:hover:not(:disabled),
+.launcher-scene:focus-visible:not(:disabled) {
+  outline: 2px solid #e9b949;
+  outline-offset: 2px;
+}
+
+.launcher-scene > span {
+  display: grid;
+  min-width: 0;
+}
+
+.launcher-scene small,
+.launcher-scene strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.launcher-scene small {
+  color: #68736e;
+  font-size: 0.61rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.launcher-scene strong {
+  font-size: 0.73rem;
+}
+
+.launcher-scene.queued {
+  border-color: #d7bd6f;
+  color: #62420f;
+  background: #fff7d8;
+}
+
+.launcher-scene.playing {
+  border-color: #86b69b;
+  color: #133d35;
+  background: #dff0e5;
+}
+
+.launcher-scene:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.launcher-scene.playing:disabled,
+.launcher-scene.queued:disabled {
+  opacity: 1;
+}
+
+.launcher-slots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.launcher-slot {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 76px;
+  border: 1px solid #b9c6bf;
+  border-radius: 8px;
+  padding: 9px;
+  color: #17201f;
+  background: #ffffff;
+  text-align: left;
+}
+
+.launcher-slot:hover:not(:disabled),
+.launcher-slot:focus-visible:not(:disabled),
+.launcher-track-stop:hover:not(:disabled),
+.launcher-track-stop:focus-visible:not(:disabled) {
+  outline: 2px solid #e9b949;
+  outline-offset: 2px;
+}
+
+.launcher-slot > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.launcher-slot span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.launcher-slot small {
+  color: #68736e;
+  font-size: 0.6rem;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.launcher-slot strong,
+.launcher-slot em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.launcher-slot strong {
+  font-size: 0.78rem;
+}
+
+.launcher-slot em {
+  color: #68736e;
+  font-size: 0.65rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.launcher-slot.playing {
+  border-color: #2d7f73;
+  color: #133d35;
+  background: #dff0e5;
+  box-shadow: inset 0 -3px 0 #2d7f73;
+}
+
+.launcher-slot.queued {
+  border-color: #d7bd6f;
+  color: #62420f;
+  background: #fff7d8;
+  box-shadow: inset 0 -3px 0 #d7bd6f;
+}
+
+.launcher-slot.stop-queued {
+  border-color: #d28a67;
+  color: #6e2e18;
+  background: #fff0e8;
+  box-shadow: inset 0 -3px 0 #d28a67;
+}
+
+.launcher-slot:disabled {
+  cursor: not-allowed;
+}
+
+.launcher-slot.unavailable {
+  border-style: dashed;
+  opacity: 0.52;
+}
+
+.launcher-slot.empty {
+  border-style: dashed;
+  color: #68736e;
+  background: #f4f7f2;
+  opacity: 0.62;
+}
+
+.launcher-slot.idle:disabled,
+.launcher-slot.playing:disabled,
+.launcher-slot.queued:disabled,
+.launcher-slot.stop-queued:disabled {
+  opacity: 1;
+}
+
+.launcher-track-stop {
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  border: 1px solid #d6a092;
+  border-radius: 7px;
+  color: #7c2419;
+  background: #fff7f3;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.launcher-track-stop:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
 }
 
 .live-lab {
@@ -1494,7 +1926,8 @@ h2 {
   }
 
   .live-lab-header,
-  .live-clock-rail {
+  .live-clock-rail,
+  .launcher-header {
     align-items: stretch;
     grid-template-columns: 1fr;
   }
@@ -1516,6 +1949,18 @@ h2 {
   }
 
   .live-track-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .launcher-header {
+    display: grid;
+  }
+
+  .launcher-transport {
+    justify-content: start;
+  }
+
+  .launcher-track-grid {
     grid-template-columns: 1fr;
   }
 

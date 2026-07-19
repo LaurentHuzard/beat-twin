@@ -98,8 +98,8 @@ export function createToneLiveAudioPort(tone: ToneModuleLike): LiveAudioPort {
     resume() {
       transport.start();
     },
-    stop() {
-      transport.stop();
+    stop(audioTime) {
+      transport.stop(audioTime);
     },
     reset() {
       transport.stop();
