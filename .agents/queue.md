@@ -24,8 +24,8 @@ slice on the reviewed performance runtime and persistent audio engine. This is
 the only authorized implementation item. GitHub #30 and #31 remain
 dependency-ordered follow-ups.
 
-The implementation and its deterministic/browser gates are complete locally.
-Publication and merge remain pending, so #28 stays the only active Orbit item.
+The implementation and its deterministic/browser gates are complete. PR #42 is
+open with final CI and merge pending, so #28 stays the only active Orbit item.
 
 ## NanoDAW Live sequence
 

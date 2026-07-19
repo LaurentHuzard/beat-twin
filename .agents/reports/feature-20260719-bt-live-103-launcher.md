@@ -4,7 +4,7 @@ Date: 2026-07-19
 GitHub: #28
 Branch: `agent/bt-live-103-launcher`
 Worktree: `/tmp/beat-twin-orbit-28`
-State: implementation and gates complete locally; push, PR, and merge pending
+State: implementation and gates complete; PR #42 open, final CI and merge pending
 
 ## Delivered
 
@@ -54,7 +54,8 @@ warnings and zero errors.
 - `pnpm test`: 176/176 passed. The first sandboxed attempt could not bind the
   gateway test loopback sockets (`listen EPERM`); the same suite passed outside
   that filesystem/network sandbox.
-- `pnpm nanodaw:test`: 9 files, 88/88 passed.
+- `pnpm nanodaw:test`: 10 files, 90/90 passed after the post-review
+  browser-runtime integration regression was added.
 - `pnpm typecheck`: passed.
 - `pnpm --filter @beat-twin/playground build`: passed; 2,562 modules transformed.
 - `pnpm smoke:packages`: passed for 9 packages.
@@ -112,5 +113,5 @@ passes 11/11.
 - Browser QA covered Chromium, not Firefox or Safari.
 - The local runtime is Node 26.4.0 while the repository declares Node 22 or 24;
   all gates passed, but pnpm emitted the expected unsupported-engine warning.
-- This worktree is ready for publication but has not pushed, opened a PR, or
-  merged. The parent loop owns those actions and the activation of #30.
+- The branch is published in PR #42. The final post-review snapshot still
+  requires green GitHub CI and merge before #30 may be activated.

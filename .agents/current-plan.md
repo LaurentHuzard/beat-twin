@@ -53,9 +53,9 @@ active state without interrupting the other track.
 The bounded implementation, deterministic suite, production build, package
 smoke, responsive browser pass, real Tone timing trace, and adversarial review
 are complete. The reviewer findings around a controller factory resolving after
-unmount and accessible state names were fixed with regressions. The branch is
-ready for the parent publication loop; it is not yet pushed, opened as a PR, or
-merged.
+unmount, accessible state names, and duplicate immediate transport stop were
+fixed with regressions. PR #42 is open on the published branch; final GitHub CI
+and merge remain pending.
 
 ## Human Gates
 
