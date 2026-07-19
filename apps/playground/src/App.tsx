@@ -45,6 +45,7 @@ import {
 
 import { AgentModePanel } from "./AgentModePanel";
 import { LiveLauncher } from "./LiveLauncher";
+import { StepEditor } from "./StepEditor";
 import { buildPreviewAudition, type PreviewState } from "./previewAudio";
 import {
   usePlaygroundStore,
@@ -303,6 +304,8 @@ function App() {
         externalAudioActive={isPlayingPreview}
         onRunningChange={setLiveRunning}
       />
+
+      <StepEditor />
 
       <AgentModePanel />
 
@@ -1249,7 +1252,7 @@ function NoteEditor({
   onCancel,
 }: NoteEditorProps) {
   return (
-    <div className="note-editor" aria-label="Note editor">
+    <div id="detailed-note-editor" className="note-editor" aria-label="Detailed numeric note editor">
       <NumberField
         label="Pitch"
         ariaLabel="Note pitch"

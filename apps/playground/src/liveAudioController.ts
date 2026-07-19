@@ -3,7 +3,8 @@ import {
   type LiveAudioEngine,
   type LiveAudioError,
   type LiveAudioObservation,
-  type LiveClipMaterial,
+  type LiveAudioSnapshot,
+  type LiveMidiClipMaterial,
   type LiveTransitionRequest,
 } from "@beat-twin/audio-tone";
 import {
@@ -21,6 +22,7 @@ export type LiveAudioControllerHost = {
   readonly getSong: () => Song | null;
   readonly getPerformanceState: () => PerformanceState;
   readonly dispatchPerformance: (action: PerformanceAction) => void;
+  readonly reportError?: (error: LiveAudioError) => void;
 };
 
 export type LiveAudioController = {
@@ -52,6 +54,8 @@ export function createLiveAudioController(input: {
   let disposed = false;
   let syncPendingPromise: Promise<void> | null = null;
   let syncPendingDirty = false;
+  let refreshSequence = 0;
+  let startedBpm: number | null = null;
 
   const unsubscribe = engine.subscribe((observation) => {
     if (disposed) return;
@@ -68,11 +72,11 @@ export function createLiveAudioController(input: {
           transition.id !== observation.transitionId ||
           transition.status !== "scheduled"
         ) {
-          failSafeResetRuntime();
+          failSafeResetRuntime("engine executed an unowned live transition");
           return;
         }
         if (!observationMatchesMaterial(state, observation.trackId, transition, observation)) {
-          failSafeResetRuntime();
+          failSafeResetRuntime("engine execution material did not match the current clip");
           return;
         }
         host.dispatchPerformance({
@@ -244,7 +248,6 @@ export function createLiveAudioController(input: {
   }
 
   function transitionMatches(
-    materialVersion: number,
     trackId: string,
     expected: PendingPerformanceTransition,
     status: PendingPerformanceTransition["status"],
@@ -252,7 +255,6 @@ export function createLiveAudioController(input: {
     const state = host.getPerformanceState();
     const actual = state.tracks[trackId]?.pendingTransition;
     return (
-      state.materialVersion === materialVersion &&
       actual !== null &&
       actual !== undefined &&
       sameTransition(actual, expected) &&
@@ -261,7 +263,6 @@ export function createLiveAudioController(input: {
   }
 
   function groupMatches(
-    materialVersion: number,
     groupId: string,
     members: readonly {
       readonly trackId: string;
@@ -272,7 +273,7 @@ export function createLiveAudioController(input: {
     return members.every(
       ({ trackId, transition }) =>
         transition.groupId === groupId &&
-        transitionMatches(materialVersion, trackId, transition, status),
+        transitionMatches(trackId, transition, status),
     );
   }
 
@@ -296,12 +297,12 @@ export function createLiveAudioController(input: {
     }
     const result = await engine.scheduleTransitions(requests);
     if (!result.ok) {
-      if (groupMatches(state.materialVersion, groupId, members, "pending")) {
+      if (groupMatches(groupId, members, "pending")) {
         failTransition(members[0]!.transition, members[0]!.trackId, result.error);
       }
       return;
     }
-    if (!groupMatches(state.materialVersion, groupId, members, "pending")) {
+    if (!groupMatches(groupId, members, "pending")) {
       cancelEngineRequests(requests, false);
       return;
     }
@@ -310,11 +311,11 @@ export function createLiveAudioController(input: {
     } catch (error) {
       cancelEngineRequests(
         requests,
-        groupMatches(state.materialVersion, groupId, members, "scheduled"),
+        groupMatches(groupId, members, "scheduled"),
       );
       throw error;
     }
-    if (!groupMatches(state.materialVersion, groupId, members, "scheduled")) {
+    if (!groupMatches(groupId, members, "scheduled")) {
       cancelEngineRequests(requests, false);
     }
   }
@@ -338,12 +339,12 @@ export function createLiveAudioController(input: {
     }
     const result = await engine.scheduleTransitions([request]);
     if (!result.ok) {
-      if (transitionMatches(state.materialVersion, trackId, transition, "pending")) {
+      if (transitionMatches(trackId, transition, "pending")) {
         failTransition(transition, trackId, result.error);
       }
       return;
     }
-    if (!transitionMatches(state.materialVersion, trackId, transition, "pending")) {
+    if (!transitionMatches(trackId, transition, "pending")) {
       cancelEngineRequests([request], false);
       return;
     }
@@ -356,11 +357,11 @@ export function createLiveAudioController(input: {
     } catch (error) {
       cancelEngineRequests(
         [request],
-        transitionMatches(state.materialVersion, trackId, transition, "scheduled"),
+        transitionMatches(trackId, transition, "scheduled"),
       );
       throw error;
     }
-    if (!transitionMatches(state.materialVersion, trackId, transition, "scheduled")) {
+    if (!transitionMatches(trackId, transition, "scheduled")) {
       cancelEngineRequests([request], false);
     }
   }
@@ -384,10 +385,11 @@ export function createLiveAudioController(input: {
     }
   }
 
-  function failSafeResetRuntime(): void {
+  function failSafeResetRuntime(message: string): void {
     const phase = engine.getSnapshot().phase;
     if (phase !== "new" && phase !== "disposed") engine.stop();
     host.dispatchPerformance({ type: "ResetPerformance" });
+    host.reportError?.({ code: "invalid_state", message });
   }
 
   function expectedMaterialId(
@@ -407,96 +409,231 @@ export function createLiveAudioController(input: {
     }
   }
 
-  function reconcileMaterial(): void {
-    const state = host.getPerformanceState();
-    const snapshot = engine.getSnapshot();
-    const invalidActive = Object.entries(snapshot.activeMaterialByTrack).some(
-      ([trackId, materialId]) => {
-        const clipId = state.tracks[trackId]?.activeClipId;
-        return !clipId || expectedMaterialId(state, trackId, clipId) !== materialId;
-      },
+  function scheduledTransitionMatchesSnapshot(
+    state: PerformanceState,
+    snapshot: LiveAudioSnapshot,
+    trackId: string,
+    transition: PendingPerformanceTransition,
+  ): boolean {
+    const expectedPendingMaterialId =
+      transition.kind === "launch"
+        ? expectedMaterialId(state, trackId, transition.clipId)
+        : null;
+    return (
+      snapshot.pendingTransitionByTrack[trackId] === transition.id &&
+      (snapshot.pendingMaterialByTrack[trackId] ?? null) === expectedPendingMaterialId
     );
-    if (invalidActive) {
-      if (snapshot.phase !== "new" && snapshot.phase !== "disposed") engine.stop();
-      host.dispatchPerformance({ type: "ResetPerformance" });
+  }
+
+  function cancelSnapshotTransition(
+    snapshot: LiveAudioSnapshot,
+    trackId: string,
+  ): boolean {
+    const transitionId = snapshot.pendingTransitionByTrack[trackId];
+    if (!transitionId) return true;
+    suppressedCancellationIds.add(transitionId);
+    if (engine.cancelTransition(transitionId)) return true;
+    suppressedCancellationIds.delete(transitionId);
+    return false;
+  }
+
+  function syncRuntimeBeatFromEngine(): PerformanceState {
+    const engineBeat = engine.getSnapshot().currentBeat;
+    if (engineBeat > host.getPerformanceState().currentBeat) {
+      host.dispatchPerformance({ type: "AdvanceClock", beat: engineBeat });
+    }
+    return host.getPerformanceState();
+  }
+
+  function requeueScheduledIndividual(
+    snapshot: LiveAudioSnapshot,
+    trackId: string,
+    transition: PendingPerformanceTransition,
+  ): boolean {
+    if (!cancelSnapshotTransition(snapshot, trackId)) return false;
+    const state = syncRuntimeBeatFromEngine();
+    const current = state.tracks[trackId]?.pendingTransition;
+    if (!current || !sameTransition(current, transition) || current.status !== "scheduled") {
+      return false;
+    }
+    if (state.currentBeat >= transition.targetBeat) {
+      failTransition(transition, trackId, {
+        code: "schedule_failed",
+        message: `edited material missed target beat ${transition.targetBeat}`,
+      });
+      return true;
+    }
+    host.dispatchPerformance({
+      type: "RequeueScheduledTransition",
+      trackId,
+      transitionId: transition.id,
+    });
+    return true;
+  }
+
+  function requeueScheduledScene(
+    snapshot: LiveAudioSnapshot,
+    groupId: string,
+    members: readonly {
+      readonly trackId: string;
+      readonly transition: PendingPerformanceTransition;
+    }[],
+  ): boolean {
+    for (const { trackId } of members) {
+      if (!cancelSnapshotTransition(snapshot, trackId)) return false;
+    }
+    const state = syncRuntimeBeatFromEngine();
+    if (!scheduledSceneMatches(state, groupId)) return false;
+    const missed = members.find(
+      ({ transition }) => state.currentBeat >= transition.targetBeat,
+    );
+    if (missed) {
+      failTransition(missed.transition, missed.trackId, {
+        code: "schedule_failed",
+        message: `edited scene material missed target beat ${missed.transition.targetBeat}`,
+      });
+      return true;
+    }
+    host.dispatchPerformance({ type: "RequeueScheduledScene", groupId });
+    return true;
+  }
+
+  function nextActiveLoopBoundary(
+    snapshot: LiveAudioSnapshot,
+    trackId: string,
+    currentBeat: number,
+  ): number | null {
+    const startedAtBeat = snapshot.activeStartedAtBeatByTrack[trackId];
+    const lengthBeats = snapshot.activeLengthBeatsByTrack[trackId];
+    if (
+      startedAtBeat === undefined ||
+      lengthBeats === undefined ||
+      !Number.isFinite(startedAtBeat) ||
+      !Number.isFinite(lengthBeats) ||
+      startedAtBeat < 0 ||
+      lengthBeats <= 0 ||
+      currentBeat < startedAtBeat
+    ) {
+      return null;
+    }
+    const completedLoops = Math.floor((currentBeat - startedAtBeat) / lengthBeats);
+    const targetBeat = startedAtBeat + (completedLoops + 1) * lengthBeats;
+    return targetBeat > currentBeat ? targetBeat : targetBeat + lengthBeats;
+  }
+
+  function reconcileMaterial(): void {
+    const song = host.getSong();
+    if (
+      startedBpm !== null &&
+      song !== null &&
+      song.transport.bpm !== startedBpm &&
+      host.getPerformanceState().phase !== "idle"
+    ) {
+      failSafeResetRuntime(
+        `song tempo changed from ${startedBpm} to ${song.transport.bpm} BPM; restart live audio to apply it`,
+      );
       return;
     }
+    const snapshot = engine.getSnapshot();
+    if (snapshot.currentBeat > host.getPerformanceState().currentBeat) {
+      host.dispatchPerformance({ type: "AdvanceClock", beat: snapshot.currentBeat });
+    }
+    let state = host.getPerformanceState();
 
-    const reconciledGroups = new Set<string>();
-    for (const [trackId, transitionId] of Object.entries(
-      snapshot.pendingTransitionByTrack,
-    )) {
-      const transition = state.tracks[trackId]?.pendingTransition;
-      const pendingMaterialId = snapshot.pendingMaterialByTrack[trackId] ?? null;
-      const expectedPendingMaterialId =
-        transition?.kind === "launch"
-          ? expectedMaterialId(state, trackId, transition.clipId)
-          : null;
-      const isCurrent =
-        transition?.id === transitionId &&
-        transition.status === "scheduled" &&
-        pendingMaterialId === expectedPendingMaterialId;
-      if (isCurrent) continue;
-
-      if (transition?.groupId && transition.status === "scheduled") {
-        if (reconciledGroups.has(transition.groupId)) continue;
-        reconciledGroups.add(transition.groupId);
-        for (const [memberTrackId, memberTrack] of Object.entries(state.tracks)) {
-          if (memberTrack.pendingTransition?.groupId !== transition.groupId) continue;
-          const memberTransitionId = snapshot.pendingTransitionByTrack[memberTrackId];
-          if (memberTransitionId) engine.cancelTransition(memberTransitionId);
-        }
+    const scheduledGroups = new Map<
+      string,
+      Array<{ trackId: string; transition: PendingPerformanceTransition }>
+    >();
+    const scheduledIndividuals: Array<{
+      trackId: string;
+      transition: PendingPerformanceTransition;
+    }> = [];
+    for (const [trackId, track] of Object.entries(state.tracks)) {
+      const transition = track.pendingTransition;
+      if (!transition || transition.status !== "scheduled") continue;
+      if (transition.groupId) {
+        const members = scheduledGroups.get(transition.groupId) ?? [];
+        members.push({ trackId, transition });
+        scheduledGroups.set(transition.groupId, members);
       } else {
-        engine.cancelTransition(transitionId);
+        scheduledIndividuals.push({ trackId, transition });
       }
     }
 
-    const current = host.getPerformanceState();
-    const missingGroups = new Set<string>();
-    for (const [trackId, track] of Object.entries(current.tracks)) {
-      const transition = track.pendingTransition;
+    for (const [groupId, members] of scheduledGroups) {
       if (
-        !transition ||
-        transition.status !== "scheduled" ||
-        snapshot.pendingTransitionByTrack[trackId] === transition.id
+        members.every(({ trackId, transition }) =>
+          scheduledTransitionMatchesSnapshot(state, snapshot, trackId, transition),
+        )
       ) {
         continue;
       }
-      if (transition.groupId) {
-        if (missingGroups.has(transition.groupId)) continue;
-        missingGroups.add(transition.groupId);
-        for (const [memberTrackId, memberTrack] of Object.entries(current.tracks)) {
-          if (memberTrack.pendingTransition?.groupId !== transition.groupId) continue;
-          const memberTransitionId = snapshot.pendingTransitionByTrack[memberTrackId];
-          if (memberTransitionId) engine.cancelTransition(memberTransitionId);
-        }
-        const afterEngineCancellation = host.getPerformanceState();
-        if (!scheduledSceneMatches(afterEngineCancellation, transition.groupId)) continue;
-        if (afterEngineCancellation.currentBeat <= transition.targetBeat) {
-          host.dispatchPerformance({
-            type: "ObserveSceneCancelled",
-            groupId: transition.groupId,
-            observedAtBeat: afterEngineCancellation.currentBeat,
-          });
-        } else {
-          failTransition(transition, trackId, {
-            code: "material_not_ready",
-            message: "scheduled scene has no matching engine work",
-          });
-        }
-      } else if (current.currentBeat <= transition.targetBeat) {
-        host.dispatchPerformance({
-          type: "ObserveTransitionCancelled",
-          trackId,
-          transitionId: transition.id,
-          observedAtBeat: current.currentBeat,
-        });
-      } else {
-        failTransition(transition, trackId, {
-          code: "material_not_ready",
-          message: "scheduled transition has no matching engine work",
-        });
+      if (!requeueScheduledScene(snapshot, groupId, members)) {
+        failSafeResetRuntime(`could not atomically requeue edited scene ${groupId}`);
+        return;
       }
+      state = host.getPerformanceState();
+    }
+    for (const { trackId, transition } of scheduledIndividuals) {
+      if (scheduledTransitionMatchesSnapshot(state, snapshot, trackId, transition)) continue;
+      if (!requeueScheduledIndividual(snapshot, trackId, transition)) {
+        failSafeResetRuntime(`could not requeue edited transition ${transition.id}`);
+        return;
+      }
+      state = host.getPerformanceState();
+    }
+
+    const afterRequeueSnapshot = engine.getSnapshot();
+    for (const [trackId, transitionId] of Object.entries(
+      afterRequeueSnapshot.pendingTransitionByTrack,
+    )) {
+      const current = host.getPerformanceState().tracks[trackId]?.pendingTransition;
+      if (current?.id === transitionId) continue;
+      if (!cancelSnapshotTransition(afterRequeueSnapshot, trackId)) {
+        failSafeResetRuntime(`engine retained orphan transition ${transitionId}`);
+        return;
+      }
+    }
+
+    state = host.getPerformanceState();
+    for (const [trackId, materialId] of Object.entries(snapshot.activeMaterialByTrack)) {
+      const track = state.tracks[trackId];
+      const clipId = track?.activeClipId;
+      if (!clipId) {
+        failSafeResetRuntime(`active engine track ${trackId} has no matching runtime clip`);
+        return;
+      }
+      const expectedActiveMaterialId = expectedMaterialId(state, trackId, clipId);
+      if (!expectedActiveMaterialId) {
+        failSafeResetRuntime(`active clip ${clipId} is no longer playable`);
+        return;
+      }
+      if (expectedActiveMaterialId === materialId || track.pendingTransition) continue;
+      const targetBeat = nextActiveLoopBoundary(snapshot, trackId, state.currentBeat);
+      if (targetBeat === null) {
+        failSafeResetRuntime(`active clip ${clipId} has no trustworthy next loop boundary`);
+        return;
+      }
+      host.dispatchPerformance({
+        type: "RefreshActiveClip",
+        transitionId: `material-refresh:${trackId}:${++refreshSequence}`,
+        trackId,
+        clipId,
+        requestedAtBeat: state.currentBeat,
+        targetBeat,
+      });
+      state = host.getPerformanceState();
+    }
+
+    const engineOwnsActiveSources = snapshot.phase === "running" || snapshot.phase === "suspended";
+    if (
+      engineOwnsActiveSources &&
+      Object.entries(state.tracks).some(
+        ([trackId, track]) =>
+          track.activeClipId !== null && snapshot.activeMaterialByTrack[trackId] === undefined,
+      )
+    ) {
+      failSafeResetRuntime("runtime claimed an active clip whose engine source is missing");
     }
   }
 
@@ -529,6 +666,7 @@ export function createLiveAudioController(input: {
       engine.start(state.currentBeat);
       try {
         host.dispatchPerformance({ type: "StartTransport", atBeat: state.currentBeat });
+        startedBpm = song.transport.bpm;
       } catch (error) {
         engine.stop();
         throw error;
@@ -545,6 +683,10 @@ export function createLiveAudioController(input: {
     reconcileMaterial,
 
     syncPending() {
+      // Close the commit-to-audio-callback race before yielding to material
+      // preparation. A store subscriber may call this in the same stack as the
+      // Song mutation while a boundary callback is already due.
+      reconcileMaterial();
       if (syncPendingPromise) {
         syncPendingDirty = true;
         return syncPendingPromise;
@@ -724,10 +866,10 @@ function sameTransition(
 
 export function resolveSongLiveMaterial(
   song: Song | null,
-  materialVersion: number,
+  _materialVersion: number,
   trackId: string,
   clipId: string,
-): LiveClipMaterial {
+): LiveMidiClipMaterial {
   if (!song) {
     throw new LiveAudioEngineFault({
       code: "material_not_ready",
@@ -748,14 +890,69 @@ export function resolveSongLiveMaterial(
       message: `Track ${trackId} kind ${track.kind} has no registered live material adapter`,
     });
   }
+  const instrumentId = track.instrumentId ?? DEFAULT_BUILT_IN_INSTRUMENT_ID;
+  const contentIdentity = liveMaterialContentIdentity({
+    instrumentId,
+    lengthBeats: clip.lengthBeats,
+    notes: clip.pattern.notes,
+  });
   return Object.freeze({
     kind: "midi",
-    materialId: `${song.id}:${trackId}:${clipId}@${materialVersion}`,
-    version: materialVersion,
+    materialId: contentIdentity.key,
+    version: contentIdentity.version,
     clipId,
-    instrumentId: track.instrumentId ?? DEFAULT_BUILT_IN_INSTRUMENT_ID,
+    instrumentId,
     lengthBeats: clip.lengthBeats,
-    notes: Object.freeze(clip.pattern.notes.map((note) => Object.freeze({ ...note }))),
+    notes: contentIdentity.notes,
+  });
+}
+
+function liveMaterialContentIdentity(input: {
+  readonly instrumentId: string;
+  readonly lengthBeats: number;
+  readonly notes: readonly {
+    readonly id: string;
+    readonly pitch: number;
+    readonly velocity: number;
+    readonly startBeat: number;
+    readonly lengthBeats: number;
+  }[];
+}): {
+  readonly key: string;
+  readonly version: number;
+  readonly notes: readonly (typeof input.notes)[number][];
+} {
+  const notes = [...input.notes].sort((left, right) => {
+      const leftAudible = [left.startBeat, left.pitch, left.velocity, left.lengthBeats];
+      const rightAudible = [right.startBeat, right.pitch, right.velocity, right.lengthBeats];
+      for (let index = 0; index < leftAudible.length; index += 1) {
+        const difference = leftAudible[index]! - rightAudible[index]!;
+        if (difference !== 0) return difference;
+      }
+      return 0;
+    });
+  const audibleNotes = notes.map((note) => [
+    note.startBeat,
+    note.pitch,
+    note.velocity,
+    note.lengthBeats,
+  ]);
+  const content = JSON.stringify([
+    "instrument-midi-v1",
+    input.instrumentId,
+    input.lengthBeats,
+    audibleNotes,
+  ]);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < content.length; index += 1) {
+    hash ^= content.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  const version = hash >>> 0;
+  return Object.freeze({
+    key: encodeURIComponent(content),
+    version,
+    notes: Object.freeze(notes.map((note) => Object.freeze({ ...note }))),
   });
 }
 

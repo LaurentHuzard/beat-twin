@@ -217,7 +217,7 @@ export function createBuiltInInstrumentVoiceFactory(
       case "drums": {
         const Drums = tone.MembraneSynth ?? tone.Synth;
         if (!Drums) throw missingVoiceConstructor(instrumentId);
-        voice = new Drums({
+        voice = createPercussionVoicePool(Drums, {
           pitchDecay: 0.04,
           octaves: 5,
           envelope: { attack: 0.001, decay: 0.18, sustain: 0, release: 0.08 },
@@ -227,7 +227,7 @@ export function createBuiltInInstrumentVoiceFactory(
       case "bass": {
         const Bass = tone.MonoSynth ?? tone.Synth;
         if (!Bass) throw missingVoiceConstructor(instrumentId);
-        voice = new Bass({
+        voice = firstNoteAtExactTimeWins(new Bass({
           oscillator: { type: "square" },
           filter: { Q: 2, type: "lowpass", rolloff: -24 },
           envelope: { attack: 0.01, decay: 0.2, sustain: 0.35, release: 0.25 },
@@ -239,7 +239,7 @@ export function createBuiltInInstrumentVoiceFactory(
             baseFrequency: 70,
             octaves: 2.5,
           },
-        });
+        }));
         break;
       }
       case "chords": {
@@ -257,10 +257,10 @@ export function createBuiltInInstrumentVoiceFactory(
       }
       case "lead": {
         if (tone.Synth) {
-          voice = new tone.Synth({
+          voice = firstNoteAtExactTimeWins(new tone.Synth({
             oscillator: { type: "sawtooth" },
             envelope: { attack: 0.01, decay: 0.12, sustain: 0.25, release: 0.18 },
-          });
+          }));
         } else if (tone.PolySynth) {
           voice = new tone.PolySynth();
         } else {
@@ -276,6 +276,105 @@ export function createBuiltInInstrumentVoiceFactory(
     }
     return voice.toDestination?.() ?? voice;
   };
+}
+
+/**
+ * Tone's percussion synths are monophonic. A stable voice per note name keeps
+ * different drum lanes exactly simultaneous without nudging event boundaries.
+ * Duplicate events on the same lane and exact audio time deterministically use
+ * the first event, which also prevents a monophonic Tone assertion.
+ */
+function createPercussionVoicePool(
+  Voice: ToneSynthConstructor,
+  options: unknown,
+): TonePreviewSynth {
+  const voices = new Map<string, TonePreviewSynth>();
+  let destination: unknown;
+  let usesDefaultDestination = false;
+  let disposed = false;
+
+  const route = (voice: TonePreviewSynth): void => {
+    if (destination !== undefined && voice.connect) {
+      voice.connect(destination);
+    } else if (usesDefaultDestination) {
+      voice.toDestination?.();
+    }
+  };
+
+  const getVoice = (note: string): TonePreviewSynth => {
+    const existing = voices.get(note);
+    if (existing) return existing;
+    const voice = firstNoteAtExactTimeWins(new Voice(options));
+    route(voice);
+    voices.set(note, voice);
+    return voice;
+  };
+
+  const pool: TonePreviewSynth = {
+    triggerAttackRelease(note, duration, time, velocity) {
+      if (disposed) return;
+      getVoice(note).triggerAttackRelease(note, duration, time, velocity);
+    },
+    connect(nextDestination) {
+      destination = nextDestination;
+      usesDefaultDestination = false;
+      for (const voice of voices.values()) voice.connect?.(nextDestination);
+      return pool;
+    },
+    toDestination() {
+      destination = undefined;
+      usesDefaultDestination = true;
+      for (const voice of voices.values()) voice.toDestination?.();
+      return pool;
+    },
+    releaseAll(time) {
+      for (const voice of voices.values()) {
+        if (voice.releaseAll) voice.releaseAll(time);
+        else voice.triggerRelease?.(time);
+      }
+    },
+    triggerRelease(time) {
+      for (const voice of voices.values()) voice.triggerRelease?.(time);
+    },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      for (const voice of voices.values()) voice.dispose?.();
+      voices.clear();
+    },
+  };
+  return pool;
+}
+
+/** First scheduled note owns an exact audio time on a monophonic voice. */
+function firstNoteAtExactTimeWins(voice: TonePreviewSynth): TonePreviewSynth {
+  let previousStartTime: number | undefined;
+  const wrapper: TonePreviewSynth = {
+    triggerAttackRelease(note, duration, time, velocity) {
+      if (time === previousStartTime) return;
+      previousStartTime = time;
+      voice.triggerAttackRelease(note, duration, time, velocity);
+    },
+    connect(destination) {
+      voice.connect?.(destination);
+      return wrapper;
+    },
+    toDestination() {
+      voice.toDestination?.();
+      return wrapper;
+    },
+    releaseAll(time) {
+      if (voice.releaseAll) voice.releaseAll(time);
+      else voice.triggerRelease?.(time);
+    },
+    triggerRelease(time) {
+      voice.triggerRelease?.(time);
+    },
+    dispose() {
+      voice.dispose?.();
+    },
+  };
+  return wrapper;
 }
 
 export async function startTonePreview(

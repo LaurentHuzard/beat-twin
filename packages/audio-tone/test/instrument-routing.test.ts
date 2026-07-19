@@ -5,6 +5,7 @@ import type { Song } from "@beat-twin/core";
 
 import {
   createToneLiveAudioPort,
+  createBuiltInInstrumentVoiceFactory,
   createToneMidiMaterialPreparer,
   createTonePreviewEngine,
   midiPitchToInstrumentNoteName,
@@ -72,6 +73,33 @@ function voiceConstructor(role: string, created: RecordingVoice[]): ToneSynthCon
     constructor(_options?: unknown) {
       super(role);
       created.push(this);
+    }
+  };
+}
+
+function strictMonophonicVoiceConstructor(
+  role: string,
+  created: RecordingVoice[],
+): ToneSynthConstructor {
+  return class extends RecordingVoice {
+    private previousStartTime: number | undefined;
+
+    constructor(_options?: unknown) {
+      super(role);
+      created.push(this);
+    }
+
+    override triggerAttackRelease(
+      note: string,
+      duration: number,
+      time: number,
+      velocity?: number,
+    ): void {
+      if (time === this.previousStartTime) {
+        throw new Error("Start time must be strictly greater than previous start time");
+      }
+      this.previousStartTime = time;
+      super.triggerAttackRelease(note, duration, time, velocity);
     }
   };
 }
@@ -146,12 +174,13 @@ test("routes tracks through distinct bounded voices and disposes owned nodes", a
 
   const events = engine.schedule(song);
   assert.deepEqual(events.map((event) => event.instrumentId), ["drums", "bass"]);
-  assert.deepEqual(created.map((voice) => voice.role), ["drums", "bass"]);
+  assert.deepEqual(created.map((voice) => voice.role), ["bass"]);
   assert.equal(transport.bpm?.value, 120);
 
   for (const callback of callbacks.values()) callback(0.25);
-  assert.equal(created[0]?.calls[0]?.note, "C2");
-  assert.equal(created[1]?.calls[0]?.note, "C2");
+  assert.deepEqual(created.map((voice) => voice.role), ["bass", "drums"]);
+  assert.equal(created.find((voice) => voice.role === "drums")?.calls[0]?.note, "C2");
+  assert.equal(created.find((voice) => voice.role === "bass")?.calls[0]?.note, "C2");
 
   engine.schedule(song);
   assert.equal(created.length, 2, "same track/instrument keeps stable voice ownership");
@@ -161,6 +190,62 @@ test("routes tracks through distinct bounded voices and disposes owned nodes", a
   assert.ok(created.every((voice) => voice.released >= 1));
   engine.dispose();
   assert.deepEqual(created.map((voice) => voice.disposed), [1, 1]);
+});
+
+test("keeps drum lanes simultaneous and makes mono collisions deterministic", () => {
+  const created: RecordingVoice[] = [];
+  const tone: ToneModuleLike = {
+    MembraneSynth: strictMonophonicVoiceConstructor("drums", created),
+    MonoSynth: strictMonophonicVoiceConstructor("bass", created),
+    Synth: strictMonophonicVoiceConstructor("lead", created),
+  };
+  const factory = createBuiltInInstrumentVoiceFactory(tone);
+  const drums = factory("drums", "drum-track");
+
+  assert.doesNotThrow(() => {
+    drums.triggerAttackRelease("C2", 0.25, 1, 0.8);
+    drums.triggerAttackRelease("D2", 0.25, 1, 0.8);
+    drums.triggerAttackRelease("C2", 0.25, 1, 0.4);
+  });
+  const drumVoices = created.filter((voice) => voice.role === "drums");
+  assert.equal(drumVoices.length, 2, "one owned voice is allocated per drum lane");
+  assert.deepEqual(drumVoices.map((voice) => voice.calls.length), [1, 1]);
+  assert.deepEqual(drumVoices.map((voice) => voice.calls[0]?.time), [1, 1]);
+
+  const bass = factory("bass", "bass-track");
+  const lead = factory("lead", "lead-track");
+  for (const voice of [bass, lead]) {
+    assert.doesNotThrow(() => {
+      voice.triggerAttackRelease("C3", 0.5, 2, 0.8);
+      voice.triggerAttackRelease("G3", 0.5, 2, 0.8);
+    });
+  }
+  const monoVoices = created.filter((voice) => voice.role !== "drums");
+  assert.equal(monoVoices.length, 2);
+  assert.deepEqual(
+    monoVoices.map((voice) => voice.calls.map((call) => call.note)),
+    [["C3"], ["C3"]],
+    "the first note at an exact audio time wins on mono instruments",
+  );
+
+  bass.releaseAll?.(2);
+  bass.triggerAttackRelease("D3", 0.5, 2, 0.8);
+  bass.triggerAttackRelease("A3", 0.5, 2, 0.8);
+  bass.triggerAttackRelease("E3", 0.5, 2.5, 0.8);
+  assert.deepEqual(
+    monoVoices[0]?.calls.map((call) => call.note),
+    ["C3", "E3"],
+    "release keeps an exact-time collision guarded while a later audio time remains playable",
+  );
+
+  drums.releaseAll?.(3);
+  bass.releaseAll?.(3);
+  lead.releaseAll?.(3);
+  drums.dispose?.();
+  bass.dispose?.();
+  lead.dispose?.();
+  assert.ok(created.every((voice) => voice.released >= 1));
+  assert.ok(created.every((voice) => voice.disposed === 1));
 });
 
 test("uses deterministic percussion mapping without changing pitched voices", () => {

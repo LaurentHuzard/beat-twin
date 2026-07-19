@@ -27,10 +27,12 @@ import type {
   LaunchQuantization,
   PerformanceTrackState,
 } from "./performanceRuntime";
+import {
+  LIVE_LAUNCHER_SLOT_COUNT,
+  LIVE_LAUNCHER_TRACK_COUNT,
+} from "./launcherModel";
 import { usePlaygroundStore } from "./store";
 
-const launcherTrackCount = 2;
-const launcherSlotCount = 2;
 const clockRefreshMs = 40;
 
 export type LiveAudioControllerFactory = (
@@ -116,12 +118,22 @@ export function LiveLauncher({
 
   useEffect(() => {
     if (!isSessionActive) return;
-    try {
-      controllerRef.current?.reconcileMaterial();
-    } catch (error) {
-      reportRuntimeError(errorMessage(error));
-    }
-  }, [isSessionActive, performance.materialVersion, reportRuntimeError]);
+    const syncMaterial = () => {
+      const controller = controllerRef.current;
+      if (!controller) return;
+      try {
+        controller.reconcileMaterial();
+      } catch (error) {
+        reportRuntimeError(errorMessage(error));
+        return;
+      }
+      void syncController(controller, reportRuntimeError);
+    };
+    syncMaterial();
+    return usePlaygroundStore.subscribe((state, previous) => {
+      if (state.commandState !== previous.commandState) syncMaterial();
+    });
+  }, [isSessionActive, reportRuntimeError]);
 
   const nextTransitionId = useCallback((
     kind: "launch" | "stop" | "scene" | "transport",
@@ -143,6 +155,8 @@ export function LiveLauncher({
         getPerformanceState: () => usePlaygroundStore.getState().performanceState,
         dispatchPerformance: (action) =>
           usePlaygroundStore.getState().dispatchPerformance(action),
+        reportError: (error) =>
+          reportRuntimeError(`${error.code}: ${error.message}`),
       });
       if (
         !mountedRef.current ||
@@ -229,7 +243,7 @@ export function LiveLauncher({
         (slot): slot is { readonly track: Track; readonly clip: Clip } =>
           slot.track?.kind === "instrument" && slot.clip !== null,
       );
-    if (slots.length !== launcherTrackCount) return;
+    if (slots.length !== LIVE_LAUNCHER_TRACK_COUNT) return;
     try {
       controller.syncClock();
       const current = usePlaygroundStore.getState().performanceState;
@@ -368,7 +382,7 @@ export function LiveLauncher({
       ) : null}
 
       <div className="launcher-scenes" aria-label="Launcher scenes">
-        {Array.from({ length: launcherSlotCount }, (_, sceneIndex) => {
+        {Array.from({ length: LIVE_LAUNCHER_SLOT_COUNT }, (_, sceneIndex) => {
           const sceneId = `launcher-scene-${sceneIndex + 1}`;
           const sceneSlots = tracks.map(({ track, clips }) => ({
             track,
@@ -583,14 +597,14 @@ function LauncherTrack({
 }
 
 function projectLauncher(song: Song | null): readonly LauncherTrackProjection[] {
-  return Array.from({ length: launcherTrackCount }, (_, trackIndex) => {
+  return Array.from({ length: LIVE_LAUNCHER_TRACK_COUNT }, (_, trackIndex) => {
     const track = song?.tracks[trackIndex] ?? null;
     return Object.freeze({
       position: trackIndex + 1,
       track,
       clips: Object.freeze(
         Array.from(
-          { length: launcherSlotCount },
+          { length: LIVE_LAUNCHER_SLOT_COUNT },
           (_, clipIndex) => track?.clips[clipIndex] ?? null,
         ),
       ),

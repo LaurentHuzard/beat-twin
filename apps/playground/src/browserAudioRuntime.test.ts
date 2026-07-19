@@ -168,6 +168,8 @@ function phaseEngine(
       bpm: phase === "new" ? null : 120,
       currentBeat: 0,
       activeMaterialByTrack: {},
+      activeStartedAtBeatByTrack: {},
+      activeLengthBeatsByTrack: {},
       pendingTransitionByTrack: {},
       pendingMaterialByTrack: {},
       error: null,

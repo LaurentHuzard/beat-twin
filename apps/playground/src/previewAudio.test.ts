@@ -49,6 +49,8 @@ describe("preview live-audio compatibility", () => {
         bpm: 120,
         currentBeat: 0,
         activeMaterialByTrack: {},
+        activeStartedAtBeatByTrack: {},
+        activeLengthBeatsByTrack: {},
         pendingTransitionByTrack: {},
         pendingMaterialByTrack: {},
         error: null,

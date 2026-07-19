@@ -133,7 +133,7 @@ describe("Playground performance-state boundary", () => {
     expect(after.performanceState.materialVersion).toBe(after.commandState.revision);
   });
 
-  it("resets the runtime on undo and load even when persistent IDs remain valid", () => {
+  it("resets load but preserves same-Song runtime across undo and redo", () => {
     const store = usePlaygroundStore.getState();
     store.dispatch({ type: "CreateSong", id: "song-full-reset", title: "Full reset" });
     store.dispatch({ type: "CreateTrack", id: "track-a", name: "Track A" });
@@ -158,7 +158,63 @@ describe("Playground performance-state boundary", () => {
     });
     usePlaygroundStore.getState().undo();
     const afterUndo = usePlaygroundStore.getState();
-    expect(afterUndo.performanceState.tracks).toEqual({});
+    expect(afterUndo.performanceState.tracks["track-a"]?.soloed).toBe(true);
     expect(afterUndo.performanceState.materialVersion).toBe(afterUndo.commandState.revision);
+
+    afterUndo.redo();
+    expect(usePlaygroundStore.getState().performanceState.tracks["track-a"]?.soloed).toBe(true);
+  });
+
+  it("keeps an active clip reference while note edits undo and redo in the same Song", () => {
+    const store = usePlaygroundStore.getState();
+    store.dispatch({ type: "CreateSong", id: "song-live-undo", title: "Live undo" });
+    store.dispatch({ type: "CreateTrack", id: "track-live", name: "Track" });
+    store.dispatch({
+      type: "CreateClip",
+      id: "clip-live",
+      trackId: "track-live",
+      name: "Clip",
+      lengthBeats: 4,
+    });
+    store.dispatchPerformance({ type: "StartTransport", atBeat: 0 });
+    store.dispatchPerformance({
+      type: "LaunchClip",
+      transitionId: "active-live",
+      trackId: "track-live",
+      clipId: "clip-live",
+      requestedAtBeat: 0,
+      quantization: "immediate",
+    });
+    store.dispatchPerformance({
+      type: "MarkTransitionScheduled",
+      trackId: "track-live",
+      transitionId: "active-live",
+    });
+    store.dispatchPerformance({
+      type: "ObserveTransitionExecuted",
+      trackId: "track-live",
+      transitionId: "active-live",
+      observedAtBeat: 0,
+    });
+    store.dispatch({
+      type: "AddNote",
+      trackId: "track-live",
+      clipId: "clip-live",
+      pitch: 60,
+      velocity: 96,
+      startBeat: 0,
+      lengthBeats: 0.25,
+    });
+
+    usePlaygroundStore.getState().undo();
+    expect(usePlaygroundStore.getState().performanceState.tracks["track-live"]).toMatchObject({
+      activeClipId: "clip-live",
+      activeTransitionId: "active-live",
+    });
+    usePlaygroundStore.getState().redo();
+    expect(usePlaygroundStore.getState().performanceState.tracks["track-live"]).toMatchObject({
+      activeClipId: "clip-live",
+      activeTransitionId: "active-live",
+    });
   });
 });

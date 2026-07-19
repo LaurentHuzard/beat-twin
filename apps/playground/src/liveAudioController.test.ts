@@ -25,13 +25,17 @@ class StubEngine {
   readonly listeners = new Set<(observation: LiveAudioObservation) => void>();
   readonly cancelled: string[] = [];
   readonly activeMaterials: Record<string, string> = {};
+  readonly activeStartedAtBeats: Record<string, number> = {};
+  readonly activeLengthBeats: Record<string, number> = {};
   readonly pendingTransitions: Record<string, string> = {};
   readonly pendingMaterials: Record<string, string | null> = {};
+  readonly cancelFailures = new Set<string>();
   beat = 0;
   beforeScheduleResolution: (() => void) | null = null;
   scheduleGate: Promise<void> | null = null;
   unlockGate: Promise<void> | null = null;
   scheduleError: LiveAudioError | null = null;
+  afterCancel: ((transitionId: string) => void) | null = null;
   phase: ReturnType<LiveAudioEngine["getSnapshot"]>["phase"] = "new";
 
   readonly engine: LiveAudioEngine = {
@@ -61,6 +65,7 @@ class StubEngine {
       return { ok: true as const, transitionIds: requests.map((request) => request.transitionId) };
     }),
     cancelTransition: vi.fn((transitionId) => {
+      if (this.cancelFailures.has(transitionId)) return false;
       const request = this.scheduled.flat().find((candidate) => candidate.transitionId === transitionId);
       if (!request) return false;
       this.cancelled.push(transitionId);
@@ -73,6 +78,7 @@ class StubEngine {
         trackId: request.trackId,
         observedAtBeat: this.beat,
       });
+      this.afterCancel?.(transitionId);
       return true;
     }),
     scheduleTransportStop: vi.fn((request) => ({
@@ -90,6 +96,8 @@ class StubEngine {
     stop: vi.fn(() => {
       this.phase = "stopped";
       for (const key of Object.keys(this.activeMaterials)) delete this.activeMaterials[key];
+      for (const key of Object.keys(this.activeStartedAtBeats)) delete this.activeStartedAtBeats[key];
+      for (const key of Object.keys(this.activeLengthBeats)) delete this.activeLengthBeats[key];
       for (const key of Object.keys(this.pendingTransitions)) delete this.pendingTransitions[key];
       for (const key of Object.keys(this.pendingMaterials)) delete this.pendingMaterials[key];
     }),
@@ -100,6 +108,8 @@ class StubEngine {
       bpm: 120,
       currentBeat: this.beat,
       activeMaterialByTrack: { ...this.activeMaterials },
+      activeStartedAtBeatByTrack: { ...this.activeStartedAtBeats },
+      activeLengthBeatsByTrack: { ...this.activeLengthBeats },
       pendingTransitionByTrack: { ...this.pendingTransitions },
       pendingMaterialByTrack: { ...this.pendingMaterials },
       error: null,
@@ -116,8 +126,17 @@ class StubEngine {
       delete this.pendingMaterials[observation.trackId];
       if (observation.materialId) {
         this.activeMaterials[observation.trackId] = observation.materialId;
+        const request = this.scheduled
+          .flat()
+          .find((candidate) => candidate.transitionId === observation.transitionId);
+        if (request?.kind === "launch") {
+          this.activeStartedAtBeats[observation.trackId] = request.targetBeat;
+          this.activeLengthBeats[observation.trackId] = request.material.lengthBeats;
+        }
       } else {
         delete this.activeMaterials[observation.trackId];
+        delete this.activeStartedAtBeats[observation.trackId];
+        delete this.activeLengthBeats[observation.trackId];
       }
     }
     for (const listener of this.listeners) listener(observation);
@@ -128,9 +147,13 @@ function hostHarness() {
   let song = makeSong();
   let state = createPerformanceState({ materialVersion: 7 });
   const actions: PerformanceAction[] = [];
+  const errors: LiveAudioError[] = [];
   return {
-    song,
+    get song() {
+      return song;
+    },
     actions,
+    errors,
     get state() {
       return state;
     },
@@ -147,11 +170,46 @@ function hostHarness() {
         actions.push(action);
         state = reducePerformanceState(state, action);
       },
+      reportError(error: LiveAudioError) {
+        errors.push(error);
+      },
     },
   };
 }
 
 describe("live audio controller", () => {
+  it("fails closed on an in-session tempo edit and a fresh start uses the new BPM", async () => {
+    const stub = new StubEngine();
+    const harness = hostHarness();
+    const controller = createLiveAudioController({ engine: stub.engine, host: harness.host });
+    await controller.start();
+    harness.replaceSong({
+      ...harness.song,
+      transport: { ...harness.song.transport, bpm: 140 },
+    });
+
+    controller.reconcileMaterial();
+
+    expect(stub.engine.stop).toHaveBeenCalledOnce();
+    expect(harness.state.phase).toBe("idle");
+    expect(harness.errors.at(-1)).toMatchObject({
+      code: "invalid_state",
+      message: expect.stringContaining("tempo changed from 120 to 140 BPM"),
+    });
+
+    const freshStub = new StubEngine();
+    const freshHarness = hostHarness();
+    freshHarness.replaceSong({
+      ...freshHarness.song,
+      transport: { ...freshHarness.song.transport, bpm: 140 },
+    });
+    await createLiveAudioController({
+      engine: freshStub.engine,
+      host: freshHarness.host,
+    }).start();
+    expect(freshStub.engine.initialize).toHaveBeenCalledWith(140);
+  });
+
   it("binds a clip request to schedule acknowledgement and matching execution", async () => {
     const stub = new StubEngine();
     const harness = hostHarness();
@@ -166,14 +224,15 @@ describe("live audio controller", () => {
     });
 
     await controller.syncPending();
+    const material = resolveSongLiveMaterial(harness.song, 7, "track-a", "clip-a1");
     expect(harness.state.tracks["track-a"].pendingTransition?.status).toBe("scheduled");
     expect(stub.scheduled[0]?.[0]).toMatchObject({
       transitionId: "launch-a",
       trackId: "track-a",
       material: {
         kind: "midi",
-        materialId: "song-live:track-a:clip-a1@7",
-        version: 7,
+        materialId: material.materialId,
+        version: material.version,
       },
     });
 
@@ -185,7 +244,7 @@ describe("live audio controller", () => {
       trackId: "track-a",
       targetBeat: 4,
       observedAtBeat: 4,
-      materialId: "song-live:track-a:clip-a1@7",
+      materialId: material.materialId,
       materialKind: "midi",
     });
     expect(harness.state.tracks["track-a"].activeClipId).toBe("clip-a1");
@@ -249,16 +308,16 @@ describe("live audio controller", () => {
       observedAtBeat: 2,
     });
 
-    const partialStub = new StubEngine();
-    const partialHarness = hostHarness();
-    const partialController = createLiveAudioController({
-      engine: partialStub.engine,
-      host: partialHarness.host,
+    const editedStub = new StubEngine();
+    const editedHarness = hostHarness();
+    const editedController = createLiveAudioController({
+      engine: editedStub.engine,
+      host: editedHarness.host,
     });
-    await partialController.start();
-    partialHarness.host.dispatchPerformance({
+    await editedController.start();
+    editedHarness.host.dispatchPerformance({
       type: "LaunchScene",
-      transitionId: "scene-partial",
+      transitionId: "scene-edited",
       sceneId: "scene-c",
       requestedAtBeat: 0,
       slots: [
@@ -266,18 +325,40 @@ describe("live audio controller", () => {
         { trackId: "track-b", clipId: "clip-b1" },
       ],
     });
-    await partialController.syncPending();
-    delete partialStub.pendingTransitions["track-a"];
-    delete partialStub.pendingMaterials["track-a"];
+    await editedController.syncPending();
+    const editedSong = songWithNoteVelocity(editedHarness.song, "track-a", 72);
+    editedHarness.replaceSong(editedSong);
+    editedHarness.replaceState(
+      reconcilePerformanceMaterial(editedHarness.state, {
+        version: 8,
+        clipIdsByTrack: {
+          "track-a": ["clip-a1"],
+          "track-b": ["clip-b1"],
+        },
+      }),
+    );
 
-    partialController.reconcileMaterial();
+    editedController.reconcileMaterial();
 
-    expect(partialStub.cancelled).toContain("scene-partial:track-b");
+    expect(editedStub.cancelled).toEqual([
+      "scene-edited:track-a",
+      "scene-edited:track-b",
+    ]);
     expect(
-      Object.values(partialHarness.state.tracks).every(
-        (track) => track.pendingTransition === null,
+      Object.values(editedHarness.state.tracks).every(
+        (track) => track.pendingTransition?.status === "pending",
       ),
     ).toBe(true);
+    await editedController.syncPending();
+    expect(editedStub.scheduled).toHaveLength(2);
+    expect(editedStub.scheduled[1]?.every((request) => request.targetBeat === 4)).toBe(true);
+    expect(
+      editedStub.scheduled[1]?.find((request) => request.trackId === "track-a"),
+    ).toMatchObject({
+      kind: "launch",
+      material: { notes: [expect.objectContaining({ velocity: 72 })] },
+    });
+    expect(editedStub.engine.stop).not.toHaveBeenCalled();
   });
 
   it("keeps transport stop pending until the engine owns or cancels the matching ID", async () => {
@@ -295,6 +376,130 @@ describe("live audio controller", () => {
     controller.cancelTransportStop("stop-clock");
     expect(harness.state.transportStop).toBeNull();
     expect(harness.state.phase).toBe("playing");
+  });
+
+  it("fails safe if an edited scene can only be cancelled partially", async () => {
+    const stub = new StubEngine();
+    const harness = hostHarness();
+    const controller = createLiveAudioController({ engine: stub.engine, host: harness.host });
+    await controller.start();
+    harness.host.dispatchPerformance({
+      type: "LaunchScene",
+      transitionId: "scene-partial-cancel",
+      sceneId: "scene-a",
+      requestedAtBeat: 0,
+      slots: [
+        { trackId: "track-a", clipId: "clip-a1" },
+        { trackId: "track-b", clipId: "clip-b1" },
+      ],
+    });
+    await controller.syncPending();
+    harness.replaceSong(songWithNoteVelocity(harness.song, "track-a", 72));
+    harness.replaceState(
+      reconcilePerformanceMaterial(harness.state, {
+        version: 8,
+        clipIdsByTrack: {
+          "track-a": ["clip-a1"],
+          "track-b": ["clip-b1"],
+        },
+      }),
+    );
+    stub.cancelFailures.add("scene-partial-cancel:track-b");
+
+    controller.reconcileMaterial();
+
+    expect(stub.cancelled).toEqual(["scene-partial-cancel:track-a"]);
+    expect(stub.engine.stop).toHaveBeenCalledOnce();
+    expect(harness.state.phase).toBe("idle");
+    expect(harness.state.tracks).toEqual({});
+    expect(harness.errors.at(-1)).toMatchObject({
+      code: "invalid_state",
+      message: expect.stringContaining("atomically requeue edited scene"),
+    });
+  });
+
+  it("fails safe with a visible reason when an edited individual cannot be cancelled", async () => {
+    const stub = new StubEngine();
+    const harness = hostHarness();
+    const controller = createLiveAudioController({ engine: stub.engine, host: harness.host });
+    await controller.start();
+    harness.host.dispatchPerformance({
+      type: "LaunchClip",
+      transitionId: "individual-cancel-failure",
+      trackId: "track-a",
+      clipId: "clip-a1",
+      requestedAtBeat: 0,
+    });
+    await controller.syncPending();
+    harness.replaceSong(songWithNoteVelocity(harness.song, "track-a", 72));
+    harness.replaceState(
+      reconcilePerformanceMaterial(harness.state, {
+        version: 8,
+        clipIdsByTrack: {
+          "track-a": ["clip-a1"],
+          "track-b": ["clip-b1"],
+        },
+      }),
+    );
+    stub.cancelFailures.add("individual-cancel-failure");
+
+    controller.reconcileMaterial();
+
+    expect(stub.engine.stop).toHaveBeenCalledOnce();
+    expect(harness.state.phase).toBe("idle");
+    expect(harness.errors.at(-1)).toMatchObject({
+      code: "invalid_state",
+      message: expect.stringContaining("individual-cancel-failure"),
+    });
+  });
+
+  it("fails an edited scene if its target is reached during atomic cancellation", async () => {
+    const stub = new StubEngine();
+    const harness = hostHarness();
+    const controller = createLiveAudioController({ engine: stub.engine, host: harness.host });
+    await controller.start();
+    harness.host.dispatchPerformance({
+      type: "LaunchScene",
+      transitionId: "scene-target-race",
+      sceneId: "scene-a",
+      requestedAtBeat: 0,
+      slots: [
+        { trackId: "track-a", clipId: "clip-a1" },
+        { trackId: "track-b", clipId: "clip-b1" },
+      ],
+    });
+    await controller.syncPending();
+    harness.replaceSong(songWithNoteVelocity(harness.song, "track-a", 72));
+    harness.replaceState(
+      reconcilePerformanceMaterial(harness.state, {
+        version: 8,
+        clipIdsByTrack: {
+          "track-a": ["clip-a1"],
+          "track-b": ["clip-b1"],
+        },
+      }),
+    );
+    stub.beat = 3.9;
+    stub.afterCancel = (transitionId) => {
+      if (transitionId === "scene-target-race:track-a") stub.beat = 4;
+    };
+
+    controller.reconcileMaterial();
+
+    expect(stub.cancelled).toEqual([
+      "scene-target-race:track-a",
+      "scene-target-race:track-b",
+    ]);
+    expect(harness.actions.at(-1)).toMatchObject({
+      type: "ObserveSceneFailed",
+      groupId: "scene-target-race",
+      observedAtBeat: 4,
+    });
+    expect(
+      Object.values(harness.state.tracks).every((track) => track.pendingTransition === null),
+    ).toBe(true);
+    expect(stub.scheduled).toHaveLength(1);
+    expect(stub.engine.stop).not.toHaveBeenCalled();
   });
 
   it("cancels prepared engine work when material changes during async preparation", async () => {
@@ -378,6 +583,59 @@ describe("live audio controller", () => {
     expect(emptyHarness.state.tracks["track-a"].pendingTransition?.status).toBe(
       "scheduled",
     );
+  });
+
+  it("reschedules latest content when a Song edit lands during material preparation", async () => {
+    let releaseSchedule!: () => void;
+    const stub = new StubEngine();
+    stub.scheduleGate = new Promise<void>((resolve) => {
+      releaseSchedule = resolve;
+    });
+    const harness = hostHarness();
+    const controller = createLiveAudioController({ engine: stub.engine, host: harness.host });
+    await controller.start();
+    harness.host.dispatchPerformance({
+      type: "LaunchClip",
+      transitionId: "edit-during-prepare",
+      trackId: "track-a",
+      clipId: "clip-a1",
+      requestedAtBeat: 0,
+    });
+
+    const firstSync = controller.syncPending();
+    await vi.waitFor(() => expect(stub.scheduled).toHaveLength(1));
+    const firstMaterial = stub.scheduled[0]?.[0];
+    harness.replaceSong(songWithNoteVelocity(harness.song, "track-a", 72));
+    harness.replaceState(
+      reconcilePerformanceMaterial(harness.state, {
+        version: 8,
+        clipIdsByTrack: {
+          "track-a": ["clip-a1"],
+          "track-b": ["clip-b1"],
+        },
+      }),
+    );
+    const dirtySync = controller.syncPending();
+    expect(dirtySync).toBe(firstSync);
+    releaseSchedule();
+    await firstSync;
+
+    expect(stub.scheduled).toHaveLength(2);
+    expect(stub.cancelled).toEqual(["edit-during-prepare"]);
+    expect(firstMaterial).toMatchObject({
+      transitionId: "edit-during-prepare",
+      targetBeat: 4,
+      kind: "launch",
+      material: { notes: [expect.objectContaining({ velocity: 100 })] },
+    });
+    expect(stub.scheduled[1]?.[0]).toMatchObject({
+      transitionId: "edit-during-prepare",
+      targetBeat: 4,
+      kind: "launch",
+      material: { notes: [expect.objectContaining({ velocity: 72 })] },
+    });
+    expect(harness.state.tracks["track-a"].pendingTransition?.status).toBe("scheduled");
+    expect(stub.engine.stop).not.toHaveBeenCalled();
   });
 
   it("cancels engine ownership when the host does not acknowledge MarkScheduled", async () => {
@@ -483,7 +741,7 @@ describe("live audio controller", () => {
     }
   });
 
-  it("fails closed when an active source belongs to an older material revision", async () => {
+  it("keeps revision-only changes stable and refreshes audible edits at the next loop", async () => {
     const stub = new StubEngine();
     const harness = hostHarness();
     const controller = createLiveAudioController({ engine: stub.engine, host: harness.host });
@@ -496,6 +754,7 @@ describe("live audio controller", () => {
       requestedAtBeat: 0,
     });
     await controller.syncPending();
+    const originalMaterial = resolveSongLiveMaterial(harness.song, 7, "track-a", "clip-a1");
     stub.beat = 4;
     stub.emit({
       type: "transition-executed",
@@ -504,7 +763,7 @@ describe("live audio controller", () => {
       trackId: "track-a",
       targetBeat: 4,
       observedAtBeat: 4,
-      materialId: "song-live:track-a:clip-a1@7",
+      materialId: originalMaterial.materialId,
       materialKind: "midi",
     });
     harness.replaceState(
@@ -519,13 +778,119 @@ describe("live audio controller", () => {
 
     controller.reconcileMaterial();
 
-    expect(stub.engine.stop).toHaveBeenCalledOnce();
-    expect(harness.state.phase).toBe("idle");
+    expect(stub.engine.stop).not.toHaveBeenCalled();
+    expect(harness.state.tracks["track-a"].pendingTransition).toBeNull();
     expect(harness.state.materialVersion).toBe(8);
-    expect(harness.state.tracks).toEqual({});
+
+    harness.replaceSong(songWithNoteVelocity(harness.song, "track-a", 72));
+    harness.replaceState(
+      reconcilePerformanceMaterial(harness.state, {
+        version: 9,
+        clipIdsByTrack: {
+          "track-a": ["clip-a1"],
+          "track-b": ["clip-b1"],
+        },
+      }),
+    );
+    const refreshSync = controller.syncPending();
+    expect(harness.state.tracks["track-a"]).toMatchObject({
+      activeClipId: "clip-a1",
+      pendingTransition: {
+        kind: "launch",
+        clipId: "clip-a1",
+        requestedAtBeat: 4,
+        targetBeat: 8,
+        status: "pending",
+      },
+    });
+    await refreshSync;
+    expect(stub.scheduled.at(-1)?.[0]).toMatchObject({
+      transitionId: harness.state.tracks["track-a"].pendingTransition?.id,
+      targetBeat: 8,
+      material: { notes: [expect.objectContaining({ velocity: 72 })] },
+    });
+    const refreshId = harness.state.tracks["track-a"].pendingTransition?.id;
+    harness.replaceSong(songWithNoteVelocity(harness.song, "track-a", 64));
+    harness.replaceState(
+      reconcilePerformanceMaterial(harness.state, {
+        version: 10,
+        clipIdsByTrack: {
+          "track-a": ["clip-a1"],
+          "track-b": ["clip-b1"],
+        },
+      }),
+    );
+    await controller.syncPending();
+    expect(stub.cancelled).toContain(refreshId);
+    expect(stub.scheduled.at(-1)?.[0]).toMatchObject({
+      transitionId: refreshId,
+      targetBeat: 8,
+      material: { notes: [expect.objectContaining({ velocity: 64 })] },
+    });
+    expect(stub.engine.stop).not.toHaveBeenCalled();
   });
 
-  it("cancels scheduled material from an older revision and ignores stale observations", async () => {
+  it("lets an existing user transition win over automatic active-material refresh", async () => {
+    const stub = new StubEngine();
+    const harness = hostHarness();
+    const controller = createLiveAudioController({ engine: stub.engine, host: harness.host });
+    await controller.start();
+    harness.host.dispatchPerformance({
+      type: "LaunchClip",
+      transitionId: "active-before-user-stop",
+      trackId: "track-a",
+      clipId: "clip-a1",
+      requestedAtBeat: 0,
+    });
+    await controller.syncPending();
+    const material = resolveSongLiveMaterial(harness.song, 7, "track-a", "clip-a1");
+    stub.beat = 4;
+    stub.emit({
+      type: "transition-executed",
+      transitionId: "active-before-user-stop",
+      groupId: null,
+      trackId: "track-a",
+      targetBeat: 4,
+      observedAtBeat: 4,
+      materialId: material.materialId,
+      materialKind: "midi",
+    });
+    harness.host.dispatchPerformance({
+      type: "StopTrack",
+      transitionId: "user-stop-wins",
+      trackId: "track-a",
+      requestedAtBeat: 4,
+    });
+    await controller.syncPending();
+    harness.replaceSong(songWithNoteVelocity(harness.song, "track-a", 72));
+    harness.replaceState(
+      reconcilePerformanceMaterial(harness.state, {
+        version: 8,
+        clipIdsByTrack: {
+          "track-a": ["clip-a1"],
+          "track-b": ["clip-b1"],
+        },
+      }),
+    );
+
+    controller.reconcileMaterial();
+
+    expect(harness.state.tracks["track-a"]).toMatchObject({
+      activeClipId: "clip-a1",
+      pendingTransition: {
+        id: "user-stop-wins",
+        kind: "stop",
+        targetBeat: 8,
+        status: "scheduled",
+      },
+    });
+    expect(
+      harness.actions.filter((action) => action.type === "RefreshActiveClip"),
+    ).toEqual([]);
+    expect(stub.engine.stop).not.toHaveBeenCalled();
+  });
+
+  it("requeues edited scheduled material with the same ID and target", async () => {
     const stub = new StubEngine();
     const harness = hostHarness();
     const controller = createLiveAudioController({ engine: stub.engine, host: harness.host });
@@ -538,6 +903,7 @@ describe("live audio controller", () => {
       requestedAtBeat: 0,
     });
     await controller.syncPending();
+    harness.replaceSong(songWithNoteVelocity(harness.song, "track-a", 72));
     harness.replaceState(
       reconcilePerformanceMaterial(harness.state, {
         version: 8,
@@ -549,24 +915,22 @@ describe("live audio controller", () => {
     );
 
     controller.reconcileMaterial();
-    expect(stub.cancelled).toContain("scheduled-old-material");
-    expect(harness.state.tracks["track-a"].pendingTransition).toBeNull();
+    expect(stub.cancelled).toEqual(["scheduled-old-material"]);
+    expect(harness.state.tracks["track-a"].pendingTransition).toMatchObject({
+      id: "scheduled-old-material",
+      targetBeat: 4,
+      status: "pending",
+    });
+    expect(stub.engine.stop).not.toHaveBeenCalled();
 
-    expect(() => {
-      stub.emit({
-        type: "transition-executed",
-        transitionId: "stale-execution",
-        groupId: null,
-        trackId: "track-a",
-        targetBeat: 4,
-        observedAtBeat: 4,
-        materialId: "song-live:track-a:clip-a1@7",
-        materialKind: "midi",
-      });
-    }).not.toThrow();
-    expect(stub.engine.stop).toHaveBeenCalledOnce();
-    expect(harness.state.phase).toBe("idle");
-    expect(harness.state.tracks).toEqual({});
+    await controller.syncPending();
+    expect(stub.scheduled).toHaveLength(2);
+    expect(stub.scheduled[1]?.[0]).toMatchObject({
+      transitionId: "scheduled-old-material",
+      targetBeat: 4,
+      material: { notes: [expect.objectContaining({ velocity: 72 })] },
+    });
+    expect(harness.state.tracks["track-a"].pendingTransition?.status).toBe("scheduled");
   });
 
   it("rejects non-instrument tracks through a structured future-adapter boundary", () => {
@@ -585,6 +949,102 @@ describe("live audio controller", () => {
     expect(() => resolveSongLiveMaterial(song, 1, "audio-track", "audio-clip")).toThrow(
       /no registered live material adapter/,
     );
+  });
+
+  it("keys material by canonical audible content, not revision, names, IDs, or note order", () => {
+    const song = makeSong();
+    const track = song.tracks[0]!;
+    const clipA = track.clips[0]!;
+    const noteA = clipA.pattern.notes[0]!;
+    const secondNote = {
+      ...noteA,
+      id: "second-note",
+      pitch: noteA.pitch + 7,
+      startBeat: 2,
+    };
+    const withTwoNotes: Song = {
+      ...song,
+      title: "First title",
+      tracks: [
+        {
+          ...track,
+          name: "First track name",
+          clips: [
+            {
+              ...clipA,
+              name: "First clip name",
+              pattern: { ...clipA.pattern, notes: [noteA, secondNote] },
+            },
+          ],
+        },
+        song.tracks[1]!,
+      ],
+    };
+    const reordered: Song = {
+      ...withTwoNotes,
+      title: "Renamed song",
+      tracks: [
+        {
+          ...withTwoNotes.tracks[0]!,
+          name: "Renamed track",
+          clips: [
+            {
+              ...withTwoNotes.tracks[0]!.clips[0]!,
+              name: "Renamed clip",
+              pattern: {
+                ...withTwoNotes.tracks[0]!.clips[0]!.pattern,
+                notes: [
+                  { ...secondNote, id: "replacement-second-id" },
+                  { ...noteA, id: "replacement-first-id" },
+                ],
+              },
+            },
+          ],
+        },
+        withTwoNotes.tracks[1]!,
+      ],
+    };
+
+    const first = resolveSongLiveMaterial(withTwoNotes, 1, "track-a", "clip-a1");
+    const equivalent = resolveSongLiveMaterial(reordered, 999, "track-a", "clip-a1");
+    expect(equivalent.materialId).toBe(first.materialId);
+    expect(equivalent.version).toBe(first.version);
+    expect(equivalent.notes.map((note) => note.pitch)).toEqual([48, 55]);
+
+    const relocated: Song = {
+      ...withTwoNotes,
+      id: "other-song",
+      tracks: [
+        {
+          ...withTwoNotes.tracks[0]!,
+          id: "other-track",
+          clips: [
+            {
+              ...withTwoNotes.tracks[0]!.clips[0]!,
+              id: "other-clip",
+              trackId: "other-track",
+            },
+          ],
+        },
+        withTwoNotes.tracks[1]!,
+      ],
+    };
+    const relocatedMaterial = resolveSongLiveMaterial(
+      relocated,
+      2_000,
+      "other-track",
+      "other-clip",
+    );
+    expect(relocatedMaterial.materialId).toBe(first.materialId);
+    expect(relocatedMaterial.clipId).toBe("other-clip");
+
+    const audibleEdit = resolveSongLiveMaterial(
+      songWithNoteVelocity(reordered, "track-a", 72),
+      1_000,
+      "track-a",
+      "clip-a1",
+    );
+    expect(audibleEdit.materialId).not.toBe(first.materialId);
   });
 });
 
@@ -631,5 +1091,25 @@ function clip(trackId: string, clipId: string, pitch: number) {
       lengthBeats: 4,
       notes: [{ id: `${clipId}-note`, pitch, velocity: 100, startBeat: 0, lengthBeats: 1 }],
     },
+  };
+}
+
+function songWithNoteVelocity(song: Song, trackId: string, velocity: number): Song {
+  return {
+    ...song,
+    tracks: song.tracks.map((track) =>
+      track.id !== trackId
+        ? track
+        : {
+            ...track,
+            clips: track.clips.map((clip) => ({
+              ...clip,
+              pattern: {
+                ...clip.pattern,
+                notes: clip.pattern.notes.map((note) => ({ ...note, velocity })),
+              },
+            })),
+          },
+    ),
   };
 }
