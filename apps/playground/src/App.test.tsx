@@ -749,4 +749,28 @@ describe("Playground", () => {
     expect(screen.getByLabelText("Inspector")).toHaveTextContent("Kick Ladder");
     expect(screen.getByLabelText("Inspector")).not.toHaveTextContent("Kick Ladder Copy");
   });
+
+  it("gives an armed MIDI recorder exclusive ownership of unmodified note keys", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    const before = usePlaygroundStore.getState();
+    const trackId = before.selectedTrackId!;
+    const clipId = before.selectedClipId!;
+    const clipCount = before.commandState.song!.tracks[0]!.clips.length;
+    act(() => {
+      usePlaygroundStore.getState().dispatchPerformance({
+        type: "ArmRecordSlot",
+        trackId,
+        slotId: `${trackId}:slot-1`,
+        clipId,
+      });
+    });
+
+    fireEvent.keyDown(window, { key: "d" });
+
+    expect(usePlaygroundStore.getState().commandState.song!.tracks[0]!.clips)
+      .toHaveLength(clipCount);
+    expect(screen.getByLabelText("Inspector")).not.toHaveTextContent("Copy");
+  });
 });

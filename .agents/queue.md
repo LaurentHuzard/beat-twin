@@ -1,8 +1,8 @@
 # Beat Twin Execution Queue
 
 Updated: 2026-07-19
-Branch: `agent/bt-live-105-step-editor`
-Worktree: `/tmp/beat-twin-orbit-30`
+Branch: `agent/bt-live-106-midi-recording`
+Worktree: `/tmp/beat-twin-orbit-31`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -19,9 +19,9 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-None. BT-LIVE-105 / GitHub #30 is complete on its isolated local branch and
-awaits publication review. GitHub #31 remains an eligible dependency-ordered
-candidate until #30 is reviewed and merged.
+No active implementation authorization. BT-LIVE-106 / GitHub #31 is complete
+and publication is explicitly authorized. BT-AUDIO-200 becomes the next
+eligible candidate after merge, but requires its own bounded Orbit plan.
 
 ## NanoDAW Live sequence
 
@@ -31,7 +31,7 @@ candidate until #30 is reviewed and merged.
 | 2 | BT-LIVE-102 | #27 | Add one persistent clock and per-track audio graph | Done | BT-LIVE-101 |
 | 3 | BT-LIVE-103 | #28 | Prove a 2 x 2 quantized launcher vertical slice | Done | BT-LIVE-102 |
 | 4 | BT-LIVE-105 | #30 | Add the playable 16-step editor and variations | Done | BT-LIVE-103 |
-| 5 | BT-LIVE-106 | #31 | Add quantized MIDI loop recording and overdub | Ready | BT-LIVE-105 |
+| 5 | BT-LIVE-106 | #31 | Add quantized MIDI loop recording and overdub | Done | BT-LIVE-105 |
 
 ## Standalone NanoDAW MCP
 
@@ -88,14 +88,13 @@ BT-204 proves the current standalone loop.
 
 ## Later - Audio clips and samples
 
-This tranche remains parked until the dependency-ordered live sequence through
-GitHub #31 is complete. BT-LIVE-102 provides only the source-neutral engine and
-adapter boundary; none of the payload, import, decode, UI, or persistence work
-below is implemented here.
+This is the next indispensable product tranche after GitHub #31. BT-LIVE-102
+provides only the source-neutral engine and adapter boundary; none of the
+payload, import, decode, UI, or persistence work below is implemented here.
 
 | ID | Task | Priority | Size | Status | Depends on |
 | --- | --- | --- | --- | --- | --- |
-| BT-AUDIO-200 | Open the bounded audio-clip and sample playback tranche | P0 | XL | Parked | GitHub #31 |
+| BT-AUDIO-200 | Open the bounded audio-clip and sample playback tranche | P0 | XL | Ready | GitHub #31 |
 | BT-AUDIO-201 | Define versioned browser-owned audio asset references and validation | P0 | M | Parked | BT-AUDIO-200 |
 | BT-AUDIO-202 | Add explicit local import, decode, and asset lifecycle boundaries | P0 | L | Parked | BT-AUDIO-201 |
 | BT-AUDIO-203 | Implement a prepared-buffer material adapter on the live engine registry | P0 | L | Parked | BT-AUDIO-202 |

@@ -1,49 +1,51 @@
-# Active Beat Twin Orbit
+# Completed Beat Twin Orbit
 
 ## Loop
 
-BT-LIVE-105 / GitHub #30 — add a playable 16-step editor and safe
-clip-variation workflow on the merged NanoDAW launcher.
+BT-LIVE-106 / GitHub #31 — add quantized MIDI loop recording and overdub to
+the merged NanoDAW launcher.
 
 ## Target Outcome
 
-A player can build a recognizable drum or pitched pattern without opening the
-numeric editor, accent it through bounded velocities, duplicate it into the
-next empty launcher slot, and trust undo, redo, autosave, reload, and live
-playback timing.
+A player can queue a fixed-length MIDI take from the computer keyboard or
+on-screen pads, see the count-in and recording boundaries, layer an overdub,
+and undo only the last take while the shared live clock continues.
 
 ## Planned Changes
 
-- project exactly 16 steps from the selected browser-owned clip;
-- provide bounded drum lanes and a bounded pitched-note mode;
-- route toggles, accents, and batches only through `BeatTwinCommand` values;
-- expose clip length and musical step resolution explicitly;
-- duplicate to the next empty launcher slot without overwrite and with fully
-  materialized clip/note IDs;
-- retain the numeric note editor as a secondary precision surface;
-- make keyboard, pointer, and touch gestures accessible without hover;
-- make edits to active material audible at the next loop boundary while other
-  tracks continue, with coherent queued edits, repeated edits, undo, and redo.
+- add a bounded browser-native note-input contract with keyboard/pad baseline;
+- expose optional Web MIDI as a non-blocking adapter with honest availability;
+- queue empty-slot recording on the next bar and overdub on the next active
+  loop boundary for 1, 2, 4, or 8 bars;
+- capture note-on/off beats from the same live controller clock;
+- quantize note starts to an explicit sixteenth-note grid and normalize lengths
+  inside the loop;
+- materialize each completed take as one atomic `BeatTwinCommand[]` batch;
+- create an empty-slot clip or overdub an existing active clip without replacing
+  prior notes;
+- retain one explicit `Undo last take` checkpoint independently of transport;
+- discard interrupted takes and release held inputs on blur, hidden document,
+  unmount, device disconnect, permission denial, and transport stop;
+- keep audio recording, file input, external DAWs, and hidden persistent capture
+  state out of scope.
 
 ## Product Contract
 
-- `Song` remains the only persistent musical document and the launcher/editor
-  remain projections and command surfaces.
-- One primary gesture produces one command/revision; a bounded multi-step
-  gesture may produce one atomic batch.
-- The 16-step grid uses explicit `stepBeats = clip.lengthBeats / 16`; no second
-  pattern schema or unlimited resolution system is introduced.
-- Drum lanes and pitched entry are bounded UI mappings onto ordinary MIDI
-  notes.
-- Duplicate never overwrites an occupied slot and reports a blocked state when
-  no later slot is free.
-- Active-clip document revisions replace only that track at its next loop
-  boundary; unrelated tracks remain continuous. Stale or ambiguous runtime
-  state fails closed.
+- `Song` remains the only persistent musical document; the capture buffer is
+  ephemeral browser state until one successful atomic commit.
+- One take yields exactly one document revision, autosave, and undo checkpoint.
+- Empty-slot recording starts on the next exact bar; overdub starts on the next
+  exact active-loop boundary. Both are observed from the live clock.
+- Empty-slot recording creates one ordinary MIDI clip; overdub only appends
+  ordinary MIDI notes to the selected existing clip.
+- An interruption discards the whole uncommitted take. No partial take is
+  applied and held input is always released locally.
+- Web MIDI permission or device failure never disables keyboard or pad input.
+- Captured notes are bounded to MIDI 0-127 and cannot escape the chosen loop.
 
 ## Verification Plan
 
-- focused pure mapping, command, store, launcher, controller, and live-engine
+- focused quantization, lifecycle, input-adapter, command-batch, store, and UI
   tests;
 - `pnpm test`;
 - `pnpm typecheck`;
@@ -51,37 +53,36 @@ playback timing.
 - `pnpm --filter @beat-twin/playground build`;
 - `pnpm smoke:packages`;
 - `git diff --check`;
-- desktop and narrow real-browser QA covering create rhythm, accent, duplicate,
-  edit variation, undo, redo, save, reload, relaunch, console health, and touch
-  sizing;
-- adversarial review for command granularity, slot overwrite, ID reuse,
-  material-revision races, cross-track interruption, stale async work, and
-  accessibility.
+- real-browser desktop and narrow QA covering pads, keyboard, count-in, record,
+  overdub, undo-last-take, focus-loss recovery, reload, console health, and
+  honest optional-Web-MIDI absence;
+- adversarial review for clock drift, boundary rounding, late note-off, stuck
+  input, interrupted commit, duplicate identity, history granularity, and
+  transport/runtime ownership.
 
 ## Current State
 
-BT-LIVE-105 is complete on `agent/bt-live-105-step-editor`, based on merged
-BT-LIVE-103 commit `829db14`. The implementation, deterministic suites,
-production build, package smoke, desktop/narrow browser flow, simultaneous-drum
-relaunch, and console gate pass. The browser and dev server are stopped and QA
-artifacts removed. No Orbit Ready item remains on this branch.
+BT-LIVE-106 is complete on `agent/bt-live-106-midi-recording`. Deterministic,
+build, package-smoke, adversarial-review, and real-browser gates pass. The human
+has explicitly authorized push, PR creation, CI-gated squash merge, and issue
+closure for this loop.
 
 ## Human Gates
 
-- Only one implementation branch and one `Orbit Ready` item may exist at once.
-- Browser-local audio playback is in scope; external DAW writes remain out of
-  scope.
-- This loop may commit locally, but push, PR creation, merge, and live DAW
-  writes require a separate human action.
+- Only BT-LIVE-106 was authorized for this implementation loop.
+- Browser-local MIDI capture and playback of the committed clip are proven.
+  Live input monitoring, microphone/audio recording, and external DAW writes
+  remain out of scope.
+- Push, PR creation, CI-gated squash merge, and issue closure were explicitly
+  authorized on 2026-07-19. No deployment or external write was authorized.
 
 ## Exit Condition
 
-Met locally. The bounded editor and variation flow pass deterministic and
-real-browser gates, the active-edit timing rule is documented and tested, the
-adversarial release blockers are resolved, and one local commit plus the Orbit
-report are ready for human publication review.
+Met. The bounded capture flow passes deterministic and real-browser gates, each
+take is atomic and undoable, failure paths discard safely, and Orbit
+documentation is aligned for publication.
 
 ## Next Activation Signal
 
-After this loop is reviewed and merged, GitHub #31 may become Orbit Ready.
-BT-AUDIO-200 remains parked behind #31.
+BT-AUDIO-200 is the next eligible product tranche. It requires its own bounded
+Orbit plan before audio-clip or sample implementation begins.

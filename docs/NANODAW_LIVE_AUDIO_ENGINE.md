@@ -94,6 +94,10 @@ dispatch.
   transport event is scheduled from inside an audio callback.
 - Requests that miss their target during asynchronous preparation fail closed
   with a structured `schedule_failed` error.
+- The controller exposes the active clip's engine-owned activation beat and
+  loop length to the MIDI recorder. Overdub derives its strictly-future target
+  from that phase anchor instead of assuming that a global bar is clip-local
+  beat zero. Missing, stale, or mismatched timing fails closed.
 
 The generic scheduler validates that every prepared event fits completely
 inside the loop. Notes that overrun the material tail are rejected rather than

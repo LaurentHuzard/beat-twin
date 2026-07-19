@@ -28,6 +28,11 @@ export type LiveAudioControllerHost = {
 export type LiveAudioController = {
   readonly start: () => Promise<void>;
   readonly syncClock: () => void;
+  /** Exact engine-owned phase anchor for a currently active track loop. */
+  readonly getActiveLoopTiming?: (trackId: string) => Readonly<{
+    startedAtBeat: number;
+    lengthBeats: number;
+  }> | null;
   readonly syncPending: () => Promise<void>;
   /** Fail-closed reconciliation after a persistent Song/material revision. */
   readonly reconcileMaterial: () => void;
@@ -678,6 +683,23 @@ export function createLiveAudioController(input: {
       if (beat >= host.getPerformanceState().currentBeat) {
         host.dispatchPerformance({ type: "AdvanceClock", beat });
       }
+    },
+
+    getActiveLoopTiming(trackId) {
+      const snapshot = engine.getSnapshot();
+      const startedAtBeat = snapshot.activeStartedAtBeatByTrack[trackId];
+      const lengthBeats = snapshot.activeLengthBeatsByTrack[trackId];
+      if (
+        startedAtBeat === undefined ||
+        lengthBeats === undefined ||
+        !Number.isFinite(startedAtBeat) ||
+        !Number.isFinite(lengthBeats) ||
+        startedAtBeat < 0 ||
+        lengthBeats <= 0
+      ) {
+        return null;
+      }
+      return Object.freeze({ startedAtBeat, lengthBeats });
     },
 
     reconcileMaterial,

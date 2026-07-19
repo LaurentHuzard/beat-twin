@@ -392,6 +392,10 @@ function useKeyboardShortcuts({
         return;
       }
 
+      if (usePlaygroundStore.getState().performanceState.recording.phase !== "idle") {
+        return;
+      }
+
       const key = event.key.toLowerCase();
       const hasCommandModifier = event.metaKey || event.ctrlKey;
 
