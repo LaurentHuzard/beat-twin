@@ -11,13 +11,17 @@ import {
   quantizeClip,
   removeNote,
   setTempo,
+  setTrackInstrument,
   setTransportPlaying,
   setTransportPosition,
   transposeClip,
+  type BuiltInInstrumentId,
   type Song,
   type TrackKind,
   updateNote,
 } from "@beat-twin/core";
+
+export type { BuiltInInstrumentId } from "@beat-twin/core";
 
 export type IdScope = "song" | "track" | "clip" | "note";
 export type IdFactory = (scope: IdScope) => string;
@@ -60,7 +64,13 @@ export type BeatTwinCommand =
       readonly id?: string;
       readonly name?: string;
       readonly kind?: TrackKind;
+      readonly instrumentId?: BuiltInInstrumentId;
       readonly color?: string;
+    }
+  | {
+      readonly type: "SetTrackInstrument";
+      readonly trackId: string;
+      readonly instrumentId: BuiltInInstrumentId;
     }
   | {
       readonly type: "CreateClip";
@@ -151,7 +161,18 @@ export type ExecutableBeatTwinCommand = BeatTwinCommand extends infer Command
 
 export type CommandEvent =
   | { readonly type: "SongCreated"; readonly songId: string; readonly title: string }
-  | { readonly type: "TrackCreated"; readonly trackId: string; readonly name: string }
+  | {
+      readonly type: "TrackCreated";
+      readonly trackId: string;
+      readonly name: string;
+      readonly kind: TrackKind;
+      readonly instrumentId?: BuiltInInstrumentId;
+    }
+  | {
+      readonly type: "TrackInstrumentSet";
+      readonly trackId: string;
+      readonly instrumentId: BuiltInInstrumentId;
+    }
   | {
       readonly type: "ClipCreated";
       readonly trackId: string;
@@ -543,7 +564,7 @@ function assertExecutableCommand(
   }
   const candidate = command as Record<string, unknown>;
   const knownTypes = new Set<string>([
-    "CreateSong", "CreateTrack", "CreateClip", "AddNote", "UpdateNote",
+    "CreateSong", "CreateTrack", "SetTrackInstrument", "CreateClip", "AddNote", "UpdateNote",
     "RemoveNote", "DuplicateClip", "QuantizeClip", "TransposeClip",
     "SetTempo", "StartPlayback", "StopPlayback", "SetPlayhead",
   ]);
@@ -686,6 +707,7 @@ function applyCommand(
         id: resolveId(command.id, "track", options.idFactory),
         name: command.name,
         kind: command.kind,
+        instrumentId: command.instrumentId,
         color: command.color,
       });
       const nextSong = addTrack(song, track);
@@ -693,11 +715,29 @@ function applyCommand(
         type: "TrackCreated",
         trackId: track.id,
         name: track.name,
+        kind: track.kind,
+        ...(track.instrumentId === undefined ? {} : { instrumentId: track.instrumentId }),
       };
       return freezeState({
         song: nextSong,
         revision: state.revision,
         selection: { type: "track", id: track.id },
+        log: [...state.log, event],
+      });
+    }
+
+    case "SetTrackInstrument": {
+      const song = requireSong(state);
+      const nextSong = setTrackInstrument(song, command.trackId, command.instrumentId);
+      const event: CommandEvent = {
+        type: "TrackInstrumentSet",
+        trackId: command.trackId,
+        instrumentId: command.instrumentId,
+      };
+      return freezeState({
+        song: nextSong,
+        revision: state.revision,
+        selection: { type: "track", id: command.trackId },
         log: [...state.log, event],
       });
     }

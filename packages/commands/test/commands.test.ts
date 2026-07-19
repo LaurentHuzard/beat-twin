@@ -290,6 +290,47 @@ test("returns command errors without replacing the previous state", () => {
   assert.deepEqual(result.events, []);
 });
 
+test("creates and edits a bounded instrument identity through commands", () => {
+  const createdSong = executeCommand(createCommandState(), {
+    type: "CreateSong",
+    id: "song-1",
+  });
+  assert.equal(createdSong.ok, true);
+  const createdTrack = executeCommand(createdSong.state, {
+    type: "CreateTrack",
+    id: "track-1",
+    name: "Night Bass",
+    kind: "instrument",
+    instrumentId: "bass",
+  });
+  assert.equal(createdTrack.ok, true);
+  assert.equal(createdTrack.state.song?.tracks[0]?.instrumentId, "bass");
+  assert.deepEqual(createdTrack.events, [{
+    type: "TrackCreated",
+    trackId: "track-1",
+    name: "Night Bass",
+    kind: "instrument",
+    instrumentId: "bass",
+  }]);
+
+  const changed = executeCommand(createdTrack.state, {
+    type: "SetTrackInstrument",
+    trackId: "track-1",
+    instrumentId: "chords",
+  });
+  assert.equal(changed.ok, true);
+  assert.equal(changed.state.song?.tracks[0]?.instrumentId, "chords");
+
+  const rejected = executeCommand(createdTrack.state, {
+    type: "SetTrackInstrument",
+    trackId: "track-1",
+    instrumentId: "organ" as never,
+  });
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.state, createdTrack.state);
+  assert.equal(createdTrack.state.song?.tracks[0]?.instrumentId, "bass");
+});
+
 test("executes a materialized command batch with one revision", () => {
   const initial = createCommandState();
   const preview = materializeCommandBatch(

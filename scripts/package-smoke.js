@@ -39,7 +39,7 @@ const compiled = compileSongPatchV1({
   },
 });
 assert.equal(compiled.every((command) => !("id" in command) || Boolean(command.id)), true);
-assert.equal(NANODAW_CAPABILITY_VERSION, "nanodaw-v1");
+assert.equal(NANODAW_CAPABILITY_VERSION, "nanodaw-v2");
 assert.equal(BITWIG_CAPABILITY_VERSION, "bitwig-launcher-v1");
 assert.equal(MAX_PLAN_TTL_MS, 120_000);
 assert.deepEqual(LITERT_AGENT_TOOL_NAMES, [

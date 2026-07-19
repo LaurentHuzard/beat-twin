@@ -15,6 +15,8 @@ This directory contains the current technical notes for the public Beat Twin pro
 - [`LOCAL-LLM-TOOL-ORCHESTRATION.md`](LOCAL-LLM-TOOL-ORCHESTRATION.md): the laptop Gateway to S25 provider loop, model-visible tools, and fixture gate.
 - [`ADR-001-GEMMA-MOBILE-AGENT.md`](ADR-001-GEMMA-MOBILE-AGENT.md): the accepted dual-target boundary; the historical filename is retained while native Android is deferred.
 - [`GEMMA-MOBILE-VERTICAL-SLICE.md`](GEMMA-MOBILE-VERTICAL-SLICE.md): the first NanoDAW Agent-mode slice targeting NanoDAW or Bitwig.
+- [`NANODAW_BUILT_IN_INSTRUMENTS.md`](NANODAW_BUILT_IN_INSTRUMENTS.md): bounded instrument catalog, Song/SongPatch compatibility, atomic execution, playback, demo recipe, and limitations.
+- [`NANODAW_MCP.md`](NANODAW_MCP.md): standalone MCP tools for preparing a built-in instrument track and MIDI clip before browser-owned human confirmation.
 - [`S25-TOOL-CALL-GATE.md`](S25-TOOL-CALL-GATE.md): the mandatory real LiteRT-LM `tool_calls` capture before provider implementation.
 - [`PLAYGROUND_ARCHITECTURE.md`](PLAYGROUND_ARCHITECTURE.md): browser-first architecture, package map, and compatibility boundary.
 - [`SPRINT-2-BROWSER-AUDITION.md`](SPRINT-2-BROWSER-AUDITION.md): browser playback/audition boundary, Bitwig safety rules, and validation commands.

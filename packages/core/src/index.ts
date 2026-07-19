@@ -1,6 +1,17 @@
-export const SONG_SCHEMA_VERSION = 1;
+export const SONG_SCHEMA_VERSION = 2;
+export const LEGACY_SONG_SCHEMA_VERSION = 1;
 export const DEFAULT_BPM = 120;
 export const DEFAULT_TRANSPORT_POSITION_BEATS = 0;
+
+export const BUILT_IN_INSTRUMENTS = Object.freeze([
+  Object.freeze({ id: "drums", role: "drums", label: "Drums" }),
+  Object.freeze({ id: "bass", role: "bass", label: "Bass" }),
+  Object.freeze({ id: "chords", role: "chords", label: "Chords" }),
+  Object.freeze({ id: "lead", role: "lead", label: "Lead" }),
+] as const);
+
+export type BuiltInInstrumentId = (typeof BUILT_IN_INSTRUMENTS)[number]["id"];
+export const DEFAULT_BUILT_IN_INSTRUMENT_ID: BuiltInInstrumentId = "lead";
 
 export type TrackKind = "instrument" | "audio" | "effect" | "group";
 
@@ -30,6 +41,7 @@ export type Track = {
   readonly id: string;
   readonly name: string;
   readonly kind: TrackKind;
+  readonly instrumentId?: BuiltInInstrumentId;
   readonly color: string;
   readonly clips: readonly Clip[];
 };
@@ -59,6 +71,7 @@ export type CreateTrackInput = {
   readonly id: string;
   readonly name?: string;
   readonly kind?: TrackKind;
+  readonly instrumentId?: BuiltInInstrumentId;
   readonly color?: string;
   readonly clips?: readonly Clip[];
 };
@@ -181,6 +194,34 @@ function assertTrackKind(value: unknown): TrackKind {
   throw new Error("track kind must be instrument, audio, effect, or group");
 }
 
+export function isBuiltInInstrumentId(value: unknown): value is BuiltInInstrumentId {
+  return BUILT_IN_INSTRUMENTS.some((instrument) => instrument.id === value);
+}
+
+function assertBuiltInInstrumentId(value: unknown): BuiltInInstrumentId {
+  if (isBuiltInInstrumentId(value)) {
+    return value;
+  }
+
+  throw new Error("instrumentId must be drums, bass, chords, or lead");
+}
+
+function normalizeTrackInstrument(
+  kind: TrackKind,
+  instrumentId: unknown,
+): BuiltInInstrumentId | undefined {
+  if (kind !== "instrument") {
+    if (instrumentId !== undefined) {
+      throw new Error("instrumentId is only valid for instrument tracks");
+    }
+    return undefined;
+  }
+
+  return instrumentId === undefined
+    ? DEFAULT_BUILT_IN_INSTRUMENT_ID
+    : assertBuiltInInstrumentId(instrumentId);
+}
+
 function freezeNote(note: Note): Note {
   return freeze({ ...note }) as Note;
 }
@@ -236,15 +277,44 @@ export function createSong(input: CreateSongInput): Song {
 export function createTrack(input: CreateTrackInput): Track {
   const id = assertNonEmptyString(input.id, "track id");
   const kind = input.kind === undefined ? "instrument" : assertTrackKind(input.kind);
+  const instrumentId = normalizeTrackInstrument(kind, input.instrumentId);
   const clips = input.clips ?? [];
 
   return freezeTrack({
     id,
     name: optionalString(input.name, "Untitled Track"),
     kind,
+    ...(instrumentId === undefined ? {} : { instrumentId }),
     color: optionalString(input.color, "#36c2a1"),
     clips,
   });
+}
+
+export function setTrackInstrument(
+  song: Song,
+  trackId: string,
+  instrumentId: BuiltInInstrumentId,
+): Song {
+  const normalizedTrackId = assertNonEmptyString(trackId, "track id");
+  const normalizedInstrumentId = assertBuiltInInstrumentId(instrumentId);
+  let updated = false;
+
+  const tracks = song.tracks.map((track) => {
+    if (track.id !== normalizedTrackId) {
+      return track;
+    }
+    if (track.kind !== "instrument") {
+      throw new Error(`Track ${normalizedTrackId} is not an instrument track`);
+    }
+    updated = true;
+    return freezeTrack({ ...track, instrumentId: normalizedInstrumentId });
+  });
+
+  if (!updated) {
+    throw new Error(`Track not found: ${normalizedTrackId}`);
+  }
+
+  return freezeSong({ ...song, tracks });
 }
 
 export function createClip(input: CreateClipInput): Clip {
@@ -671,7 +741,10 @@ function roundBeat(value: number): number {
 
 function normalizeSong(value: unknown): Song {
   assertPlainObject(value, "song");
-  if (value.schemaVersion !== SONG_SCHEMA_VERSION) {
+  if (
+    value.schemaVersion !== SONG_SCHEMA_VERSION &&
+    value.schemaVersion !== LEGACY_SONG_SCHEMA_VERSION
+  ) {
     throw new Error(`Unsupported song schema: ${String(value.schemaVersion)}`);
   }
 
@@ -720,10 +793,13 @@ function normalizeTrack(value: unknown): Track {
     throw new Error("track clips must be an array");
   }
 
+  const kind = assertTrackKind(value.kind ?? "instrument");
+  const instrumentId = normalizeTrackInstrument(kind, value.instrumentId);
   const track = freezeTrack({
     id: assertNonEmptyString(value.id, "track id"),
     name: optionalString(value.name, "Untitled Track"),
-    kind: assertTrackKind(value.kind ?? "instrument"),
+    kind,
+    ...(instrumentId === undefined ? {} : { instrumentId }),
     color: optionalString(value.color, "#36c2a1"),
     clips: clipsValue.map(normalizeClip),
   });

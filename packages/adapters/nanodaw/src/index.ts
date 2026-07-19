@@ -21,11 +21,12 @@ import {
   type ValidationResult,
 } from "@beat-twin/daw-contract";
 
-export const NANODAW_CAPABILITY_VERSION = "nanodaw-v1";
+export const NANODAW_CAPABILITY_VERSION = "nanodaw-v2";
 
 export const NANODAW_SUPPORTED_COMMANDS = Object.freeze([
   "CreateSong",
   "CreateTrack",
+  "SetTrackInstrument",
   "CreateClip",
   "AddNote",
   "UpdateNote",

@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  BUILT_IN_INSTRUMENTS,
+  DEFAULT_BUILT_IN_INSTRUMENT_ID,
+  SONG_SCHEMA_VERSION,
   addClip,
   addNote,
   addTrack,
@@ -15,6 +18,7 @@ import {
   removeNote,
   serializeSong,
   setTempo,
+  setTrackInstrument,
   setTransportPlaying,
   setTransportPosition,
   transposeClip,
@@ -180,6 +184,60 @@ test("round trips through the stable JSON serializer", () => {
   );
 
   assert.deepEqual(deserializeSong(serializeSong(song)), song);
+});
+
+test("migrates legacy songs to an explicit deterministic instrument", () => {
+  const legacy = {
+    schemaVersion: 1,
+    id: "song-legacy",
+    title: "Legacy",
+    transport: {
+      bpm: 120,
+      positionBeats: 0,
+      isPlaying: false,
+      isRecording: false,
+    },
+    tracks: [
+      {
+        id: "track-legacy",
+        name: "Old synth",
+        kind: "instrument",
+        color: "#36c2a1",
+        clips: [],
+      },
+    ],
+  };
+
+  const migrated = deserializeSong(legacy);
+  assert.equal(migrated.schemaVersion, SONG_SCHEMA_VERSION);
+  assert.equal(migrated.tracks[0]?.instrumentId, DEFAULT_BUILT_IN_INSTRUMENT_ID);
+  assert.equal(JSON.parse(serializeSong(migrated)).schemaVersion, SONG_SCHEMA_VERSION);
+});
+
+test("bounds built-in instruments and updates them immutably", () => {
+  assert.deepEqual(BUILT_IN_INSTRUMENTS.map((instrument) => instrument.id), [
+    "drums",
+    "bass",
+    "chords",
+    "lead",
+  ]);
+  assert.ok(Object.isFrozen(BUILT_IN_INSTRUMENTS));
+
+  const song = addTrack(
+    createSong({ id: "song-1" }),
+    createTrack({ id: "track-1", instrumentId: "bass" }),
+  );
+  const changed = setTrackInstrument(song, "track-1", "chords");
+  assert.equal(song.tracks[0]?.instrumentId, "bass");
+  assert.equal(changed.tracks[0]?.instrumentId, "chords");
+  assert.throws(
+    () => createTrack({ id: "audio", kind: "audio", instrumentId: "lead" }),
+    /only valid for instrument tracks/,
+  );
+  assert.throws(
+    () => createTrack({ id: "unknown", instrumentId: "organ" as never }),
+    /drums, bass, chords, or lead/,
+  );
 });
 
 test("rejects invalid schemas and malformed musical data", () => {

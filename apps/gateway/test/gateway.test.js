@@ -30,6 +30,15 @@ const PATCH = Object.freeze({
   }),
 });
 
+const INSTRUMENT_PATCH = Object.freeze({
+  ...PATCH,
+  schemaVersion: 2,
+  track: Object.freeze({
+    ...PATCH.track,
+    instrumentId: "bass",
+  }),
+});
+
 function tokenSequence(prefix) {
   let count = 0;
   return () => `${prefix}-${++count}`;
@@ -98,6 +107,7 @@ function createFakeProvider(options = {}) {
   return {
     listModels: async () => [{ id: "gemma-s25" }],
     runAgent: async ({ request, handlers }) => {
+      const patch = options.patch ?? PATCH;
       assert.equal(request, options.expectedRequest ?? "Make a bass loop");
       if (options.inspectOtherTarget) {
         await handlers.inspect_session({ dawId: "bitwig" });
@@ -106,10 +116,10 @@ function createFakeProvider(options = {}) {
         const inspected = await handlers.inspect_session({ dawId: "nanodaw" });
         assert.equal(inspected.commandSnapshot.revision, 0);
       }
-      const proposalResult = await handlers.propose_song_patch(PATCH);
+      const proposalResult = await handlers.propose_song_patch(patch);
       return Object.freeze({
         model: "gemma-s25",
-        patch: PATCH,
+        patch,
         proposalResult,
         steps: 2,
         toolCalls: Object.freeze([]),
@@ -297,6 +307,28 @@ test("agent run is preview-only, creates an immutable fixed-target plan, then ex
     assert.equal(replay.response.status, 409);
     assert.equal(replay.body.error.code, "confirmation_used");
     assert.equal(fixture.adapter.executeCount, 1);
+  });
+});
+
+test("an explicit SongPatchV2 instrument survives gateway preview and plan materialization", async () => {
+  const fixture = createFixture({
+    provider: createFakeProvider({ patch: INSTRUMENT_PATCH }),
+  });
+  await withGateway(fixture.gatewayOptions, async (baseUrl) => {
+    const issued = await pair(baseUrl);
+    const authorization = { authorization: `Bearer ${issued.body.token}` };
+    const run = await jsonFetch(`${baseUrl}/v1/agent/runs`, {
+      method: "POST",
+      headers: { ...authorization, "content-type": "application/json" },
+      body: JSON.stringify({ dawId: "nanodaw", request: "Make a bass loop" }),
+    });
+
+    assert.equal(run.response.status, 201);
+    const createTrack = run.body.plan.commands.find((command) => command.type === "CreateTrack");
+    assert.equal(createTrack.instrumentId, "bass");
+    assert.equal(run.body.preview.diff.instrumentId, "bass");
+    assert.ok(run.body.preview.summary.includes("Instrument: Bass (bass)"));
+    assert.equal(fixture.adapter.executeCount, 0);
   });
 });
 

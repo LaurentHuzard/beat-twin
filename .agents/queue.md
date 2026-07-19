@@ -1,6 +1,6 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-07-15
+Updated: 2026-07-18
 Branch: `dev/nanodaw-standalone`
 Worktree: `/home/lolo/Workspace/lolOS/Projects/beat-twin-nanodaw-standalone`
 
@@ -12,6 +12,20 @@ Armada launch prompt:
 `.agents/prompts/ARMADA_BEAT_TWIN_NANODAW_ROADMAP_2026-07-14.md`.
 
 Statuses: `Ready`, `In progress`, `Blocked`, `Done`, `Parked`.
+
+Under Orbit Program Kit governance, the legacy status `Ready` means eligible
+candidate (`later`), not implementation authorization. Only the section below
+may authorize a bounded product loop.
+
+## Orbit Ready
+
+None.
+
+## Standalone NanoDAW MCP
+
+| ID | Task | Status |
+| --- | --- | --- |
+| BT-MCP-001 | Prepare one built-in instrument track and MIDI clip through MCP, then require browser-owned human confirmation before the atomic NanoDAW write | Done |
 
 ## Today - Standalone NanoDAW
 

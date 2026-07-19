@@ -33,7 +33,15 @@ import {
   X,
 } from "lucide-react";
 
-import type { Clip, Note, Song, Track } from "@beat-twin/core";
+import {
+  BUILT_IN_INSTRUMENTS,
+  DEFAULT_BUILT_IN_INSTRUMENT_ID,
+  type BuiltInInstrumentId,
+  type Clip,
+  type Note,
+  type Song,
+  type Track,
+} from "@beat-twin/core";
 
 import { AgentModePanel } from "./AgentModePanel";
 import { LiveComparisonLab } from "./LiveComparisonLab";
@@ -67,6 +75,9 @@ function App() {
   const addTrack = usePlaygroundStore((state) => state.addTrack);
   const addClipToSelection = usePlaygroundStore((state) => state.addClipToSelection);
   const setTempo = usePlaygroundStore((state) => state.setTempo);
+  const setSelectedTrackInstrument = usePlaygroundStore(
+    (state) => state.setSelectedTrackInstrument,
+  );
   const playPreview = usePlaygroundStore((state) => state.playPreview);
   const stopPreview = usePlaygroundStore((state) => state.stopPreview);
   const duplicateSelectedClip = usePlaygroundStore((state) => state.duplicateSelectedClip);
@@ -310,6 +321,7 @@ function App() {
           onDuplicateClip={duplicateSelectedClip}
           onQuantizeClip={quantizeSelectedClip}
           onTransposeClip={transposeSelectedClip}
+          onInstrumentChange={setSelectedTrackInstrument}
         />
       </section>
 
@@ -697,6 +709,9 @@ function Timeline({ song, selectedTrackId, selectedClipId }: TimelineProps) {
                 <span className="track-name">
                   <span className="track-swatch" style={{ background: track.color }} />
                   {track.name}
+                  {track.kind === "instrument" ? (
+                    <small>{track.instrumentId ?? DEFAULT_BUILT_IN_INSTRUMENT_ID}</small>
+                  ) : null}
                 </span>
                 <span className="clip-lane">
                   {track.clips.map((clip) => (
@@ -972,6 +987,7 @@ type InspectorProps = {
   readonly onDuplicateClip: () => void;
   readonly onQuantizeClip: (gridBeats: number) => void;
   readonly onTransposeClip: (semitones: number) => void;
+  readonly onInstrumentChange: (instrumentId: BuiltInInstrumentId) => void;
 };
 
 function Inspector({
@@ -988,6 +1004,7 @@ function Inspector({
   onDuplicateClip,
   onQuantizeClip,
   onTransposeClip,
+  onInstrumentChange,
 }: InspectorProps) {
   const notes = clip?.pattern.notes ?? [];
 
@@ -1016,6 +1033,24 @@ function Inspector({
           <dd>{clip ? `${clip.lengthBeats} beats` : "0 beats"}</dd>
         </div>
       </dl>
+
+      <label className="instrument-selector">
+        <span>Built-in instrument</span>
+        <select
+          aria-label="Track instrument"
+          value={track?.instrumentId ?? DEFAULT_BUILT_IN_INSTRUMENT_ID}
+          disabled={!track || track.kind !== "instrument"}
+          onChange={(event) =>
+            onInstrumentChange(event.currentTarget.value as BuiltInInstrumentId)
+          }
+        >
+          {BUILT_IN_INSTRUMENTS.map((instrument) => (
+            <option key={instrument.id} value={instrument.id}>
+              {instrument.label}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <div className="note-strip" aria-label="Notes">
         {notes.length === 0 ? (

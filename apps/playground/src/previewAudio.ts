@@ -3,7 +3,13 @@ import {
   scheduleSongNotes,
   type TonePreviewEngine,
 } from "@beat-twin/audio-tone";
-import type { Clip, Song, Track } from "@beat-twin/core";
+import {
+  DEFAULT_BUILT_IN_INSTRUMENT_ID,
+  type BuiltInInstrumentId,
+  type Clip,
+  type Song,
+  type Track,
+} from "@beat-twin/core";
 
 export type PreviewPhase = "idle" | "playing" | "error";
 
@@ -23,6 +29,7 @@ export type PreviewAuditionNote = {
 export type PreviewAudition = {
   readonly songTitle: string;
   readonly trackName: string;
+  readonly instrumentId: BuiltInInstrumentId;
   readonly clipName: string;
   readonly bpm: number;
   readonly lengthBeats: number;
@@ -56,6 +63,7 @@ export function buildPreviewAudition(
   return {
     songTitle: song.title,
     trackName: target.track.name,
+    instrumentId: target.track.instrumentId ?? DEFAULT_BUILT_IN_INSTRUMENT_ID,
     clipName: target.clip.name,
     bpm: song.transport.bpm,
     lengthBeats: target.clip.lengthBeats,

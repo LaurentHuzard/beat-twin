@@ -2,10 +2,16 @@ import type {
   CommandSnapshot,
   ExecutableBeatTwinCommand,
 } from "@beat-twin/commands";
+import {
+  BUILT_IN_INSTRUMENTS,
+  DEFAULT_BUILT_IN_INSTRUMENT_ID,
+  type BuiltInInstrumentId,
+} from "@beat-twin/core";
 
 export type { ExecutableBeatTwinCommand };
 
 export const SONG_PATCH_SCHEMA_VERSION = 1 as const;
+export const SONG_PATCH_V2_SCHEMA_VERSION = 2 as const;
 export const SONG_PATCH_QUANTIZATION_BEATS = 0.25 as const;
 
 export type SongPatchNoteV1 = {
@@ -33,6 +39,18 @@ export type SongPatchV1 = {
   readonly track: SongPatchInstrumentTrackV1;
 };
 
+export type SongPatchInstrumentTrackV2 = SongPatchInstrumentTrackV1 & {
+  readonly instrumentId: BuiltInInstrumentId;
+};
+
+export type SongPatchV2 = {
+  readonly schemaVersion: typeof SONG_PATCH_V2_SCHEMA_VERSION;
+  readonly tempoBpm?: number;
+  readonly track: SongPatchInstrumentTrackV2;
+};
+
+export type SongPatch = SongPatchV1 | SongPatchV2;
+
 export type SongPatchValidationIssue = {
   readonly path: string;
   readonly code:
@@ -47,6 +65,14 @@ export type SongPatchValidationIssue = {
 
 export type SongPatchValidationResult =
   | { readonly ok: true; readonly value: SongPatchV1 }
+  | { readonly ok: false; readonly issues: readonly SongPatchValidationIssue[] };
+
+export type SongPatchV2ValidationResult =
+  | { readonly ok: true; readonly value: SongPatchV2 }
+  | { readonly ok: false; readonly issues: readonly SongPatchValidationIssue[] };
+
+export type AnySongPatchValidationResult =
+  | { readonly ok: true; readonly value: SongPatch }
   | { readonly ok: false; readonly issues: readonly SongPatchValidationIssue[] };
 
 export class SongPatchValidationError extends TypeError {
@@ -77,6 +103,7 @@ export type SongPatchCompileOptions = {
 };
 
 export type SongPatchPreviewDiff = {
+  readonly instrumentId: BuiltInInstrumentId;
   readonly tempoBpm: {
     readonly before: number | null;
     readonly after: number | null;
@@ -112,9 +139,13 @@ type MutableIssue = {
 };
 
 const ROOT_FIELDS = new Set(["schemaVersion", "tempoBpm", "track"]);
-const TRACK_FIELDS = new Set(["kind", "name", "clip"]);
+const TRACK_V1_FIELDS = new Set(["kind", "name", "clip"]);
+const TRACK_V2_FIELDS = new Set(["kind", "name", "instrumentId", "clip"]);
 const CLIP_FIELDS = new Set(["name", "lengthBeats", "notes"]);
 const NOTE_FIELDS = new Set(["pitch", "velocity", "startBeat", "lengthBeats"]);
+const INSTRUMENT_IDS = new Set<BuiltInInstrumentId>(
+  BUILT_IN_INSTRUMENTS.map((instrument) => instrument.id),
+);
 
 export const SONG_PATCH_V1_JSON_SCHEMA = deepFreeze({
   $schema: "https://json-schema.org/draft/2020-12/schema",
@@ -162,6 +193,33 @@ export const SONG_PATCH_V1_JSON_SCHEMA = deepFreeze({
             },
           },
         },
+      },
+    },
+  },
+} as const);
+
+export const SONG_PATCH_V2_JSON_SCHEMA = deepFreeze({
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "https://beat-twin.local/schemas/song-patch-v2.json",
+  title: "SongPatchV2",
+  type: "object",
+  additionalProperties: false,
+  required: ["schemaVersion", "track"],
+  properties: {
+    schemaVersion: { const: SONG_PATCH_V2_SCHEMA_VERSION },
+    tempoBpm: { type: "number", minimum: 40, maximum: 240 },
+    track: {
+      type: "object",
+      additionalProperties: false,
+      required: ["kind", "name", "instrumentId", "clip"],
+      properties: {
+        kind: { const: "instrument" },
+        name: { type: "string", minLength: 1, maxLength: 64 },
+        instrumentId: {
+          type: "string",
+          enum: BUILT_IN_INSTRUMENTS.map((instrument) => instrument.id),
+        },
+        clip: SONG_PATCH_V1_JSON_SCHEMA.properties.track.properties.clip,
       },
     },
   },
@@ -261,6 +319,62 @@ export function validateSongPatchV1(value: unknown): SongPatchV1 {
   return result.value;
 }
 
+/** Validates the explicit-instrument patch without changing the frozen V1 tool projection. */
+export function safeValidateSongPatchV2(value: unknown): SongPatchV2ValidationResult {
+  const issues: MutableIssue[] = [];
+
+  if (!isPlainRecord(value)) {
+    return validationFailureV2(issue("$", "invalid_type", "must be an object"));
+  }
+
+  rejectUnknownFields(value, ROOT_FIELDS, "$", issues);
+  requireFields(value, ["schemaVersion", "track"], "$", issues);
+
+  if (value.schemaVersion !== SONG_PATCH_V2_SCHEMA_VERSION) {
+    issues.push(issue("$.schemaVersion", "out_of_range", "must equal 2"));
+  }
+
+  let tempoBpm: number | undefined;
+  if (value.tempoBpm !== undefined) {
+    tempoBpm = boundedFiniteNumber(value.tempoBpm, 40, 240, "$.tempoBpm", issues);
+  }
+
+  const track = parseTrackV2(value.track, issues);
+  if (issues.length > 0 || !track) {
+    return validationFailureV2(...issues);
+  }
+
+  const patch: SongPatchV2 = {
+    schemaVersion: SONG_PATCH_V2_SCHEMA_VERSION,
+    ...(tempoBpm === undefined ? {} : { tempoBpm }),
+    track,
+  };
+  return Object.freeze({ ok: true, value: deepFreeze(patch) });
+}
+
+export function validateSongPatchV2(value: unknown): SongPatchV2 {
+  const result = safeValidateSongPatchV2(value);
+  if (!result.ok) {
+    throw new SongPatchValidationError(result.issues);
+  }
+  return result.value;
+}
+
+export function safeValidateSongPatch(value: unknown): AnySongPatchValidationResult {
+  if (isPlainRecord(value) && value.schemaVersion === SONG_PATCH_V2_SCHEMA_VERSION) {
+    return safeValidateSongPatchV2(value);
+  }
+  return safeValidateSongPatchV1(value);
+}
+
+export function validateSongPatch(value: unknown): SongPatch {
+  const result = safeValidateSongPatch(value);
+  if (!result.ok) {
+    throw new SongPatchValidationError(result.issues);
+  }
+  return result.value;
+}
+
 /** Materializes every command ID before preview or execution. */
 export function materializeSongPatchIds(
   value: unknown,
@@ -268,11 +382,28 @@ export function materializeSongPatchIds(
 ): SongPatchExecutableIds {
   const patch = validateSongPatchV1(value);
 
+  return materializeValidatedSongPatchIds(patch, options);
+}
+
+export function materializeSongPatchV2Ids(
+  value: unknown,
+  options: SongPatchCompileOptions = {},
+): SongPatchExecutableIds {
+  const patch = validateSongPatchV2(value);
+
+  return materializeValidatedSongPatchIds(patch, options);
+}
+
+function materializeValidatedSongPatchIds(
+  patch: SongPatch,
+  options: SongPatchCompileOptions,
+): SongPatchExecutableIds {
+
   if (options.ids !== undefined) {
     return validateInjectedIds(options.ids, patch.track.clip.notes.length);
   }
 
-  const seed = options.idSeed ?? "song-patch-v1";
+  const seed = options.idSeed ?? `song-patch-v${patch.schemaVersion}`;
   if (typeof seed !== "string" || seed.trim().length === 0) {
     throw new TypeError("idSeed must be a non-empty string");
   }
@@ -297,7 +428,30 @@ export function compileSongPatchV1(
   options: SongPatchCompileOptions = {},
 ): readonly ExecutableBeatTwinCommand[] {
   const patch = validateSongPatchV1(value);
-  const ids = materializeSongPatchIds(patch, options);
+  return compileValidatedSongPatch(patch, options);
+}
+
+export function compileSongPatchV2(
+  value: unknown,
+  options: SongPatchCompileOptions = {},
+): readonly ExecutableBeatTwinCommand[] {
+  const patch = validateSongPatchV2(value);
+  return compileValidatedSongPatch(patch, options);
+}
+
+export function compileSongPatch(
+  value: unknown,
+  options: SongPatchCompileOptions = {},
+): readonly ExecutableBeatTwinCommand[] {
+  const patch = validateSongPatch(value);
+  return compileValidatedSongPatch(patch, options);
+}
+
+function compileValidatedSongPatch(
+  patch: SongPatch,
+  options: SongPatchCompileOptions,
+): readonly ExecutableBeatTwinCommand[] {
+  const ids = materializeValidatedSongPatchIds(patch, options);
   const commands: ExecutableBeatTwinCommand[] = [];
   const hasSong = options.snapshot?.song !== null && options.snapshot?.song !== undefined;
 
@@ -317,6 +471,9 @@ export function compileSongPatchV1(
     id: ids.trackId,
     name: patch.track.name,
     kind: "instrument",
+    ...(patch.schemaVersion === SONG_PATCH_V2_SCHEMA_VERSION
+      ? { instrumentId: patch.track.instrumentId }
+      : {}),
   });
   commands.push({
     type: "CreateClip",
@@ -349,15 +506,45 @@ export function previewSongPatchV1(
   options: SongPatchPreviewOptions = {},
 ): SongPatchPreview {
   const patch = validateSongPatchV1(value);
-  const commands = compileSongPatchV1(patch, options);
+  return previewValidatedSongPatch(patch, options);
+}
+
+export function previewSongPatchV2(
+  value: unknown,
+  options: SongPatchPreviewOptions = {},
+): SongPatchPreview {
+  const patch = validateSongPatchV2(value);
+  return previewValidatedSongPatch(patch, options);
+}
+
+export function previewSongPatch(
+  value: unknown,
+  options: SongPatchPreviewOptions = {},
+): SongPatchPreview {
+  const patch = validateSongPatch(value);
+  return previewValidatedSongPatch(patch, options);
+}
+
+function previewValidatedSongPatch(
+  patch: SongPatch,
+  options: SongPatchPreviewOptions,
+): SongPatchPreview {
+  const commands = compileValidatedSongPatch(patch, options);
   const snapshot = options.snapshot;
   const song = snapshot?.song ?? null;
   const beforeTempo = song?.transport.bpm ?? null;
   const afterTempo = patch.tempoBpm ?? beforeTempo ?? 120;
   const tracksBefore = song?.tracks.filter((track) => track.kind === "instrument").length ?? 0;
   const pitches = patch.track.clip.notes.map((note) => note.pitch);
+  const instrumentId = patch.schemaVersion === SONG_PATCH_V2_SCHEMA_VERSION
+    ? patch.track.instrumentId
+    : DEFAULT_BUILT_IN_INSTRUMENT_ID;
+  const instrumentLabel = BUILT_IN_INSTRUMENTS.find(
+    (instrument) => instrument.id === instrumentId,
+  )!.label;
 
   const diff: SongPatchPreviewDiff = deepFreeze({
+    instrumentId,
     tempoBpm: {
       before: beforeTempo,
       after: afterTempo,
@@ -383,6 +570,7 @@ export function previewSongPatchV1(
       ? []
       : [`Tempo: ${beforeTempo === null ? "unset" : beforeTempo} -> ${patch.tempoBpm} BPM`]),
     `Add instrument track \"${patch.track.name}\"`,
+    `Instrument: ${instrumentLabel} (${instrumentId})`,
     `Add clip \"${patch.track.clip.name}\" (${patch.track.clip.lengthBeats} beats)`,
     `Add ${patch.track.clip.notes.length} note${patch.track.clip.notes.length === 1 ? "" : "s"}`,
   ];
@@ -404,7 +592,7 @@ function parseTrack(
     return undefined;
   }
 
-  rejectUnknownFields(value, TRACK_FIELDS, "$.track", issues);
+  rejectUnknownFields(value, TRACK_V1_FIELDS, "$.track", issues);
   requireFields(value, ["kind", "name", "clip"], "$.track", issues);
 
   if (value.kind !== "instrument") {
@@ -418,6 +606,36 @@ function parseTrack(
   }
 
   return deepFreeze({ kind: "instrument", name, clip });
+}
+
+function parseTrackV2(
+  value: unknown,
+  issues: MutableIssue[],
+): SongPatchInstrumentTrackV2 | undefined {
+  if (!isPlainRecord(value)) {
+    issues.push(issue("$.track", "invalid_type", "must be an object"));
+    return undefined;
+  }
+
+  rejectUnknownFields(value, TRACK_V2_FIELDS, "$.track", issues);
+  requireFields(value, ["kind", "name", "instrumentId", "clip"], "$.track", issues);
+
+  if (value.kind !== "instrument") {
+    issues.push(issue("$.track.kind", "out_of_range", 'must equal "instrument"'));
+  }
+  const name = boundedName(value.name, "$.track.name", issues);
+  const instrumentId = boundedInstrumentId(value.instrumentId, "$.track.instrumentId", issues);
+  const clip = parseClip(value.clip, issues);
+  if (
+    value.kind !== "instrument" ||
+    name === undefined ||
+    instrumentId === undefined ||
+    !clip
+  ) {
+    return undefined;
+  }
+
+  return deepFreeze({ kind: "instrument", name, instrumentId, clip });
 }
 
 function parseClip(value: unknown, issues: MutableIssue[]): SongPatchClipV1 | undefined {
@@ -601,6 +819,22 @@ function boundedName(
   return value;
 }
 
+function boundedInstrumentId(
+  value: unknown,
+  path: string,
+  issues: MutableIssue[],
+): BuiltInInstrumentId | undefined {
+  if (typeof value !== "string") {
+    issues.push(issue(path, "invalid_type", "must be a string"));
+    return undefined;
+  }
+  if (!INSTRUMENT_IDS.has(value as BuiltInInstrumentId)) {
+    issues.push(issue(path, "out_of_range", "must be drums, bass, chords, or lead"));
+    return undefined;
+  }
+  return value as BuiltInInstrumentId;
+}
+
 function boundedFiniteNumber(
   value: unknown,
   minimum: number,
@@ -678,6 +912,13 @@ function issue(
 }
 
 function validationFailure(...issues: MutableIssue[]): SongPatchValidationResult {
+  return Object.freeze({
+    ok: false,
+    issues: Object.freeze(issues.map((entry) => Object.freeze({ ...entry }))),
+  });
+}
+
+function validationFailureV2(...issues: MutableIssue[]): SongPatchV2ValidationResult {
   return Object.freeze({
     ok: false,
     issues: Object.freeze(issues.map((entry) => Object.freeze({ ...entry }))),

@@ -1,42 +1,57 @@
-# Current Beat Twin Orbit
+# Completed Beat Twin Orbit
 
 ## Loop
 
-BT-212 — complete. The Bitwig controller and adapter now expose an authenticated,
-target-bound, bounded launcher-slot execution path with exact readback.
+BT-MCP-001 — expose the first standalone NanoDAW MCP vertical slice on top of
+`origin/agent/nanodaw-instrument-slice`.
 
 ## Target Outcome
 
-Enable BT-213 to prove the same portable patch through separately previewed and
-confirmed NanoDAW and Bitwig plans without conflating their mutation semantics.
+An MCP client can inspect the connected browser-owned NanoDAW and prepare one
+strict built-in instrument track with one bounded MIDI clip. The exact immutable
+plan is then loaded in NanoDAW and can only be executed by a separate human
+confirmation in the browser.
+
+## Delivered Files
+
+- `packages/mcp/**`
+- `apps/playground/src/agentGateway.ts`
+- `apps/playground/src/AgentModePanel.tsx`
+- focused MCP and Playground tests and responsive styles
+- root package scripts and lockfile
+- `docs/NANODAW_MCP.md` plus repository status/navigation docs
+- `.agents/queue.md`, `.agents/current-plan.md`, and the loop report
 
 ## Product Contract
 
-- Bitwig reads remain available before write authentication.
-- Every Agent-mode write requires the configured bridge secret.
-- Preview binds controller, project, track/scene positions, and target generation.
-- One empty launcher target accepts only the `bitwig-launcher-v1` bounds.
-- Clip creation is dispatched once; readiness polling is read-only.
-- A success requires exact tempo, track, clip, and note readback.
-- Any uncertain dispatch or readback is `partial` and never retried.
+- No Bitwig process, controller, MCP bridge, S25, or external DAW is required.
+- The browser remains the only owner of NanoDAW song state.
+- The MCP can inspect and prepare a plan but cannot confirm or execute it.
+- The user reviews exact commands and confirms once in the NanoDAW UI.
+- The catalog stays limited to `drums`, `bass`, `chords`, and `lead`.
+- Unknown fields, stale revisions, disconnected browsers, expired plans, and
+  unsupported instruments fail closed before mutation.
 
-## Validation
+## Verification Result
 
-- Root tests passed 145/145, including the historical 57-tool snapshot.
-- NanoDAW tests passed 39/39.
-- Repository typecheck and production build passed.
-- Package smoke passed for nine packages.
-- Full evidence is recorded in the BT-212 feature report.
+- The MCP test file passes and the root suite passes 160/160.
+- `pnpm typecheck`, `pnpm nanodaw:test` (41/41), the Playground production
+  build, package smoke, and `git diff --check` pass.
+- A real Playwright browser connected NanoDAW, loaded one MCP-created plan with
+  zero prior mutation, displayed five exact commands, then applied one bass
+  track, one four-beat clip, and two notes after one browser confirmation.
+- Desktop and 390x844 responsive checks completed with no console errors or
+  warnings. No listening claim was made.
 
-## Evidence Boundary
+## Human Gates
 
-- Auth, target races, clip-readiness delay, post-dispatch failure, divergent
-  readback, and no-retry behavior use deterministic fixtures.
-- No live Bitwig write was executed. That remains BT-213's disposable-project
-  human gate, separately from NanoDAW confirmation.
+- The MCP exposes no confirmation or execution tool.
+- Applying a prepared plan requires an explicit browser click.
+- No push, PR, merge, publication, live Bitwig write, or branch deletion is
+  authorized by this loop.
 
 ## Exit Condition
 
-- Met on 2026-07-15: authentication, strict bounds, target identity, exact note
-  readback, and honest partial execution are proven deterministically.
-- BT-213 is Ready and must begin with a disposable Bitwig project.
+Met. One MCP-prepared instrument/clip plan is proven end to end in NanoDAW with
+exact offline evidence and an honest browser/live boundary. `Orbit Ready` is
+empty; the next loop requires a new activation signal.

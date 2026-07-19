@@ -29,6 +29,7 @@ export function AgentModePanel() {
   const [gatewayUrl, setGatewayUrl] = useState("http://127.0.0.1:8787");
   const [operatorSecret, setOperatorSecret] = useState("");
   const [request, setRequest] = useState("");
+  const [mcpPlanId, setMcpPlanId] = useState("");
   const [connection, setConnection] = useState<ConnectionState>("off");
   const [operation, setOperation] = useState<OperationState>("idle");
   const [preview, setPreview] = useState<AgentPlanPreview | null>(null);
@@ -54,6 +55,7 @@ export function AgentModePanel() {
     setOperation("idle");
     setPreview(null);
     setOperatorSecret("");
+    setMcpPlanId("");
     setMessage(null);
   };
 
@@ -106,6 +108,27 @@ export function AgentModePanel() {
       setPreview(nextPreview);
       setOperation("preview");
       setMessage("Preview only. No NanoDAW command has executed.");
+    } catch (error) {
+      setOperation("idle");
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const loadMcpPlan = async () => {
+    const session = sessionRef.current;
+    if (!session?.isConnected()) {
+      setMessage("Connect Agent mode before loading an MCP plan.");
+      return;
+    }
+    setOperation("running");
+    setPreview(null);
+    setMessage(null);
+    try {
+      const nextPreview = await session.loadMcpPlan(mcpPlanId);
+      setPreview(nextPreview);
+      setOperation("preview");
+      setMcpPlanId("");
+      setMessage("MCP plan loaded for review. No NanoDAW command has executed.");
     } catch (error) {
       setOperation("idle");
       setMessage(error instanceof Error ? error.message : String(error));
@@ -200,27 +223,49 @@ export function AgentModePanel() {
           </div>
 
           {connection === "connected" ? (
-            <div className="agent-request-grid">
-              <label>
-                Musical request
-                <textarea
-                  aria-label="Agent musical request"
-                  rows={2}
-                  value={request}
-                  onChange={(event) => setRequest(event.currentTarget.value)}
-                  placeholder="Create a restrained one-track bass sketch"
-                />
-              </label>
-              <button
-                type="button"
-                className="tool-button primary"
-                onClick={() => void generatePreview()}
-                disabled={!request.trim() || operation === "running" || operation === "executing"}
-              >
-                <Sparkles size={16} />
-                {operation === "running" ? "Generating…" : "Generate preview"}
-              </button>
-            </div>
+            <>
+              <div className="mcp-plan-grid">
+                <label>
+                  MCP plan id
+                  <input
+                    aria-label="MCP plan id"
+                    value={mcpPlanId}
+                    onChange={(event) => setMcpPlanId(event.currentTarget.value)}
+                    placeholder="plan-…"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="tool-button primary"
+                  onClick={() => void loadMcpPlan()}
+                  disabled={!mcpPlanId.trim() || operation === "running" || operation === "executing"}
+                >
+                  <ShieldCheck size={16} />
+                  {operation === "running" ? "Loading…" : "Load MCP plan"}
+                </button>
+              </div>
+              <div className="agent-request-grid">
+                <label>
+                  Musical request
+                  <textarea
+                    aria-label="Agent musical request"
+                    rows={2}
+                    value={request}
+                    onChange={(event) => setRequest(event.currentTarget.value)}
+                    placeholder="Create a restrained one-track bass sketch"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="tool-button primary"
+                  onClick={() => void generatePreview()}
+                  disabled={!request.trim() || operation === "running" || operation === "executing"}
+                >
+                  <Sparkles size={16} />
+                  {operation === "running" ? "Generating…" : "Generate preview"}
+                </button>
+              </div>
+            </>
           ) : null}
 
           {preview ? (
@@ -229,7 +274,7 @@ export function AgentModePanel() {
                 <span className="eyebrow">Human confirmation required</span>
                 <h3>{preview.plan.commands.length} proposed commands</h3>
                 <p>
-                  Revision {preview.plan.baseRevision} · {preview.plan.requiredScopes.join(", ")} · expires {formatExpiry(preview.plan.expiresAt)}
+                  Plan {preview.plan.planId} · revision {preview.plan.baseRevision} · {preview.plan.requiredScopes.join(", ")} · expires {formatExpiry(preview.plan.expiresAt)}
                 </p>
                 <ul className="agent-plan-summary">
                   {preview.preview.summary.map((summary) => <li key={summary}>{summary}</li>)}
@@ -267,6 +312,13 @@ function connectionLabel(state: ConnectionState): string {
 
 function commandName(command: unknown): string {
   if (command && typeof command === "object" && "type" in command && typeof command.type === "string") {
+    if (
+      command.type === "CreateTrack" &&
+      "instrumentId" in command &&
+      typeof command.instrumentId === "string"
+    ) {
+      return `${command.type} · ${command.instrumentId}`;
+    }
     return command.type;
   }
   return "Unknown command";
