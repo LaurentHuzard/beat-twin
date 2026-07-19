@@ -1,57 +1,71 @@
-# Completed Beat Twin Orbit
+# Active Beat Twin Orbit
 
 ## Loop
 
-BT-MCP-001 — expose the first standalone NanoDAW MCP vertical slice on top of
-`origin/agent/nanodaw-instrument-slice`.
+BT-LIVE-101 / GitHub #26 — separate the ephemeral performance runtime from
+persistent song commands on `agent/bt-live-101-performance-runtime`.
 
 ## Target Outcome
 
-An MCP client can inspect the connected browser-owned NanoDAW and prepare one
-strict built-in instrument track with one bounded MIDI clip. The exact immutable
-plan is then loaded in NanoDAW and can only be executed by a separate human
-confirmation in the browser.
+NanoDAW owns one pure, deterministic performance state machine for transport,
+quantized launch, stop, scene, recording-state, mixer, and macro gestures while
+`Song`, command revisions, autosave, undo, and redo remain untouched until an
+explicit future capture boundary.
 
-## Delivered Files
+## Planned Changes
 
-- `packages/mcp/**`
-- `apps/playground/src/agentGateway.ts`
-- `apps/playground/src/AgentModePanel.tsx`
-- focused MCP and Playground tests and responsive styles
-- root package scripts and lockfile
-- `docs/NANODAW_MCP.md` plus repository status/navigation docs
-- `.agents/queue.md`, `.agents/current-plan.md`, and the loop report
+- pure performance state and quantization contract;
+- reducer tests covering transport, launch replacement/cancellation, stop,
+  scenes, recording/overdub state, mute, solo, and bounded macros;
+- Playground store integration with no second song model;
+- live-runtime ownership and capture-boundary documentation;
+- Orbit queue, report, and verification evidence.
 
 ## Product Contract
 
-- No Bitwig process, controller, MCP bridge, S25, or external DAW is required.
-- The browser remains the only owner of NanoDAW song state.
-- The MCP can inspect and prepare a plan but cannot confirm or execute it.
-- The user reviews exact commands and confirms once in the NanoDAW UI.
-- The catalog stays limited to `drums`, `bass`, `chords`, and `lead`.
-- Unknown fields, stale revisions, disconnected browsers, expired plans, and
-  unsupported instruments fail closed before mutation.
+- `Song` remains the only persistent musical document.
+- The browser owns both song and ephemeral performance state.
+- Performance actions do not create revisions, autosaves, or undo checkpoints.
+- At most one active clip and one pending transition exist per track.
+- Equivalent pending launches coalesce; replacement and cancellation are
+  deterministic before their target boundary.
+- No Tone.js scheduling, launcher redesign, MIDI access, Capture Jam, Bitwig,
+  Gateway, MCP, or S25 change is in scope.
 
-## Verification Result
+## Verification Plan
 
-- The MCP test file passes and the root suite passes 160/160.
-- `pnpm typecheck`, `pnpm nanodaw:test` (41/41), the Playground production
-  build, package smoke, and `git diff --check` pass.
-- A real Playwright browser connected NanoDAW, loaded one MCP-created plan with
-  zero prior mutation, displayed five exact commands, then applied one bass
-  track, one four-beat clip, and two notes after one browser confirmation.
-- Desktop and 390x844 responsive checks completed with no console errors or
-  warnings. No listening claim was made.
+- focused pure reducer and quantization tests;
+- `pnpm test`;
+- `pnpm typecheck`;
+- `pnpm nanodaw:test`;
+- `pnpm smoke:packages`;
+- `git diff --check`;
+- adversarial review for state ownership, revision flooding, transition
+  identity, and cross-track isolation.
 
 ## Human Gates
 
-- The MCP exposes no confirmation or execution tool.
-- Applying a prepared plan requires an explicit browser click.
-- No push, PR, merge, publication, live Bitwig write, or branch deletion is
+- The user authorized movement of GitHub #26 into `Orbit Ready` and named #27,
+  #28, #30, and #31 as the dependency-ordered continuation sequence.
+- Only one implementation branch and one `Orbit Ready` item may exist at once.
+- No merge, publication, deployment, live DAW write, or branch deletion is
   authorized by this loop.
 
 ## Exit Condition
 
-Met. One MCP-prepared instrument/clip plan is proven end to end in NanoDAW with
-exact offline evidence and an honest browser/live boundary. `Orbit Ready` is
-empty; the next loop requires a new activation signal.
+Met locally on 2026-07-19. The bounded reducer and store boundary are covered by
+focused tests, the required offline suite passes, the architecture and Orbit
+report are written, and `Orbit Ready` has been cleared before any activation of
+#27. No live audio, listening, merge, publication, or deployment proof is
+claimed.
+
+## Next Activation Signal
+
+After human review of this local tranche, activate GitHub #27, then #28, #30,
+and #31 in that exact dependency order. #27 must consume the identified
+request/schedule/observation handshake and must not promote queued clips from
+clock movement alone. It must also treat `clipId` as source-neutral rather than
+locking the runtime to MIDI, so the indispensable later audio-clip and sample
+tranche can reuse the same performance state machine. Parallel agents may
+analyze or review future slices but may not implement them before their
+dependency gate opens.

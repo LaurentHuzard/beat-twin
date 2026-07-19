@@ -26,6 +26,7 @@ afterEach(() => {
   const initialState = usePlaygroundStore.getInitialState();
   usePlaygroundStore.setState({
     commandState: initialState.commandState,
+    performanceState: initialState.performanceState,
     undoStack: [],
     redoStack: [],
     messages: [],

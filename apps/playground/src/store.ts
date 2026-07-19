@@ -32,6 +32,15 @@ import {
   loadSongFromStorage,
   saveSongToStorage,
 } from "./persistence";
+import {
+  createPerformanceState,
+  reconcilePerformanceMaterial,
+  reducePerformanceState,
+  resetPerformanceForMaterial,
+  type PerformanceAction,
+  type PerformanceMaterialSnapshot,
+  type PerformanceState,
+} from "./performanceRuntime";
 
 const trackColors = ["#2d7f73", "#d85b40", "#826aed", "#c8971b", "#2f6fa3"];
 
@@ -74,6 +83,8 @@ const defaultPersistenceState: PersistenceState = {
 
 export type PlaygroundStore = {
   readonly commandState: CommandState;
+  /** Ephemeral browser-owned runtime; it contains Song IDs, never a second Song. */
+  readonly performanceState: PerformanceState;
   readonly undoStack: readonly CommandState[];
   readonly redoStack: readonly CommandState[];
   readonly messages: readonly CommandMessage[];
@@ -87,6 +98,8 @@ export type PlaygroundStore = {
   readonly preview: PreviewState;
   readonly lastError: string | null;
   readonly dispatch: (command: BeatTwinCommand) => void;
+  readonly dispatchPerformance: (action: PerformanceAction) => void;
+  readonly resetPerformance: () => void;
   readonly inspectRemoteSession: () => CommandSnapshot;
   readonly executeRemoteCommandBatch: (request: ExecuteCommandBatchRequest) => CommandBatchResult;
   readonly undo: () => void;
@@ -219,6 +232,33 @@ function autosaveSong(song: Song | null): PersistenceState | null {
       error instanceof Error ? error.message : String(error),
     );
   }
+}
+
+function performanceMaterialSnapshot(
+  song: Song | null,
+  version: number,
+): PerformanceMaterialSnapshot {
+  return {
+    version,
+    clipIdsByTrack: Object.fromEntries(
+      (song?.tracks ?? []).map((track) => [
+        track.id,
+        track.clips.map((clip) => clip.id),
+      ]),
+    ),
+  };
+}
+
+function syncPerformanceWithCommandState(
+  performanceState: PerformanceState,
+  previous: CommandState,
+  next: CommandState,
+  forceReset = false,
+): PerformanceState {
+  const material = performanceMaterialSnapshot(next.song, next.revision);
+  return forceReset || previous.song?.id !== next.song?.id
+    ? resetPerformanceForMaterial(performanceState, material)
+    : reconcilePerformanceMaterial(performanceState, material);
 }
 
 function persistCommandStateSnapshot(
@@ -547,6 +587,7 @@ function executeDraftCommandIntent(intent: DraftCommandIntent, state: Playground
 
 export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
   commandState: createCommandState(),
+  performanceState: createPerformanceState(),
   undoStack: [],
   redoStack: [],
   messages: [],
@@ -560,6 +601,33 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
   preview: idlePreviewState,
   lastError: null,
 
+  dispatchPerformance: (action) => {
+    set((current) => {
+      const next = reducePerformanceState(current.performanceState, action);
+      return {
+        performanceState: reconcilePerformanceMaterial(
+          next,
+          performanceMaterialSnapshot(
+            current.commandState.song,
+            current.commandState.revision,
+          ),
+        ),
+      };
+    });
+  },
+
+  resetPerformance: () => {
+    set((current) => ({
+      performanceState: resetPerformanceForMaterial(
+        current.performanceState,
+        performanceMaterialSnapshot(
+          current.commandState.song,
+          current.commandState.revision,
+        ),
+      ),
+    }));
+  },
+
   dispatch: (command) => {
     set((current) => {
       const result = executeCommand(current.commandState, command, { idFactory: makeId });
@@ -570,6 +638,11 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       const persistence = autosaveSong(result.state.song);
       return {
         commandState: result.state,
+        performanceState: syncPerformanceWithCommandState(
+          current.performanceState,
+          current.commandState,
+          result.state,
+        ),
         undoStack: [...current.undoStack, current.commandState],
         redoStack: [],
         ...deriveSelection(result.state),
@@ -594,6 +667,11 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       const persistence = autosaveSong(result.state.song);
       return {
         commandState: result.state,
+        performanceState: syncPerformanceWithCommandState(
+          current.performanceState,
+          current.commandState,
+          result.state,
+        ),
         undoStack: [...current.undoStack, current.commandState],
         redoStack: [],
         ...deriveSelection(result.state),
@@ -619,10 +697,17 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
         return { lastError: "Nothing to undo." };
       }
 
-      return {
-        commandState: restoreCommandState(
+      const commandState = restoreCommandState(
           previousState,
           current.commandState.revision + 1,
+        );
+      return {
+        commandState,
+        performanceState: syncPerformanceWithCommandState(
+          current.performanceState,
+          current.commandState,
+          commandState,
+          true,
         ),
         undoStack: current.undoStack.slice(0, -1),
         redoStack: [current.commandState, ...current.redoStack],
@@ -644,10 +729,17 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
         return { lastError: "Nothing to redo." };
       }
 
-      return {
-        commandState: restoreCommandState(
+      const commandState = restoreCommandState(
           nextState,
           current.commandState.revision + 1,
+        );
+      return {
+        commandState,
+        performanceState: syncPerformanceWithCommandState(
+          current.performanceState,
+          current.commandState,
+          commandState,
+          true,
         ),
         undoStack: [...current.undoStack, current.commandState],
         redoStack: current.redoStack.slice(1),
@@ -719,6 +811,11 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       const persistence = autosaveSong(result.state.song);
       return {
         commandState: result.state,
+        performanceState: syncPerformanceWithCommandState(
+          current.performanceState,
+          current.commandState,
+          result.state,
+        ),
         undoStack: [...current.undoStack, current.commandState],
         redoStack: [],
         ...deriveSelection(result.state),
@@ -930,8 +1027,15 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       }
 
       const current = get();
+      const commandState = createCommandState(song, current.commandState.revision + 1);
       set({
-        commandState: createCommandState(song, current.commandState.revision + 1),
+        commandState,
+        performanceState: syncPerformanceWithCommandState(
+          current.performanceState,
+          current.commandState,
+          commandState,
+          true,
+        ),
         undoStack: [...current.undoStack, current.commandState],
         redoStack: [],
         ...deriveSongSelection(song),
@@ -977,8 +1081,15 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       const song = importSongJson(source);
       saveSongToStorage(song);
       const current = get();
+      const commandState = createCommandState(song, current.commandState.revision + 1);
       set({
-        commandState: createCommandState(song, current.commandState.revision + 1),
+        commandState,
+        performanceState: syncPerformanceWithCommandState(
+          current.performanceState,
+          current.commandState,
+          commandState,
+          true,
+        ),
         undoStack: [...current.undoStack, current.commandState],
         redoStack: [],
         ...deriveSongSelection(song),
