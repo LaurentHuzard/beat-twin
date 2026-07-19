@@ -2,77 +2,86 @@
 
 ## Loop
 
-BT-LIVE-103 / GitHub #28 — deliver the first product-facing 2 x 2 quantized
-launcher vertical slice on an isolated branch based on BT-LIVE-102.
+BT-LIVE-105 / GitHub #30 — add a playable 16-step editor and safe
+clip-variation workflow on the merged NanoDAW launcher.
 
 ## Target Outcome
 
-NanoDAW presents two tracks with two clip slots each. A performer can start the
-shared browser audio runtime, launch or replace a clip on a quantized boundary,
-stop one track independently, and always see the distinction between queued and
-active state without interrupting the other track.
+A player can build a recognizable drum or pitched pattern without opening the
+numeric editor, accent it through bounded velocities, duplicate it into the
+next empty launcher slot, and trust undo, redo, autosave, reload, and live
+playback timing.
 
 ## Planned Changes
 
-- project a bounded two-track/two-slot launcher from the browser-owned Song;
-- route every launch and stop through the existing performance store and exact
-  BT-LIVE-102 controller handshake;
-- expose transport and launch quantization without introducing another clock;
-- show honest idle, queued, active, stopping, unavailable, and failure states;
-- keep the detailed editor and existing Preview path available;
-- add focused interaction tests, real-browser evidence, Orbit report, and an
-  adversarial review.
+- project exactly 16 steps from the selected browser-owned clip;
+- provide bounded drum lanes and a bounded pitched-note mode;
+- route toggles, accents, and batches only through `BeatTwinCommand` values;
+- expose clip length and musical step resolution explicitly;
+- duplicate to the next empty launcher slot without overwrite and with fully
+  materialized clip/note IDs;
+- retain the numeric note editor as a secondary precision surface;
+- make keyboard, pointer, and touch gestures accessible without hover;
+- make edits to active material audible at the next loop boundary while other
+  tracks continue, with coherent queued edits, repeated edits, undo, and redo.
 
 ## Product Contract
 
-- The launcher is a projection and command surface, never a second Song owner.
-- UI and future agent actions share the same bounded performance actions.
-- A slot becomes active only after the audio engine observes its exact
-  transition; a click alone cannot paint a false playing state.
-- Replacing or stopping one track never resets the shared transport or affects
-  the other track.
-- The slice stays 2 x 2. Scaling, step variations, MIDI recording, audio/sample
-  payloads, Capture Jam, Bitwig, Gateway, MCP, and S25 changes are out of scope.
+- `Song` remains the only persistent musical document and the launcher/editor
+  remain projections and command surfaces.
+- One primary gesture produces one command/revision; a bounded multi-step
+  gesture may produce one atomic batch.
+- The 16-step grid uses explicit `stepBeats = clip.lengthBeats / 16`; no second
+  pattern schema or unlimited resolution system is introduced.
+- Drum lanes and pitched entry are bounded UI mappings onto ordinary MIDI
+  notes.
+- Duplicate never overwrites an occupied slot and reports a blocked state when
+  no later slot is free.
+- Active-clip document revisions replace only that track at its next loop
+  boundary; unrelated tracks remain continuous. Stale or ambiguous runtime
+  state fails closed.
 
 ## Verification Plan
 
-- focused launcher/store/controller interaction tests;
+- focused pure mapping, command, store, launcher, controller, and live-engine
+  tests;
 - `pnpm test`;
 - `pnpm typecheck`;
 - `pnpm nanodaw:test`;
 - `pnpm --filter @beat-twin/playground build`;
 - `pnpm smoke:packages`;
 - `git diff --check`;
-- desktop real-browser launch, replacement, independent stop, console, and
-  responsive-layout checks;
-- adversarial review for false UI state, duplicate gestures, unavailable
-  material, stale transitions, and cross-track interruption.
+- desktop and narrow real-browser QA covering create rhythm, accent, duplicate,
+  edit variation, undo, redo, save, reload, relaunch, console health, and touch
+  sizing;
+- adversarial review for command granularity, slot overwrite, ID reuse,
+  material-revision races, cross-track interruption, stale async work, and
+  accessibility.
 
 ## Current State
 
-The bounded implementation, deterministic suite, production build, package
-smoke, responsive browser pass, real Tone timing trace, and adversarial review
-are complete. The reviewer findings around a controller factory resolving after
-unmount, accessible state names, and duplicate immediate transport stop were
-fixed with regressions. PR #42 is open on the published branch; final GitHub CI
-and merge remain pending.
+BT-LIVE-105 is complete on `agent/bt-live-105-step-editor`, based on merged
+BT-LIVE-103 commit `829db14`. The implementation, deterministic suites,
+production build, package smoke, desktop/narrow browser flow, simultaneous-drum
+relaunch, and console gate pass. The browser and dev server are stopped and QA
+artifacts removed. No Orbit Ready item remains on this branch.
 
 ## Human Gates
 
-- The user cleared the BT-LIVE-102 listening gate on 2026-07-19 and explicitly
-  authorized push, PR creation, and merge for the dependency-ordered sequence.
 - Only one implementation branch and one `Orbit Ready` item may exist at once.
 - Browser-local audio playback is in scope; external DAW writes remain out of
   scope.
+- This loop may commit locally, but push, PR creation, merge, and live DAW
+  writes require a separate human action.
 
 ## Exit Condition
 
-The 2 x 2 surface passes deterministic and real-browser gates, its report
-records the evidence and residual risks, and the implementation PR is merged
-without bypassing required checks.
+Met locally. The bounded editor and variation flow pass deterministic and
+real-browser gates, the active-edit timing rule is documented and tested, the
+adversarial release blockers are resolved, and one local commit plus the Orbit
+report are ready for human publication review.
 
 ## Next Activation Signal
 
-After #28 merges, activate only GitHub #30 for the playable 16-step editor and
-variations. Keep #31 and the indispensable BT-AUDIO-200 audio/sample tranche
-dependency-ordered behind it.
+After this loop is reviewed and merged, GitHub #31 may become Orbit Ready.
+BT-AUDIO-200 remains parked behind #31.

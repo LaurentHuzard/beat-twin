@@ -5,7 +5,7 @@ export type LiveClipMaterial = {
   readonly kind: string;
   /** Stable identity of the prepared content, independent from a launcher slot. */
   readonly materialId: string;
-  /** Monotonic document/material revision used to reject stale preparation. */
+  /** Deterministic numeric hash of adapter-defined audible content. */
   readonly version: number;
   readonly clipId: string;
   readonly lengthBeats: number;

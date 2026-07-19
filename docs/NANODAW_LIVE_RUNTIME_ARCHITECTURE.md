@@ -84,14 +84,16 @@ The Playground Zustand store owns `commandState` and `performanceState` beside
 one another. `dispatchPerformance()` invokes the pure reducer, then reconciles
 its opaque references against a source-neutral `{version, clipIdsByTrack}`
 projection of the current `Song`. Incremental document commands remove orphaned
-runtime references. Full replacements through load, import, undo, redo, or a
-new remote song reset the runtime and advance `materialVersion`. Neither path
-turns performance gestures into command history, autosave, preview audio,
-adapter, Gateway, MCP, or Bitwig calls.
+runtime references. Load, import, and a new remote song reset runtime ownership;
+undo and redo reconcile surviving clip references so a live edit can be heard
+at the next loop boundary. `materialVersion` remains an opaque document
+projection counter for reference reconciliation; the audio material adapter
+uses its own audible content identity. Neither path turns performance gestures
+into command history, autosave, preview audio, adapter, Gateway, MCP, or Bitwig
+calls.
 
-There is intentionally no launcher UI and no Tone.js scheduling in this slice.
-BT-LIVE-102 may connect a persistent clock and audio graph to the transition
-handshake without changing document ownership.
+The later BT-LIVE-102/103 slices connect this contract to a persistent Tone.js
+clock and the 2 x 2 launcher without changing document ownership.
 
 ## Capture Boundary
 

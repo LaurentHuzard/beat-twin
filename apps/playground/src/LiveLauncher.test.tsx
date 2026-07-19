@@ -295,6 +295,88 @@ describe("LiveLauncher", () => {
     expect(dispose).toHaveBeenCalledTimes(1);
   });
 
+  it("subscribes live material sync directly to Song mutations", async () => {
+    usePlaygroundStore.getState().createDemo();
+    const syncPending = vi.fn(async () => undefined);
+    const reconcileMaterial = vi.fn();
+    const factory = vi.fn<LiveAudioControllerFactory>(async (host) => ({
+      async start() {
+        host.dispatchPerformance({ type: "StartTransport", atBeat: 0 });
+      },
+      syncClock: vi.fn(),
+      syncPending,
+      reconcileMaterial,
+      cancelTrackTransition: vi.fn(),
+      cancelScene: vi.fn(),
+      cancelTransportStop: vi.fn(),
+      emergencyStop: vi.fn(() => host.dispatchPerformance({ type: "ResetPerformance" })),
+      dispose: vi.fn(),
+    }));
+    render(<LiveLauncher controllerFactory={factory} />);
+    fireEvent.click(screen.getByRole("button", { name: "Start live" }));
+    await waitFor(() => expect(screen.getByText("Live audio running")).toBeInTheDocument());
+    await waitFor(() => expect(syncPending).toHaveBeenCalled());
+    syncPending.mockClear();
+    reconcileMaterial.mockClear();
+    const state = usePlaygroundStore.getState();
+    const track = state.commandState.song!.tracks[0]!;
+    const clip = track.clips[0]!;
+
+    act(() => {
+      usePlaygroundStore.getState().dispatch({
+        type: "AddNote",
+        trackId: track.id,
+        clipId: clip.id,
+        pitch: 36,
+        velocity: 96,
+        startBeat: 0.25,
+        lengthBeats: 0.25,
+      });
+      expect(reconcileMaterial).toHaveBeenCalledTimes(1);
+      expect(syncPending).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => expect(syncPending).toHaveBeenCalledTimes(1));
+  });
+
+  it("surfaces a structured controller fail-safe reason after a Song mutation", async () => {
+    usePlaygroundStore.getState().createDemo();
+    let failSafe = false;
+    const factory = vi.fn<LiveAudioControllerFactory>(async (host) => ({
+      async start() {
+        host.dispatchPerformance({ type: "StartTransport", atBeat: 0 });
+      },
+      syncClock: vi.fn(),
+      syncPending: vi.fn(async () => undefined),
+      reconcileMaterial: vi.fn(() => {
+        if (!failSafe) return;
+        host.dispatchPerformance({ type: "ResetPerformance" });
+        host.reportError?.({
+          code: "invalid_state",
+          message: "song tempo changed; restart live audio",
+        });
+      }),
+      cancelTrackTransition: vi.fn(),
+      cancelScene: vi.fn(),
+      cancelTransportStop: vi.fn(),
+      emergencyStop: vi.fn(() => host.dispatchPerformance({ type: "ResetPerformance" })),
+      dispose: vi.fn(),
+    }));
+    render(<LiveLauncher controllerFactory={factory} />);
+    fireEvent.click(screen.getByRole("button", { name: "Start live" }));
+    await waitFor(() => expect(screen.getByText("Live audio running")).toBeInTheDocument());
+
+    failSafe = true;
+    act(() => usePlaygroundStore.getState().setTempo(132));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "invalid_state: song tempo changed; restart live audio",
+      ),
+    );
+    expect(usePlaygroundStore.getState().performanceState.phase).toBe("idle");
+  });
+
   it("queues a quantized transport stop and releases the controller only after observation", async () => {
     usePlaygroundStore.getState().createDemo();
     const harness = createControllerHarness();

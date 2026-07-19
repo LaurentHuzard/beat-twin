@@ -41,6 +41,7 @@ import {
   type PerformanceMaterialSnapshot,
   type PerformanceState,
 } from "./performanceRuntime";
+import { findNextEmptyLauncherSlot } from "./launcherModel";
 
 const trackColors = ["#2d7f73", "#d85b40", "#826aed", "#c8971b", "#2f6fa3"];
 
@@ -98,6 +99,7 @@ export type PlaygroundStore = {
   readonly preview: PreviewState;
   readonly lastError: string | null;
   readonly dispatch: (command: BeatTwinCommand) => void;
+  readonly dispatchBatch: (commands: readonly BeatTwinCommand[]) => void;
   readonly dispatchPerformance: (action: PerformanceAction) => void;
   readonly resetPerformance: () => void;
   readonly inspectRemoteSession: () => CommandSnapshot;
@@ -112,6 +114,7 @@ export type PlaygroundStore = {
   readonly playPreview: () => Promise<void>;
   readonly stopPreview: () => Promise<void>;
   readonly duplicateSelectedClip: () => void;
+  readonly duplicateSelectedClipToNextLauncherSlot: () => void;
   readonly quantizeSelectedClip: (gridBeats: number) => void;
   readonly transposeSelectedClip: (semitones: number) => void;
   readonly saveSong: () => void;
@@ -135,12 +138,15 @@ export function setPreviewAudioEngine(engine: PreviewAudioEngine): void {
   previewAudioEngine = engine;
 }
 
+let fallbackIdSequence = 0;
+
 function makeId(scope: IdScope): string {
   if (globalThis.crypto?.randomUUID) {
     return `${scope}-${globalThis.crypto.randomUUID()}`;
   }
 
-  return `${scope}-${Date.now().toString(36)}`;
+  fallbackIdSequence += 1;
+  return `${scope}-${Date.now().toString(36)}-${fallbackIdSequence.toString(36)}`;
 }
 
 function messageId(): string {
@@ -652,6 +658,30 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     });
   },
 
+  dispatchBatch: (commands) => {
+    if (commands.length === 0) return;
+    set((current) => {
+      const result = applyCommands(current.commandState, commands);
+      if (result.error) return { lastError: result.error };
+      const persistence = autosaveSong(result.state.song);
+      return {
+        commandState: result.state,
+        performanceState: syncPerformanceWithCommandState(
+          current.performanceState,
+          current.commandState,
+          result.state,
+        ),
+        undoStack: [...current.undoStack, current.commandState],
+        redoStack: [],
+        ...deriveSelection(result.state),
+        persistence: persistence ?? current.persistence,
+        editingNoteId: null,
+        noteDraft: defaultNoteDraft,
+        lastError: null,
+      };
+    });
+  },
+
   inspectRemoteSession: () => snapshotCommandState(get().commandState),
 
   executeRemoteCommandBatch: (request) => {
@@ -707,7 +737,6 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
           current.performanceState,
           current.commandState,
           commandState,
-          true,
         ),
         undoStack: current.undoStack.slice(0, -1),
         redoStack: [current.commandState, ...current.redoStack],
@@ -739,7 +768,6 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
           current.performanceState,
           current.commandState,
           commandState,
-          true,
         ),
         undoStack: [...current.undoStack, current.commandState],
         redoStack: current.redoStack.slice(1),
@@ -1005,13 +1033,35 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       set({ lastError: "Select a clip before duplicating it." });
       return;
     }
-
     get().dispatch({
       type: "DuplicateClip",
       trackId: target.track.id,
       clipId: target.clip.id,
     });
 
+    if (!get().lastError) {
+      set({ editingNoteId: null, noteDraft: defaultNoteDraft });
+    }
+  },
+
+  duplicateSelectedClipToNextLauncherSlot: () => {
+    const { commandState, selectedTrackId, selectedClipId } = get();
+    const target = resolveEditableClip(commandState, selectedTrackId, selectedClipId);
+    if (!target) {
+      set({ lastError: "Select a clip before duplicating it." });
+      return;
+    }
+    const emptySlot = findNextEmptyLauncherSlot(target.track, target.clip.id);
+    if (!emptySlot) {
+      set({ lastError: "No later empty launcher slot is available for this clip." });
+      return;
+    }
+    get().dispatch({
+      type: "DuplicateClip",
+      trackId: target.track.id,
+      clipId: target.clip.id,
+      startBeat: emptySlot.startBeat,
+    });
     if (!get().lastError) {
       set({ editingNoteId: null, noteDraft: defaultNoteDraft });
     }

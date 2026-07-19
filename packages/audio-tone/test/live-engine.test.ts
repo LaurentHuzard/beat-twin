@@ -303,6 +303,8 @@ test("replaces and stops track A on exact boundaries while track B continues", a
   assert.deepEqual(secondA?.releaseTimes, [8]);
   assert.deepEqual(secondA?.disposeTimes, [8]);
   assert.deepEqual(engine.getSnapshot().activeMaterialByTrack, { "track-b": "clip-b1@1" });
+  assert.deepEqual(engine.getSnapshot().activeStartedAtBeatByTrack, { "track-b": 0 });
+  assert.deepEqual(engine.getSnapshot().activeLengthBeatsByTrack, { "track-b": 4 });
 });
 
 test("cancels future replacement, restores the old loop, and coalesces exact retries", async () => {
@@ -467,6 +469,37 @@ test("reports autoplay and unsupported material failures structurally", async ()
       code: "unsupported_material",
       message: "No preparer for future-adapter",
     },
+  });
+});
+
+test("keeps the old active loop intact when replacement preparation fails", async () => {
+  const { engine, port, triggers } = harness();
+  await engine.unlock();
+  await engine.scheduleTransitions([
+    launch("stable", "track-a", 0, midiMaterial("clip-stable")),
+  ]);
+  engine.start(0);
+  port.advanceTo(4);
+
+  const unavailable: LiveClipMaterial = {
+    kind: "future-adapter",
+    materialId: "unavailable-content",
+    version: 2,
+    clipId: "clip-stable",
+    lengthBeats: 4,
+  };
+  const result = await engine.scheduleTransitions([
+    launch("failed-refresh", "track-a", 8, unavailable),
+  ]);
+  assert.equal(result.ok, false);
+  port.advanceTo(12);
+
+  assert.equal(
+    triggers.some((entry) => entry.materialId === "clip-stable@1" && entry.beat === 12),
+    true,
+  );
+  assert.deepEqual(engine.getSnapshot().activeMaterialByTrack, {
+    "track-a": "clip-stable@1",
   });
 });
 

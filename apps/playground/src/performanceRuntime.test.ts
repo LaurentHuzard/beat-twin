@@ -449,6 +449,71 @@ describe("performance clip transitions", () => {
     expect(state.tracks["track-a"].pendingTransition).toBeNull();
   });
 
+  it("queues an active clip refresh at one exact future loop boundary", () => {
+    let state = activeTrack(createPerformanceState(), "track-a", "clip-a");
+    state = reducePerformanceState(state, {
+      type: "RefreshActiveClip",
+      transitionId: "refresh-a",
+      trackId: "track-a",
+      clipId: "clip-a",
+      requestedAtBeat: 1.25,
+      targetBeat: 4,
+    });
+    expect(state.tracks["track-a"].pendingTransition).toMatchObject({
+      id: "refresh-a",
+      kind: "launch",
+      clipId: "clip-a",
+      requestedAtBeat: 1.25,
+      targetBeat: 4,
+      status: "pending",
+    });
+
+    expect(() =>
+      reducePerformanceState(state, {
+        type: "RefreshActiveClip",
+        transitionId: "late-refresh",
+        trackId: "track-a",
+        clipId: "clip-a",
+        requestedAtBeat: 1.25,
+        targetBeat: 1.25,
+      }),
+    ).toThrow(/strictly in the future/);
+  });
+
+  it("requeues scheduled individual work without changing its exact target", () => {
+    let state = reduce(
+      createPerformanceState(),
+      {
+        type: "LaunchClip",
+        transitionId: "launch-a",
+        trackId: "track-a",
+        clipId: "clip-a",
+        requestedAtBeat: 1,
+      },
+      { type: "MarkTransitionScheduled", trackId: "track-a", transitionId: "launch-a" },
+      { type: "AdvanceClock", beat: 2 },
+      { type: "RequeueScheduledTransition", trackId: "track-a", transitionId: "launch-a" },
+    );
+    expect(state.tracks["track-a"].pendingTransition).toMatchObject({
+      id: "launch-a",
+      targetBeat: 4,
+      status: "pending",
+    });
+
+    state = reduce(
+      state,
+      { type: "MarkTransitionScheduled", trackId: "track-a", transitionId: "launch-a" },
+      { type: "AdvanceClock", beat: 4 },
+    );
+    expect(() =>
+      reducePerformanceState(state, {
+        type: "RequeueScheduledTransition",
+        trackId: "track-a",
+        transitionId: "launch-a",
+      }),
+    ).toThrow(/at or after target beat/);
+  });
+
   it("never rebinds a previously claimed transition ID", () => {
     let state = activeTrack(
       createPerformanceState(),
@@ -585,6 +650,36 @@ describe("performance scenes, recording, and mix", () => {
       status: "cancelled",
       reason: "engine",
     });
+  });
+
+  it("requeues every scheduled scene member atomically", () => {
+    let state = reduce(
+      createPerformanceState(),
+      {
+        type: "LaunchScene",
+        transitionId: "scene-requeue",
+        sceneId: "scene-a",
+        requestedAtBeat: 1,
+        slots: [
+          { trackId: "track-a", clipId: "clip-a" },
+          { trackId: "track-b", clipId: "clip-b" },
+        ],
+      },
+      { type: "MarkSceneScheduled", groupId: "scene-requeue" },
+      { type: "AdvanceClock", beat: 2 },
+      { type: "RequeueScheduledScene", groupId: "scene-requeue" },
+    );
+    expect(state.tracks["track-a"].pendingTransition?.status).toBe("pending");
+    expect(state.tracks["track-b"].pendingTransition?.status).toBe("pending");
+    expect(state.tracks["track-a"].pendingTransition?.targetBeat).toBe(4);
+    expect(state.tracks["track-b"].pendingTransition?.targetBeat).toBe(4);
+
+    state = reducePerformanceState(state, {
+      type: "MarkSceneScheduled",
+      groupId: "scene-requeue",
+    });
+    expect(state.tracks["track-a"].pendingTransition?.status).toBe("scheduled");
+    expect(state.tracks["track-b"].pendingTransition?.status).toBe("scheduled");
   });
 
   it("moves recording and overdub state through explicit slot transitions", () => {

@@ -33,8 +33,10 @@ Song (persistent document, immutable snapshots)
 Every launch carries a `LiveClipMaterial` descriptor:
 
 - `kind`: adapter registry key;
-- `materialId`: immutable snapshot identity;
-- `version`: persistent material revision;
+- `materialId`: content-addressed audible identity, independent from Song,
+  track, clip, launcher slot, and note IDs;
+- `version`: deterministic numeric hash of the same audible content, not the
+  global Song revision;
 - `clipId` and `lengthBeats`: generic loop identity and bounds.
 
 MIDI is the only implemented adapter in this tranche. `LiveMidiClipMaterial`
@@ -45,7 +47,7 @@ without changing the engine, scheduler, transition requests, or controller
 handshake. No speculative audio/sample payload is defined here.
 
 Material preparation is asynchronous. After every preparation await, the
-controller revalidates the exact transition/group and `materialVersion` before
+controller revalidates the exact transition/group and content identity before
 acknowledging `MarkTransitionScheduled` or `MarkSceneScheduled`. If browser
 state changed, or the acknowledgement is rejected/no-op, it cancels the engine
 work immediately and suppresses an orphan cancellation observation.
@@ -54,11 +56,15 @@ an await marks the pass dirty and guarantees a second scan before ownership is
 released, including the empty-first-pass microtask edge.
 
 `reconcileMaterial()` is the explicit hook after a persistent Song revision.
-It compares active and scheduled engine material IDs with the current
-`materialVersion`. Scheduled old material is cancelled through the identified
-runtime handshake. An already-active old material fails closed by stopping the
-shared live runtime and resetting ephemeral performance state. Late/stale
-engine observations are identity- and material-checked before reducer dispatch.
+It compares active and scheduled engine material IDs with a canonical MIDI
+identity made from adapter schema, instrument, loop length, and sorted audible
+note fields. Renames, note IDs, and relocation do not rebuild sound. Scheduled
+old material is cancelled and requeued with the same transition/group IDs and
+target; active edited material is replaced at its next exact loop boundary.
+Ambiguous ownership, partial scene cancellation, or missing active timing stops
+and resets the live runtime and reports a structured reason to the launcher.
+Late/stale engine observations are identity- and material-checked before reducer
+dispatch.
 
 ## Timing and track isolation
 
@@ -70,8 +76,11 @@ engine observations are identity- and material-checked before reducer dispatch.
 - Replacing a clip adds a cutoff at the replacement boundary. Cancelling the
   replacement removes that cutoff so the prior loop continues.
 - Boundary callbacks propagate Tone's exact `audioTime` into source release.
-  Polyphonic Tone voices receive `releaseAll(audioTime)`; monophonic Synth,
-  MonoSynth, and MembraneSynth voices fall back to `triggerRelease(audioTime)`.
+  Polyphonic Tone voices receive `releaseAll(audioTime)`. Drum notes own stable
+  voices per note/lane so different lanes remain exactly simultaneous. A same
+  lane/time duplicate and same-time notes on monophonic bass/lead use a
+  deterministic first-note-wins policy instead of shifting either event.
+  Voices without `releaseAll` fall back to `triggerRelease(audioTime)`.
   Node disposal is deferred until just after that audio time, outside the
   look-ahead callback. Deferred dispose is idempotent; an immediate lifecycle
   cleanup cancels its timer and disposes synchronously.
@@ -107,6 +116,9 @@ Failures use stable codes (`autoplay_rejected`, `tone_unavailable`,
 `invalid_state`, `invalid_request`, `material_not_ready`,
 `unsupported_material`, `schedule_failed`, and `disposed`). Browser autoplay
 rejection therefore remains recoverable by another explicit user gesture.
+Tempo is fixed for one live controller lifetime. Editing Song BPM while live
+fails closed with a visible structured error; the next explicit Start live
+initializes the engine with the edited BPM.
 
 ## Preview compatibility
 

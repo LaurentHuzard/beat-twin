@@ -146,6 +146,8 @@ export type LiveAudioSnapshot = {
   readonly bpm: number | null;
   readonly currentBeat: number;
   readonly activeMaterialByTrack: Readonly<Record<string, string>>;
+  readonly activeStartedAtBeatByTrack: Readonly<Record<string, number>>;
+  readonly activeLengthBeatsByTrack: Readonly<Record<string, number>>;
   readonly pendingTransitionByTrack: Readonly<Record<string, string>>;
   readonly pendingMaterialByTrack: Readonly<Record<string, string | null>>;
   readonly error: LiveAudioError | null;
@@ -666,11 +668,15 @@ export function createLiveAudioEngine(input: {
 
     getSnapshot() {
       const activeMaterialByTrack: Record<string, string> = {};
+      const activeStartedAtBeatByTrack: Record<string, number> = {};
+      const activeLengthBeatsByTrack: Record<string, number> = {};
       const pendingTransitionByTrack: Record<string, string> = {};
       const pendingMaterialByTrack: Record<string, string | null> = {};
       for (const [trackId, track] of tracks) {
         if (track.active?.prepared) {
           activeMaterialByTrack[trackId] = track.active.prepared.materialId;
+          activeStartedAtBeatByTrack[trackId] = track.active.request.targetBeat;
+          activeLengthBeatsByTrack[trackId] = track.active.prepared.lengthBeats;
         }
         if (track.pending) {
           pendingTransitionByTrack[trackId] = track.pending.request.transitionId;
@@ -682,6 +688,8 @@ export function createLiveAudioEngine(input: {
         bpm,
         currentBeat: phase === "new" || phase === "disposed" ? 0 : currentBeat(),
         activeMaterialByTrack: Object.freeze(activeMaterialByTrack),
+        activeStartedAtBeatByTrack: Object.freeze(activeStartedAtBeatByTrack),
+        activeLengthBeatsByTrack: Object.freeze(activeLengthBeatsByTrack),
         pendingTransitionByTrack: Object.freeze(pendingTransitionByTrack),
         pendingMaterialByTrack: Object.freeze(pendingMaterialByTrack),
         error: lastError,

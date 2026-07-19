@@ -142,6 +142,15 @@ export type PerformanceAction =
       readonly quantization?: LaunchQuantization;
     }
   | {
+      /** Replace current material at one exact, strictly-future loop boundary. */
+      readonly type: "RefreshActiveClip";
+      readonly transitionId: string;
+      readonly trackId: string;
+      readonly clipId: string;
+      readonly requestedAtBeat: number;
+      readonly targetBeat: number;
+    }
+  | {
       readonly type: "StopTrack";
       readonly transitionId: string;
       readonly trackId: string;
@@ -161,6 +170,12 @@ export type PerformanceAction =
       readonly trackId: string;
       readonly transitionId: string;
     }
+  | {
+      readonly type: "RequeueScheduledTransition";
+      readonly trackId: string;
+      readonly transitionId: string;
+    }
+  | { readonly type: "RequeueScheduledScene"; readonly groupId: string }
   | {
       readonly type: "ObserveTransitionExecuted";
       readonly trackId: string;
@@ -518,6 +533,30 @@ export function reducePerformanceState(
         groupId: null,
       });
 
+    case "RefreshActiveClip": {
+      const trackId = requiredId(action.trackId, "trackId");
+      const clipId = requiredId(action.clipId, "clipId");
+      const requestedAtBeat = nonNegativeFinite(action.requestedAtBeat, "requestedAtBeat");
+      const targetBeat = nonNegativeFinite(action.targetBeat, "targetBeat");
+      if (state.tracks[trackId]?.activeClipId !== clipId) {
+        throw new Error(`track ${trackId} must have clip ${clipId} active before refresh`);
+      }
+      if (targetBeat <= Math.max(state.currentBeat, requestedAtBeat)) {
+        throw new Error("active clip refresh target must be strictly in the future");
+      }
+      return queueTrackTransition(state, {
+        id: action.transitionId,
+        kind: "launch",
+        trackId,
+        clipId,
+        requestedAtBeat,
+        targetBeat,
+        sceneId: null,
+        groupId: null,
+        allowActiveRelaunch: true,
+      });
+    }
+
     case "StopTrack":
       return queueTrackTransition(state, {
         id: action.transitionId,
@@ -598,6 +637,12 @@ export function reducePerformanceState(
           return Object.freeze({ ...transition, status: "scheduled" as const });
         },
       );
+
+    case "RequeueScheduledTransition":
+      return requeueScheduledTransition(state, action.trackId, action.transitionId);
+
+    case "RequeueScheduledScene":
+      return requeueScheduledScene(state, action.groupId);
 
     case "ObserveTransitionExecuted":
       return resolveObservedTransition(state, action, "executed");
@@ -780,6 +825,7 @@ type QueueTrackTransitionInput = {
   readonly targetBeat: number;
   readonly sceneId: string | null;
   readonly groupId: string | null;
+  readonly allowActiveRelaunch?: boolean;
 };
 
 function queueTrackTransition(
@@ -818,7 +864,12 @@ function queueTrackTransition(
   }
   let next = reserveTransitionId(state, pending.id);
 
-  if (pending.kind === "launch" && track.activeClipId === pending.clipId && !track.pendingTransition) {
+  if (
+    pending.kind === "launch" &&
+    track.activeClipId === pending.clipId &&
+    !track.pendingTransition &&
+    !input.allowActiveRelaunch
+  ) {
     return next;
   }
   if (pending.kind === "stop" && track.activeClipId === null && !track.pendingTransition) {
@@ -1054,6 +1105,48 @@ function updateSceneGroup(
     };
   }
   return freezeState({ ...state, tracks });
+}
+
+function requeueScheduledTransition(
+  state: PerformanceState,
+  trackIdInput: string,
+  transitionIdInput: string,
+): PerformanceState {
+  return updatePendingTransition(
+    state,
+    trackIdInput,
+    transitionIdInput,
+    (transition) => {
+      if (transition.groupId !== null) {
+        throw new Error(
+          `transition ${transition.id} belongs to scene group ${transition.groupId}; use RequeueScheduledScene`,
+        );
+      }
+      if (transition.status !== "scheduled") {
+        throw new Error(`transition ${transition.id} must be scheduled before requeue`);
+      }
+      if (state.currentBeat >= transition.targetBeat) {
+        throw new Error(
+          `transition ${transition.id} cannot be requeued at or after target beat ${transition.targetBeat}`,
+        );
+      }
+      return Object.freeze({ ...transition, status: "pending" as const });
+    },
+  );
+}
+
+function requeueScheduledScene(
+  state: PerformanceState,
+  groupIdInput: string,
+): PerformanceState {
+  return updateSceneGroup(state, groupIdInput, "scheduled", (transition) => {
+    if (state.currentBeat >= transition.targetBeat) {
+      throw new Error(
+        `scene group ${groupIdInput} cannot be requeued at or after target beat ${transition.targetBeat}`,
+      );
+    }
+    return Object.freeze({ ...transition, status: "pending" as const });
+  });
 }
 
 function resolveSceneGroup(
