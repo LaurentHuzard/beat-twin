@@ -1,8 +1,8 @@
 # Beat Twin Execution Queue
 
 Updated: 2026-07-19
-Branch: `agent/bt-live-101-performance-runtime`
-Worktree: `/tmp/beat-twin-orbit-26`
+Branch: `agent/bt-live-102-audio-engine`
+Worktree: `/tmp/beat-twin-orbit-27`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -19,10 +19,10 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-None. BT-LIVE-101 / GitHub #26 is complete locally on
-`agent/bt-live-101-performance-runtime` and awaits human review. GitHub #27 is
-the next eligible activation; #28, #30, and #31 remain dependency-ordered
-follow-ups. This section must be updated before implementation continues.
+BT-LIVE-102 / GitHub #27 — build one persistent browser-owned musical clock and
+per-track audio graph. This is the only authorized implementation item. It is
+stacked on the locally completed BT-LIVE-101 commit `6c669ab`; GitHub #28, #30,
+and #31 remain dependency-ordered follow-ups.
 
 ## Standalone NanoDAW MCP
 
@@ -76,6 +76,23 @@ BT-204 proves the current standalone loop.
 | BT-212 | Implement the authenticated bounded `BitwigAdapter` | P1 | XL | Done | BT-207, BT-211 |
 | BT-213 | Prove separately confirmed NanoDAW and Bitwig execution flows | P2 | XL | Ready | BT-211, BT-212 |
 | BT-214 | Package the gateway, adapters, controller, and NanoDAW install flow | P2 | L | Parked | BT-213 |
+
+## Later - Audio clips and samples
+
+This tranche remains parked until the dependency-ordered live sequence through
+GitHub #31 is complete. BT-LIVE-102 provides only the source-neutral engine and
+adapter boundary; none of the payload, import, decode, UI, or persistence work
+below is implemented here.
+
+| ID | Task | Priority | Size | Status | Depends on |
+| --- | --- | --- | --- | --- | --- |
+| BT-AUDIO-200 | Open the bounded audio-clip and sample playback tranche | P0 | XL | Parked | GitHub #31 |
+| BT-AUDIO-201 | Define versioned browser-owned audio asset references and validation | P0 | M | Parked | BT-AUDIO-200 |
+| BT-AUDIO-202 | Add explicit local import, decode, and asset lifecycle boundaries | P0 | L | Parked | BT-AUDIO-201 |
+| BT-AUDIO-203 | Implement a prepared-buffer material adapter on the live engine registry | P0 | L | Parked | BT-AUDIO-202 |
+| BT-AUDIO-204 | Prove non-warped clip offset, loop, replacement, and track-local stop timing | P0 | L | Parked | BT-AUDIO-203 |
+| BT-AUDIO-205 | Add bounded sample/audio slot UI with honest loading and failure states | P1 | L | Parked | BT-AUDIO-204 |
+| BT-AUDIO-206 | Prove save/reload, cleanup, memory bounds, browser playback, and listening gates | P0 | L | Parked | BT-AUDIO-205 |
 
 ## Guardrails
 

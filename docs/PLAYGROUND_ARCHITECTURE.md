@@ -22,13 +22,17 @@ Sprint 10 draft command parser boundaries live in
 The ephemeral live performance reducer, audio-observation handshake, and future
 capture boundary live in
 [`NANODAW_LIVE_RUNTIME_ARCHITECTURE.md`](NANODAW_LIVE_RUNTIME_ARCHITECTURE.md).
+The persistent browser clock, source-neutral material preparation boundary, and
+per-track audio graph live in
+[`NANODAW_LIVE_AUDIO_ENGINE.md`](NANODAW_LIVE_AUDIO_ENGINE.md).
 
 ## Current Browser Stack
 
 - `packages/core` is the pure musical document model.
 - `packages/commands` is the only mutation path for browser UI and future chat/LLM flows.
 - `apps/playground` is a Vite React TypeScript app that dispatches commands and renders the resulting song state.
-- `packages/audio-tone` schedules browser audition events and starts Tone.js only when preview playback is requested.
+- `packages/audio-tone` owns the pure live scheduler and persistent browser
+  audio engine. Tone.js is still loaded lazily only when playback is requested.
 - `packages/adapters`, `packages/mcp`, `packages/ui`, and `packages/utils` are reserved extension points, not active implementations.
 
 ## Browser-First Flow
@@ -150,6 +154,13 @@ not a second `Song`. Its actions do not enter command history or persistence,
 and active clip state changes only after an identified audio execution is
 observed. The complete ownership and capture rules are documented in
 [`NANODAW_LIVE_RUNTIME_ARCHITECTURE.md`](NANODAW_LIVE_RUNTIME_ARCHITECTURE.md).
+The controller binds those identified transitions to one live engine. Preview
+and the future launcher share the same browser singleton through mutually
+exclusive owner leases; neither may reset or dispose the other's runtime.
+Transition material is immutable and versioned, async preparation is cancelled
+if browser state changes before its schedule acknowledgement, and
+`reconcileMaterial()` removes old engine work after persistent edits. See
+[`NANODAW_LIVE_AUDIO_ENGINE.md`](NANODAW_LIVE_AUDIO_ENGINE.md).
 
 ## Validation
 

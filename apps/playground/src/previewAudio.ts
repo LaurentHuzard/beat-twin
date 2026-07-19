@@ -1,7 +1,7 @@
 import {
-  createTonePreviewEngine,
+  LiveAudioEngineFault,
   scheduleSongNotes,
-  type TonePreviewEngine,
+  type LiveMidiClipMaterial,
 } from "@beat-twin/audio-tone";
 import {
   DEFAULT_BUILT_IN_INSTRUMENT_ID,
@@ -10,6 +10,11 @@ import {
   type Song,
   type Track,
 } from "@beat-twin/core";
+
+import {
+  acquireBrowserAudioLease,
+  type BrowserAudioLease,
+} from "./browserAudioRuntime";
 
 export type PreviewPhase = "idle" | "playing" | "error";
 
@@ -78,8 +83,18 @@ export function buildPreviewAudition(
 }
 
 export function createBrowserPreviewAudioEngine(): PreviewAudioEngine {
-  return new TonePackagePreviewAudioEngine();
+  return createPreviewAudioEngineFromLiveRuntime({
+    acquireLease: () => acquireBrowserAudioLease("preview"),
+  });
 }
+
+export function createPreviewAudioEngineFromLiveRuntime(runtime: {
+  readonly acquireLease: () => Promise<PreviewAudioLease>;
+}): PreviewAudioEngine {
+  return new TonePackagePreviewAudioEngine(runtime.acquireLease);
+}
+
+type PreviewAudioLease = Pick<BrowserAudioLease, "engine" | "release">;
 
 type PreviewTarget = {
   readonly track: Track;
@@ -123,27 +138,91 @@ function resolvePreviewTarget(
 }
 
 class TonePackagePreviewAudioEngine implements PreviewAudioEngine {
-  private enginePromise: Promise<TonePreviewEngine> | null = null;
+  private lease: PreviewAudioLease | null = null;
+  private operationQueue: Promise<void> = Promise.resolve();
 
-  async play(audition: PreviewAudition): Promise<void> {
-    await this.stop();
+  constructor(private readonly acquireLease: () => Promise<PreviewAudioLease>) {}
+
+  play(audition: PreviewAudition): Promise<void> {
+    return this.enqueue(() => this.playNow(audition));
+  }
+
+  stop(): Promise<void> {
+    return this.enqueue(() => this.stopNow());
+  }
+
+  private async playNow(audition: PreviewAudition): Promise<void> {
+    this.stopNow();
 
     if (audition.notes.length === 0) {
       throw new Error("Selected clip has no playable notes.");
     }
 
-    const engine = await this.getEngine();
-    await engine.start(audition.song, { delaySeconds: 0.04 });
+    const lease = await this.acquireLease();
+    this.lease = lease;
+    const { engine } = lease;
+
+    try {
+      engine.initialize(audition.bpm);
+      engine.reset();
+      await engine.unlock();
+
+      const track = audition.song.tracks[0];
+      const clip = track?.clips[0];
+      if (!track || !clip || track.kind !== "instrument") {
+        throw new LiveAudioEngineFault({
+          code: "unsupported_material",
+          message: "Preview requires one instrument clip",
+        });
+      }
+      const material: LiveMidiClipMaterial = Object.freeze({
+        kind: "midi",
+        materialId: `${audition.song.id}:${track.id}:${clip.id}@preview`,
+        version: 0,
+        clipId: clip.id,
+        instrumentId: track.instrumentId ?? DEFAULT_BUILT_IN_INSTRUMENT_ID,
+        lengthBeats: clip.lengthBeats,
+        notes: Object.freeze(clip.pattern.notes.map((note) => Object.freeze({ ...note }))),
+      });
+      const scheduled = await engine.scheduleTransitions([
+        {
+          kind: "launch",
+          transitionId: `preview:${track.id}:${clip.id}`,
+          groupId: null,
+          trackId: `preview:${track.id}`,
+          targetBeat: 0,
+          material,
+        },
+      ]);
+      if (!scheduled.ok) throw new LiveAudioEngineFault(scheduled.error);
+      engine.start(0);
+    } catch (error) {
+      if (this.lease === lease) {
+        this.lease = null;
+        const phase = engine.getSnapshot().phase;
+        if (phase !== "new" && phase !== "disposed") engine.stop();
+        lease.release();
+      }
+      throw error;
+    }
   }
 
-  async stop(): Promise<void> {
-    const engine = this.enginePromise ? await this.enginePromise : null;
-    engine?.stop();
+  private stopNow(): void {
+    const lease = this.lease;
+    if (!lease) return;
+    this.lease = null;
+    const phase = lease.engine.getSnapshot().phase;
+    if (phase !== "new" && phase !== "disposed") lease.engine.stop();
+    lease.release();
   }
 
-  private getEngine(): Promise<TonePreviewEngine> {
-    this.enginePromise ??= createTonePreviewEngine();
-    return this.enginePromise;
+  private enqueue(operation: () => void | Promise<void>): Promise<void> {
+    const run = this.operationQueue.then(operation, operation);
+    this.operationQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
   }
 }
 

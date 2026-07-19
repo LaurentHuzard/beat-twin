@@ -39,7 +39,9 @@ export type TonePreviewSynth = {
     velocity?: number,
   ) => void;
   toDestination?: () => TonePreviewSynth;
+  connect?: (destination: unknown) => unknown;
   releaseAll?: (time?: number) => void;
+  triggerRelease?: (time?: number) => void;
   dispose?: () => void;
 };
 
@@ -52,12 +54,19 @@ type ToneTransportEventId = number | string;
 
 export type ToneTransportLike = {
   readonly bpm?: { value: number };
+  seconds?: number;
   schedule: (
     callback: (time: number) => void,
     time: number,
   ) => ToneTransportEventId;
+  scheduleRepeat?: (
+    callback: (time: number) => void,
+    interval: number,
+    startTime?: number,
+  ) => ToneTransportEventId;
   start: (time?: number | string) => void;
   stop: () => void;
+  pause?: () => void;
   clear?: (eventId: ToneTransportEventId) => void;
   cancel?: (after?: number) => void;
 };
@@ -68,6 +77,13 @@ export type TonePolySynthConstructor = new (
   options?: unknown,
 ) => TonePreviewSynth;
 
+export type ToneTrackBusNode = {
+  toDestination?: () => unknown;
+  dispose?: () => void;
+};
+
+export type ToneGainConstructor = new (gain?: number) => ToneTrackBusNode;
+
 export type ToneModuleLike = {
   Transport?: ToneTransportLike;
   getTransport?: () => ToneTransportLike;
@@ -75,7 +91,9 @@ export type ToneModuleLike = {
   Synth?: ToneSynthConstructor;
   MonoSynth?: ToneSynthConstructor;
   MembraneSynth?: ToneSynthConstructor;
+  Gain?: ToneGainConstructor;
   start?: () => Promise<void>;
+  now?: () => number;
 };
 
 type OwnedVoice = {
@@ -187,6 +205,7 @@ export async function createTonePreviewEngine(
 
 export function createBuiltInInstrumentVoiceFactory(
   tone: ToneModuleLike,
+  destination?: unknown,
 ): TonePreviewVoiceFactory {
   return (instrumentId) => {
     if (!BUILT_IN_INSTRUMENTS.some((instrument) => instrument.id === instrumentId)) {
@@ -251,6 +270,10 @@ export function createBuiltInInstrumentVoiceFactory(
       }
     }
 
+    if (destination !== undefined && voice.connect) {
+      voice.connect(destination);
+      return voice;
+    }
     return voice.toDestination?.() ?? voice;
   };
 }
