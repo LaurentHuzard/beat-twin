@@ -86,6 +86,22 @@ fixed before commit:
 2. scene and slot accessible names carry their live state, including queued,
    playing, and stop-queued.
 
+## Post-PR transport disposal correction
+
+A later review found that normal launcher cleanup after the observed transport
+stop still called the browser wrapper's emergency stop for engine phase
+`stopped`. That could issue a second immediate `Tone.Transport.stop()` without
+the scheduled callback time and undermine the lookahead boundary already
+honored by the first stop.
+
+The wrapper now classifies every engine phase explicitly. It emergency-stops
+only `initialized`, `blocked`, `ready`, `running`, and `suspended`; `new`,
+`stopped`, and `disposed` release normally. A wrapper/controller integration
+test using the real live engine observes exactly `stop(7.25)`, then disposes the
+controller and proves there is no second `stop(undefined)`. A phase-table test
+covers all eight phase values. The focused browser-runtime and launcher suite
+passes 11/11.
+
 ## Scope guard and residual risk
 
 - No 4 x 4 scaling, step variations, MIDI recording, mixer, Capture Jam,
