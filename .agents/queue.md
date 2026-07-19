@@ -19,10 +19,20 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-BT-LIVE-102 / GitHub #27 — build one persistent browser-owned musical clock and
-per-track audio graph. This is the only authorized implementation item. It is
-stacked on the locally completed BT-LIVE-101 commit `6c669ab`; GitHub #28, #30,
-and #31 remain dependency-ordered follow-ups.
+BT-LIVE-103 / GitHub #28 — deliver the bounded 2 x 2 quantized launcher vertical
+slice on the reviewed performance runtime and persistent audio engine. This is
+the only authorized implementation item. GitHub #30 and #31 remain
+dependency-ordered follow-ups.
+
+## NanoDAW Live sequence
+
+| Order | ID | GitHub | Task | Status | Depends on |
+| --- | --- | --- | --- | --- | --- |
+| 1 | BT-LIVE-101 | #26 | Separate the ephemeral performance runtime | Done | - |
+| 2 | BT-LIVE-102 | #27 | Add one persistent clock and per-track audio graph | Done | BT-LIVE-101 |
+| 3 | BT-LIVE-103 | #28 | Prove a 2 x 2 quantized launcher vertical slice | Ready | BT-LIVE-102 |
+| 4 | BT-LIVE-105 | #30 | Add the playable 16-step editor and variations | Ready | BT-LIVE-103 |
+| 5 | BT-LIVE-106 | #31 | Add quantized MIDI loop recording and overdub | Ready | BT-LIVE-105 |
 
 ## Standalone NanoDAW MCP
 

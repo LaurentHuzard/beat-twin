@@ -2,85 +2,68 @@
 
 ## Loop
 
-BT-LIVE-102 / GitHub #27 — connect the reviewed performance contract to one
-persistent browser-owned clock and per-track audio graph on
-`agent/bt-live-102-audio-engine`.
+BT-LIVE-103 / GitHub #28 — deliver the first product-facing 2 x 2 quantized
+launcher vertical slice on an isolated branch based on BT-LIVE-102.
 
 ## Target Outcome
 
-NanoDAW can keep at least two tracks looping on one clock while a clip on one
-track is launched, replaced, or stopped on its resolved musical boundary
-without resetting the clock or interrupting the other track. Audio observations
-must drive the performance reducer through the exact transition identity.
+NanoDAW presents two tracks with two clip slots each. A performer can start the
+shared browser audio runtime, launch or replace a clip on a quantized boundary,
+stop one track independently, and always see the distinction between queued and
+active state without interrupting the other track.
 
 ## Planned Changes
 
-- pure fake-clock scheduler tests for concurrent looping, replacement, stop,
-  cleanup, coalescence, and disposal;
-- one long-lived audio engine with a stable bus and source handle per track;
-- source-neutral `LiveClipMaterial` and preparation boundary so future audio
-  clips and samples do not require a second engine;
-- one controller binding Song snapshots to the BT-LIVE-101 request, schedule,
-  cancellation, execution, and failure handshake;
-- compatibility for the existing single-clip preview without a second Tone
-  transport owner;
-- real-browser autoplay, lifecycle, console, and listening evidence;
-- Orbit queue, report, and verification evidence.
+- project a bounded two-track/two-slot launcher from the browser-owned Song;
+- route every launch and stop through the existing performance store and exact
+  BT-LIVE-102 controller handshake;
+- expose transport and launch quantization without introducing another clock;
+- show honest idle, queued, active, stopping, unavailable, and failure states;
+- keep the detailed editor and existing Preview path available;
+- add focused interaction tests, real-browser evidence, Orbit report, and an
+  adversarial review.
 
 ## Product Contract
 
-- One browser-owned musical clock and audio engine serve every live track.
-- `Song` remains the only persistent musical document; prepared material is an
-  immutable versioned snapshot, never a second mutable song.
-- A clip becomes active only after the engine observes execution for the same
-  transition ID; scheduling and audible execution remain distinct.
-- Replacing or stopping one track cannot reset transport or cancel unrelated
-  track events.
-- Every source handle is cancellable, stoppable, disposable, and attached to a
-  stable per-track output boundary.
-- The launch API is generic by material kind/ID/version. MIDI is the only
-  implemented material in this loop, but audio clips and samples remain a
-  compatible later adapter.
-- No launcher redesign, MIDI recording, Capture Jam, Bitwig, Gateway, MCP, or
-  S25 change is in scope.
+- The launcher is a projection and command surface, never a second Song owner.
+- UI and future agent actions share the same bounded performance actions.
+- A slot becomes active only after the audio engine observes its exact
+  transition; a click alone cannot paint a false playing state.
+- Replacing or stopping one track never resets the shared transport or affects
+  the other track.
+- The slice stays 2 x 2. Scaling, step variations, MIDI recording, audio/sample
+  payloads, Capture Jam, Bitwig, Gateway, MCP, and S25 changes are out of scope.
 
 ## Verification Plan
 
-- focused fake-clock scheduler and engine lifecycle tests;
+- focused launcher/store/controller interaction tests;
 - `pnpm test`;
 - `pnpm typecheck`;
 - `pnpm nanodaw:test`;
 - `pnpm --filter @beat-twin/playground build`;
 - `pnpm smoke:packages`;
 - `git diff --check`;
-- desktop real-browser autoplay/recovery and console checks;
-- manual listening run with two contrasting loops for at least 32 bars,
-  replacement and stop/relaunch on one track while the other continues;
-- adversarial review for transport ownership, timing conversion, orphaned
-  events, late preparation, cancellation acknowledgement, and source cleanup.
+- desktop real-browser launch, replacement, independent stop, console, and
+  responsive-layout checks;
+- adversarial review for false UI state, duplicate gestures, unavailable
+  material, stale transitions, and cross-track interruption.
 
 ## Human Gates
 
-- The user authorized #27 as the next item in the dependency-ordered sequence
-  #26, #27, #28, #30, and #31.
+- The user cleared the BT-LIVE-102 listening gate on 2026-07-19 and explicitly
+  authorized push, PR creation, and merge for the dependency-ordered sequence.
 - Only one implementation branch and one `Orbit Ready` item may exist at once.
-- Browser-local audio playback is in scope; external DAW writes are not.
-- No merge, publication, deployment, external DAW write, or branch deletion is
-  authorized.
+- Browser-local audio playback is in scope; external DAW writes remain out of
+  scope.
 
 ## Exit Condition
 
-Pending the human listening gate only. Deterministic two-track timing,
-track-local replacement/stop, cleanup, package/type/build checks, independent
-adversarial code review, visible Preview behavior, real Tone two-track trace,
-and the zero-error/zero-warning browser console gate pass locally. The loop
-exits only after a human listening run is recorded honestly and the Orbit
-report clears #27.
+The 2 x 2 surface passes deterministic and real-browser gates, its report
+records the evidence and residual risks, and the implementation PR is merged
+without bypassing required checks.
 
 ## Next Activation Signal
 
-After this loop reaches its exit condition, activate GitHub #28 for the 2 x 2
-launcher, followed by #30 and #31. Preserve the source-neutral engine contract
-for the indispensable later BT-AUDIO-200 audio-clip and sample tranche. Parallel
-agents may analyze or review future slices but may not implement them before
-their dependency gate opens.
+After #28 merges, activate only GitHub #30 for the playable 16-step editor and
+variations. Keep #31 and the indispensable BT-AUDIO-200 audio/sample tranche
+dependency-ordered behind it.

@@ -98,15 +98,16 @@ reservation, unlock lifecycle generation, exclusive browser leases, material
 reconciliation, stale-observation fail-safe reset, partial-scene cleanup,
 single-flight dirty drain, and serialized preview operations were covered.
 
-## Gate still requiring review
+## Human listening decision
 
-- human listening for at least 32 bars with contrasting loops, replacement,
-  stop, and relaunch on one track while the other audibly continues.
+On 2026-07-19, the user explicitly answered `JE valide` to the requested human
+listening gate and authorized the resulting branches to be pushed, proposed,
+and merged. No additional subjective listening notes were supplied, so this
+report records the approval without inventing observations that were not
+stated.
 
-That listening gate is intentionally not reported as passed: the automated
-browser trace proves scheduling and state, not what a person heard. `Orbit
-Ready` remains on BT-LIVE-102 until a human records that outcome and decides
-whether the loop may clear for GitHub #28.
+The human gate is therefore cleared. BT-LIVE-102 may leave `Orbit Ready`, and
+GitHub #28 / BT-LIVE-103 may become the unique authorized implementation item.
 
 ## Scope guard
 
