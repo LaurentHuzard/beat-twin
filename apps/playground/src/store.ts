@@ -754,13 +754,17 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
   },
 
   createDemo: () => {
-    const trackId = makeId("track");
-    const clipId = makeId("clip");
+    const drumTrackId = makeId("track");
+    const kickClipId = makeId("clip");
+    const hatClipId = makeId("clip");
+    const bassTrackId = makeId("track");
+    const rootClipId = makeId("clip");
+    const walkClipId = makeId("clip");
     const commands: BeatTwinCommand[] = [
       { type: "CreateSong", title: "Playground Sketch", bpm: 124 },
       {
         type: "CreateTrack",
-        id: trackId,
+        id: drumTrackId,
         name: "Drums",
         kind: "instrument",
         instrumentId: "drums",
@@ -768,16 +772,16 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       },
       {
         type: "CreateClip",
-        id: clipId,
-        trackId,
+        id: kickClipId,
+        trackId: drumTrackId,
         name: "Kick Ladder",
         startBeat: 0,
         lengthBeats: 8,
       },
       {
         type: "AddNote",
-        trackId,
-        clipId,
+        trackId: drumTrackId,
+        clipId: kickClipId,
         pitch: 36,
         velocity: 118,
         startBeat: 0,
@@ -785,8 +789,8 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       },
       {
         type: "AddNote",
-        trackId,
-        clipId,
+        trackId: drumTrackId,
+        clipId: kickClipId,
         pitch: 38,
         velocity: 92,
         startBeat: 2,
@@ -794,13 +798,72 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       },
       {
         type: "AddNote",
-        trackId,
-        clipId,
+        trackId: drumTrackId,
+        clipId: kickClipId,
         pitch: 42,
         velocity: 84,
         startBeat: 3.5,
         lengthBeats: 0.25,
       },
+      {
+        type: "CreateClip",
+        id: hatClipId,
+        trackId: drumTrackId,
+        name: "Hat Current",
+        startBeat: 8,
+        lengthBeats: 8,
+      },
+      ...Array.from({ length: 8 }, (_, index): BeatTwinCommand => ({
+        type: "AddNote",
+        trackId: drumTrackId,
+        clipId: hatClipId,
+        pitch: index % 4 === 3 ? 46 : 42,
+        velocity: index % 2 === 0 ? 88 : 72,
+        startBeat: index,
+        lengthBeats: 0.25,
+      })),
+      {
+        type: "CreateTrack",
+        id: bassTrackId,
+        name: "Bass",
+        kind: "instrument",
+        instrumentId: "bass",
+        color: trackColors[0],
+      },
+      {
+        type: "CreateClip",
+        id: rootClipId,
+        trackId: bassTrackId,
+        name: "Root Pulse",
+        startBeat: 0,
+        lengthBeats: 8,
+      },
+      ...[36, 36, 39, 34].map((pitch, index): BeatTwinCommand => ({
+        type: "AddNote",
+        trackId: bassTrackId,
+        clipId: rootClipId,
+        pitch,
+        velocity: index === 0 ? 108 : 94,
+        startBeat: index * 2,
+        lengthBeats: 1.5,
+      })),
+      {
+        type: "CreateClip",
+        id: walkClipId,
+        trackId: bassTrackId,
+        name: "Fifth Walk",
+        startBeat: 8,
+        lengthBeats: 8,
+      },
+      ...[36, 43, 41, 39].map((pitch, index): BeatTwinCommand => ({
+        type: "AddNote",
+        trackId: bassTrackId,
+        clipId: walkClipId,
+        pitch,
+        velocity: 98,
+        startBeat: index * 2,
+        lengthBeats: 1.25,
+      })),
     ];
 
     set((current) => {
@@ -818,7 +881,8 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
         ),
         undoStack: [...current.undoStack, current.commandState],
         redoStack: [],
-        ...deriveSelection(result.state),
+        selectedTrackId: drumTrackId,
+        selectedClipId: kickClipId,
         songJsonDraft: result.state.song ? exportSongJson(result.state.song) : current.songJsonDraft,
         persistence: persistence ?? current.persistence,
         lastError: null,

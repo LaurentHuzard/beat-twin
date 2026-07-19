@@ -310,17 +310,17 @@ describe("Playground", () => {
     fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
 
     const timelineSummary = screen.getByLabelText("Timeline summary");
-    expect(timelineSummary).toHaveTextContent("1 track");
-    expect(timelineSummary).toHaveTextContent("1 clip");
-    expect(timelineSummary).toHaveTextContent("3 notes");
+    expect(timelineSummary).toHaveTextContent("2 tracks");
+    expect(timelineSummary).toHaveTextContent("4 clips");
+    expect(timelineSummary).toHaveTextContent("19 notes");
     expect(timelineSummary).toHaveTextContent("Kick Ladder");
-    expect(screen.getByTestId("track-row")).toHaveClass("selected");
+    expect(screen.getAllByTestId("track-row")[0]).toHaveClass("selected");
     expect(
       screen.getByRole("button", {
         name: /kick ladder, 3 notes, starts at beat 0/i,
       }),
     ).toHaveClass("selected");
-    expect(screen.getAllByTestId("clip-note-marker")).toHaveLength(3);
+    expect(screen.getAllByTestId("clip-note-marker")).toHaveLength(19);
   });
 
   it("adds tracks through the command bus", () => {
@@ -348,7 +348,9 @@ describe("Playground", () => {
 
     expect(screen.queryByRole("dialog", { name: /command palette/i })).toBeNull();
     expect(screen.getByLabelText("Inspector")).toHaveTextContent("Kick Ladder");
-    expect(screen.getByLabelText("Command log")).toHaveTextContent("SongCreated");
+    expect(
+      usePlaygroundStore.getState().commandState.log.some((event) => event.type === "SongCreated"),
+    ).toBe(true);
   });
 
   it("opens the command palette from the keyboard and executes the active action", () => {

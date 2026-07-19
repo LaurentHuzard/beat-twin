@@ -44,7 +44,7 @@ import {
 } from "@beat-twin/core";
 
 import { AgentModePanel } from "./AgentModePanel";
-import { LiveComparisonLab } from "./LiveComparisonLab";
+import { LiveLauncher } from "./LiveLauncher";
 import { buildPreviewAudition, type PreviewState } from "./previewAudio";
 import {
   usePlaygroundStore,
@@ -97,7 +97,7 @@ function App() {
   const setDraft = usePlaygroundStore((state) => state.setDraft);
   const submitDraft = usePlaygroundStore((state) => state.submitDraft);
   const [isCommandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [isLiveLabRunning, setLiveLabRunning] = useState(false);
+  const [isLiveRunning, setLiveRunning] = useState(false);
 
   const selectedTrack =
     song?.tracks.find((track) => track.id === selectedTrackId) ?? song?.tracks[0] ?? null;
@@ -106,7 +106,7 @@ function App() {
     selectedTrack?.clips[0] ??
     null;
   const canPreview =
-    Boolean(buildPreviewAudition(song, selectedTrackId, selectedClipId)) && !isLiveLabRunning;
+    Boolean(buildPreviewAudition(song, selectedTrackId, selectedClipId)) && !isLiveRunning;
   const isPlayingPreview = preview.phase === "playing";
 
   useKeyboardShortcuts({
@@ -299,6 +299,11 @@ function App() {
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
       />
 
+      <LiveLauncher
+        externalAudioActive={isPlayingPreview}
+        onRunningChange={setLiveRunning}
+      />
+
       <AgentModePanel />
 
       <section className="workspace-grid" aria-label="Beat Twin workspace">
@@ -324,11 +329,6 @@ function App() {
           onInstrumentChange={setSelectedTrackInstrument}
         />
       </section>
-
-      <LiveComparisonLab
-        externalAudioActive={isPlayingPreview}
-        onRunningChange={setLiveLabRunning}
-      />
 
       <CommandDock
         events={events}

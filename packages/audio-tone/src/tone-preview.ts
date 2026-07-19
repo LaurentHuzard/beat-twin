@@ -65,7 +65,7 @@ export type ToneTransportLike = {
     startTime?: number,
   ) => ToneTransportEventId;
   start: (time?: number | string) => void;
-  stop: () => void;
+  stop: (time?: number) => void;
   pause?: () => void;
   clear?: (eventId: ToneTransportEventId) => void;
   cancel?: (after?: number) => void;

@@ -48,6 +48,15 @@ active state without interrupting the other track.
 - adversarial review for false UI state, duplicate gestures, unavailable
   material, stale transitions, and cross-track interruption.
 
+## Current State
+
+The bounded implementation, deterministic suite, production build, package
+smoke, responsive browser pass, real Tone timing trace, and adversarial review
+are complete. The reviewer findings around a controller factory resolving after
+unmount and accessible state names were fixed with regressions. The branch is
+ready for the parent publication loop; it is not yet pushed, opened as a PR, or
+merged.
+
 ## Human Gates
 
 - The user cleared the BT-LIVE-102 listening gate on 2026-07-19 and explicitly
