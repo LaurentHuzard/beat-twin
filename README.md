@@ -14,8 +14,10 @@ Its current repo contains three working musical surfaces:
   plans for explicit review and confirmation in the browser, without Bitwig.
 
 The DAW/agent contracts, transactional NanoDAW memory adapter, LiteRT-LM
-provider, Gateway security core, and loopback HTTP API are implemented. The
-authenticated browser WebSocket proxy and Bitwig adapter remain gated follow-up work.
+provider, Gateway security core, loopback HTTP API, authenticated browser
+WebSocket proxy, connected Agent mode, and bounded Bitwig adapter are
+implemented and covered by deterministic tests. The separately confirmed live
+NanoDAW/Bitwig proof and installable runtime packaging remain gated work.
 
 ## What Works
 
@@ -26,13 +28,21 @@ authenticated browser WebSocket proxy and Bitwig adapter remain gated follow-up 
 - A Bitwig controller script that speaks JSON-RPC over a local TCP connection.
 - Offline protocol and policy tests that run without launching Bitwig.
 - A browser NanoDAW for command-first song sketches, Tone.js audition, note editing, pattern tools, keyboard shortcuts, local undo/redo, JSON save/load, visible timeline feedback, a local command palette, and deterministic command drafts.
+- A browser-owned live runtime with one persistent clock, quantized launcher,
+  step editor, and atomic MIDI loop recording/overdub.
 - Atomic `ExecutableBeatTwinCommand[]` batches with monotonic revisions, stable errors, and idempotent request IDs.
 - A versioned `DawAdapter` contract with fake-adapter conformance tests.
 - Strict `SongPatchV1` validation, deterministic compilation, and mutation-free preview.
 - A `NanoDawAdapter` memory port plus an abstract browser-owned proxy boundary.
 - A real S25 LiteRT-LM capture of the exact three-tool runtime request, plus a strict provider loop bounded to four steps; G1 passed with `gemma4-e2b` on 2026-07-14.
 - A fail-closed Gateway core for hashed pairing tokens, quotas, immutable plans, short-lived single-use confirmations, and redacted audit events.
-- A loopback-only Gateway HTTP API with strict pairing, target-fixed preview/confirmation/execution, and durable uncertain-outcome readback.
+- A loopback-only Gateway HTTP API with strict pairing,
+  target-fixed preview/confirmation/execution, and process-lifetime terminal
+  uncertain-outcome readback.
+- An authenticated browser WebSocket proxy and explicit connected Agent mode
+  that preserve the browser as the only NanoDAW song owner.
+- A bounded `bitwig-launcher-v1` adapter with authenticated writes, fixed target
+  identity, strict musical bounds, and exact note readback in deterministic tests.
 
 ## Architecture
 
@@ -58,7 +68,11 @@ apps/playground
   -> localStorage JSON save/load
 ```
 
-The current Bitwig bridge still lives in `index.js`; adapter extraction is intentionally left for a later compatibility-focused slice. Browser audition is local Web Audio preview, not a Bitwig mutation or MCP write.
+The historical 57-tool Bitwig MCP bridge still lives in `index.js` as a
+compatibility path. The portable `BitwigAdapter` lives separately under
+`packages/adapters/bitwig` and receives the shared authenticated RPC primitive
+through an injected port. Browser audition is local Web Audio preview, not a
+Bitwig mutation or MCP write.
 Browser save/load is also local NanoDAW state, not a Bitwig mutation.
 Browser pattern tools are local document edits for duplicate, quantize, and transpose.
 Browser undo/redo restores local NanoDAW command snapshots only.
@@ -99,8 +113,10 @@ they are never model tools. The existing `TOOL_SPECS` registry remains the
 historical 57-tool Bitwig MCP surface, not the portable agent language. See
 [`docs/LOCAL-LLM-TOOL-ORCHESTRATION.md`](docs/LOCAL-LLM-TOOL-ORCHESTRATION.md).
 
-The provider, security core, and loopback HTTP API are implemented; the
-authenticated WebSocket session proxy and browser connected-mode wiring remain follow-up work.
+The provider, security core, loopback HTTP API, authenticated WebSocket proxy,
+and browser connected-mode wiring are implemented. Live S25 plus Bitwig
+dual-target proof, restart-durable Gateway storage, and installable packaging
+remain separate follow-up gates.
 
 ## Requirements
 
@@ -165,7 +181,7 @@ for local verification commands and troubleshooting.
 
 Beat Twin is read-only by default. At the MCP entry point, write tools are not listed by MCP clients and are blocked without an enabling policy. The Bitwig controller also requires per-connection authentication for every non-read RPC. Configure its `Bridge secret` preference and pass the same value as `BITWIG_BRIDGE_SECRET`; keep the default bridge on loopback and never expose it to untrusted networks.
 
-The future Agent Gateway does not expose these Bitwig MCP write tools to Gemma.
+The Agent Gateway does not expose these Bitwig MCP write tools to Gemma.
 It validates a constrained SongPatch, materializes executable IDs, previews the
 exact plan without mutation, and requires a short-lived human confirmation.
 The `bitwig-launcher-v1` adapter now authenticates, validates one bounded empty
@@ -228,6 +244,9 @@ Live tests require Bitwig Studio, the controller script, and explicit write perm
 
 ## Useful Docs
 
+- [`docs/ARCHITECTURE_AUDIT_2026-07-20.md`](docs/ARCHITECTURE_AUDIT_2026-07-20.md)
+- [`docs/ADR-002-MODULAR-MONOLITH-BOUNDARIES.md`](docs/ADR-002-MODULAR-MONOLITH-BOUNDARIES.md)
+- [`docs/ARCHITECTURE_REFACTORING_ROADMAP_2026-07-20.md`](docs/ARCHITECTURE_REFACTORING_ROADMAP_2026-07-20.md)
 - [`docs/BT-101-SESSION-INSPECTOR.md`](docs/BT-101-SESSION-INSPECTOR.md)
 - [`docs/BT-102-PROTOCOL-SMOKE.md`](docs/BT-102-PROTOCOL-SMOKE.md)
 - [`docs/BT-103-POLICY-GATE.md`](docs/BT-103-POLICY-GATE.md)

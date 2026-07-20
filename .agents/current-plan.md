@@ -1,88 +1,72 @@
-# Completed Beat Twin Orbit
+# Beat Twin Orbit — Architecture Audit
 
 ## Loop
 
-BT-LIVE-106 / GitHub #31 — add quantized MIDI loop recording and overdub to
-the merged NanoDAW launcher.
+BT-ARCH-001 / GitHub #45 — audit the repository architecture and define an
+incremental refactoring roadmap.
 
 ## Target Outcome
 
-A player can queue a fixed-length MIDI take from the computer keyboard or
-on-screen pads, see the count-in and recording boundaries, layer an overdub,
-and undo only the last take while the shared live clock continues.
+Maintain one trustworthy architecture baseline that maps the current runtime
+and package boundaries, identifies concrete risks with code and test evidence,
+defines a target dependency model, and turns the migration into independently
+reviewable follow-up slices.
 
 ## Planned Changes
 
-- add a bounded browser-native note-input contract with keyboard/pad baseline;
-- expose optional Web MIDI as a non-blocking adapter with honest availability;
-- queue empty-slot recording on the next bar and overdub on the next active
-  loop boundary for 1, 2, 4, or 8 bars;
-- capture note-on/off beats from the same live controller clock;
-- quantize note starts to an explicit sixteenth-note grid and normalize lengths
-  inside the loop;
-- materialize each completed take as one atomic `BeatTwinCommand[]` batch;
-- create an empty-slot clip or overdub an existing active clip without replacing
-  prior notes;
-- retain one explicit `Undo last take` checkpoint independently of transport;
-- discard interrupted takes and release held inputs on blur, hidden document,
-  unmount, device disconnect, permission denial, and transport stop;
-- keep audio recording, file input, external DAWs, and hidden persistent capture
-  state out of scope.
+- inventory packages, composition roots, compatibility surfaces, runtime flows,
+  tests, documentation, and dependency direction;
+- record architectural strengths and risks without changing runtime behavior;
+- define the target modular-monolith boundaries and allowed dependency graph;
+- write a sequenced refactoring roadmap with risk, value, dependencies, and
+  explicit non-goals;
+- add a proposed ADR for package boundaries and composition roots;
+- align status and architecture documentation where it contradicts the current
+  implementation;
+- create follow-up issues only for slices that have a bounded outcome and test
+  strategy.
 
 ## Product Contract
 
-- `Song` remains the only persistent musical document; the capture buffer is
-  ephemeral browser state until one successful atomic commit.
-- One take yields exactly one document revision, autosave, and undo checkpoint.
-- Empty-slot recording starts on the next exact bar; overdub starts on the next
-  exact active-loop boundary. Both are observed from the live clock.
-- Empty-slot recording creates one ordinary MIDI clip; overdub only appends
-  ordinary MIDI notes to the selected existing clip.
-- An interruption discards the whole uncommitted take. No partial take is
-  applied and held input is always released locally.
-- Web MIDI permission or device failure never disables keyboard or pad input.
-- Captured notes are bounded to MIDI 0-127 and cannot escape the chosen loop.
+- the browser remains the only owner of NanoDAW song state;
+- `@beat-twin/core` remains the canonical document model;
+- `@beat-twin/commands` remains the canonical mutation language;
+- models remain read/propose-only and never confirm or execute;
+- Gateway policy, confirmation, fixed-target planning, and uncertain-outcome
+  behavior remain fail-closed;
+- the historical Bitwig MCP surface remains compatible and read-only by default;
+- this loop changes documentation and planning only, not production behavior.
 
 ## Verification Plan
 
-- focused quantization, lifecycle, input-adapter, command-batch, store, and UI
-  tests;
-- `pnpm test`;
-- `pnpm typecheck`;
-- `pnpm nanodaw:test`;
-- `pnpm --filter @beat-twin/playground build`;
-- `pnpm smoke:packages`;
-- `git diff --check`;
-- real-browser desktop and narrow QA covering pads, keyboard, count-in, record,
-  overdub, undo-last-take, focus-loss recovery, reload, console health, and
-  honest optional-Web-MIDI absence;
-- adversarial review for clock drift, boundary rounding, late note-off, stuck
-  input, interrupted commit, duplicate identity, history granularity, and
-  transport/runtime ownership.
+- baseline and final `pnpm test`;
+- baseline and final `pnpm typecheck`;
+- final `pnpm test:playground`, `pnpm build`, and `pnpm smoke:packages`;
+- validate every finding against concrete source and test locations;
+- verify every proposed dependency direction is acyclic;
+- run Markdown link checks, `git diff --check`, and an adversarial review for
+  accidental product, security, or live-evidence claims.
 
 ## Current State
 
-BT-LIVE-106 is complete on `agent/bt-live-106-midi-recording`. Deterministic,
-build, package-smoke, adversarial-review, and real-browser gates pass. The human
-has explicitly authorized push, PR creation, CI-gated squash merge, and issue
-closure for this loop.
+Complete locally on `agent/architecture-audit-roadmap`. The user explicitly
+authorized issue #45 on 2026-07-20. The audit, proposed ADR, incremental roadmap,
+status alignment, four bounded follow-up issues, deterministic verification, and
+Orbit report are ready for draft-PR publication.
 
 ## Human Gates
 
-- Only BT-LIVE-106 was authorized for this implementation loop.
-- Browser-local MIDI capture and playback of the committed clip are proven.
-  Live input monitoring, microphone/audio recording, and external DAW writes
-  remain out of scope.
-- Push, PR creation, CI-gated squash merge, and issue closure were explicitly
-  authorized on 2026-07-19. No deployment or external write was authorized.
+- Issue #45 is authorized as a documentation and architecture-planning loop.
+- No implementation refactor, merge, deployment, live DAW write, or branch
+  deletion is authorized by this loop.
+- Publication is limited to a draft pull request for human review.
 
 ## Exit Condition
 
-Met. The bounded capture flow passes deterministic and real-browser gates, each
-take is atomic and undoable, failure paths discard safely, and Orbit
-documentation is aligned for publication.
+Met locally. The audit, target architecture, ADR, and roadmap are internally
+consistent, linked from the docs index, backed by the current code/tests, and
+verified offline. The draft PR closes #45 only when merged.
 
 ## Next Activation Signal
 
-BT-AUDIO-200 is the next eligible product tranche. It requires its own bounded
-Orbit plan before audio-clip or sample implementation begins.
+Human approval of one bounded roadmap slice after review of the audit PR.

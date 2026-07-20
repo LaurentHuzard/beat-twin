@@ -48,4 +48,11 @@ disposable project.
 - Write tools can change DAW state and must remain explicitly policy-gated.
 - This is still an experimental integration, not a mature product.
 - Live Agent runs still depend on S25 network availability; the exact three-tool G1 capture passed with `gemma4-e2b` on 2026-07-14.
-- The authenticated browser WebSocket proxy and Bitwig write bridge are not implemented.
+- The authenticated browser WebSocket proxy, connected Agent mode, and bounded
+  Bitwig adapter are implemented and covered offline, but the separately
+  confirmed live NanoDAW/Bitwig flow is not yet proven.
+- Gateway security and execution records are process-memory state; restart
+  recovery and bounded retention need an explicit contract before packaging.
+- The NanoDAW MCP package currently imports Gateway delivery from an app through
+  a handwritten type shim. See the architecture audit for the incremental
+  composition-root migration.

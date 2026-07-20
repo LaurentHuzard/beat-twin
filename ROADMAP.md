@@ -3,6 +3,8 @@
 The current ticket-level execution plan is maintained in
 [`docs/BEAT_TWIN_EXECUTION_ROADMAP_2026-07-14.md`](docs/BEAT_TWIN_EXECUTION_ROADMAP_2026-07-14.md),
 with the short operational queue in [`.agents/queue.md`](.agents/queue.md).
+The repository-structure migration is maintained separately in
+[`docs/ARCHITECTURE_REFACTORING_ROADMAP_2026-07-20.md`](docs/ARCHITECTURE_REFACTORING_ROADMAP_2026-07-20.md).
 
 ## Product Direction
 
@@ -43,19 +45,27 @@ The browser NanoDAW is the native reference target. Bitwig is the first external
 - Real LiteRT-LM/Gemma S25 capture of the exact three-tool runtime request and a strict provider loop bounded to four steps; G1 passed with `gemma4-e2b` on 2026-07-14.
 - Gateway security core with hashed/revocable pairing tokens, quotas, immutable two-minute plans, single-use thirty-second confirmations, and awaited redacted audit.
 - Loopback-only Gateway HTTP API with strict adapter validation, fixed-target previews, explicit confirmation, exactly-once dispatch, and uncertain-outcome status readback.
+- Authenticated browser WebSocket proxy and explicit connected Agent mode while
+  preserving the browser as the sole NanoDAW song owner.
+- Bounded `bitwig-launcher-v1` adapter, authenticated controller writes,
+  generation-aware target identity, strict musical bounds, and exact note
+  readback covered by deterministic tests.
 
-## Next: Connected Mode And Bitwig Adapter
+## Next: Dual-Target Proof And Packaging
 
 Gate order:
 
-1. Implement the authenticated browser WebSocket proxy over the existing `BrowserNanoDawPort` contract.
-2. Add explicit connected Agent mode while keeping the browser as the only NanoDAW state owner.
-3. Implement `BitwigAdapter` without breaking the root MCP compatibility path or its 57-tool snapshot.
-4. Authenticate the Bitwig write bridge and add strict bounds, reliable target identity, and note readback.
-5. Route separately confirmed plans to the recorded target with no target or command replacement at execution time.
-6. Run the same accepted SongPatch through two separate laptop-owned flows:
+1. Run the same accepted SongPatch through two separately confirmed laptop-owned flows:
    - Gateway -> S25 Gemma provider -> Gateway -> NanoDAW;
    - Gateway -> S25 Gemma provider -> Gateway -> Bitwig.
+2. Prove the Bitwig path in a disposable project with the configured bridge
+   secret, fixed empty target, bounded patch, and exact readback.
+3. Record NanoDAW atomicity and Bitwig partial/uncertain behavior as distinct
+   execution semantics; never imply cross-target atomicity.
+4. Define bounded retention and restart semantics for Gateway plans,
+   confirmations, idempotency evidence, and terminal execution status.
+5. Package the Gateway, adapters, controller, and NanoDAW composition without
+   exposing the loopback-only surface publicly.
 
 Guardrails:
 
@@ -69,7 +79,8 @@ Guardrails:
 - NanoDAW remote writes are one atomic batch, one revision, one autosave, and one undo checkpoint.
 - The gateway proxies NanoDAW commands to the browser instead of keeping a second song copy.
 - NanoDAW standalone mode remains available.
-- Bitwig writes stay blocked until the bridge is authenticated and exact note readback is available.
+- Bitwig writes stay blocked outside an explicitly authenticated, bounded,
+  fixed-target flow with exact note readback.
 - External-DAW partial execution is reported honestly.
 - Arrangement assistance remains plan-only until preview and recovery are stronger.
 
