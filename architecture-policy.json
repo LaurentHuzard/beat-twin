@@ -24,7 +24,7 @@
     },
     {
       "name": "delivery",
-      "paths": ["packages/mcp"]
+      "paths": ["packages/gateway-http", "packages/mcp"]
     },
     {
       "name": "infrastructure",
@@ -37,13 +37,5 @@
       "forbid": ["app", "adapter", "delivery"]
     }
   ],
-  "exceptions": [
-    {
-      "kind": "package-to-app",
-      "from": "@beat-twin/nanodaw-mcp",
-      "to": "@beat-twin/gateway",
-      "trackingIssue": "#49",
-      "reason": "Temporary compatibility edge removed by ARCH-103."
-    }
-  ]
+  "exceptions": []
 }

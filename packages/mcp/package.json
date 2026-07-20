@@ -24,8 +24,8 @@
     "@beat-twin/agent-contract": "workspace:*",
     "@beat-twin/core": "workspace:*",
     "@beat-twin/daw-contract": "workspace:*",
-    "@beat-twin/gateway": "workspace:*",
     "@beat-twin/gateway-core": "workspace:*",
+    "@beat-twin/gateway-http": "workspace:*",
     "@beat-twin/nanodaw-adapter": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.29.0"
   },

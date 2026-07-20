@@ -9,17 +9,17 @@
     ".": "./src/index.js"
   },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "corepack pnpm --filter @beat-twin/gateway-http build && node --test test/*.test.js"
   },
   "engines": {
     "node": "^22.0.0 || ^24.0.0"
   },
   "dependencies": {
-    "@beat-twin/agent-contract": "workspace:*",
+    "@beat-twin/gateway-http": "workspace:*"
+  },
+  "devDependencies": {
     "@beat-twin/commands": "workspace:*",
-    "@beat-twin/daw-contract": "workspace:*",
     "@beat-twin/gateway-core": "workspace:*",
-    "@beat-twin/litert-provider": "workspace:*",
     "ws": "^8.21.0"
   }
 }

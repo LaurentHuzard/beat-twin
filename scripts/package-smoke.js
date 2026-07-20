@@ -4,6 +4,10 @@ import { compileSongPatchV1 } from "../packages/agent-contract/dist/index.js";
 import { NANODAW_CAPABILITY_VERSION } from "../packages/adapters/nanodaw/dist/index.js";
 import { BITWIG_CAPABILITY_VERSION } from "../packages/adapters/bitwig/dist/index.js";
 import { MAX_PLAN_TTL_MS } from "../packages/gateway-core/dist/index.js";
+import {
+  BROWSER_NANODAW_PROTOCOL,
+  createGatewayRequestHandler,
+} from "../packages/gateway-http/dist/index.js";
 import { LITERT_AGENT_TOOL_NAMES } from "../packages/litert-provider/dist/index.js";
 import { scheduleSongNotes } from "../packages/audio-tone/dist/index.js";
 import {
@@ -42,6 +46,8 @@ assert.equal(compiled.every((command) => !("id" in command) || Boolean(command.i
 assert.equal(NANODAW_CAPABILITY_VERSION, "nanodaw-v2");
 assert.equal(BITWIG_CAPABILITY_VERSION, "bitwig-launcher-v1");
 assert.equal(MAX_PLAN_TTL_MS, 120_000);
+assert.equal(BROWSER_NANODAW_PROTOCOL, "beat-twin.nanodaw.v1");
+assert.equal(typeof createGatewayRequestHandler, "function");
 assert.deepEqual(LITERT_AGENT_TOOL_NAMES, [
   "list_daw_targets",
   "inspect_session",
@@ -60,5 +66,6 @@ console.log(JSON.stringify({
     "bitwig-adapter",
     "litert-provider",
     "gateway-core",
+    "gateway-http",
   ],
 }));

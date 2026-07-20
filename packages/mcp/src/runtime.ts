@@ -4,7 +4,7 @@ import {
   createBrowserNanoDawWebSocketProxy,
   createGatewayRequestHandler,
   type GatewayHandler,
-} from "@beat-twin/gateway";
+} from "@beat-twin/gateway-http";
 import {
   GatewayCoreError,
   GatewayPlanStore,

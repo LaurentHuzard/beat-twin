@@ -26,21 +26,16 @@ importers:
 
   apps/gateway:
     dependencies:
-      '@beat-twin/agent-contract':
+      '@beat-twin/gateway-http':
         specifier: workspace:*
-        version: link:../../packages/agent-contract
+        version: link:../../packages/gateway-http
+    devDependencies:
       '@beat-twin/commands':
         specifier: workspace:*
         version: link:../../packages/commands
-      '@beat-twin/daw-contract':
-        specifier: workspace:*
-        version: link:../../packages/daw-contract
       '@beat-twin/gateway-core':
         specifier: workspace:*
         version: link:../../packages/gateway-core
-      '@beat-twin/litert-provider':
-        specifier: workspace:*
-        version: link:../../packages/litert-provider
       ws:
         specifier: ^8.21.0
         version: 8.21.0
@@ -163,6 +158,30 @@ importers:
         specifier: workspace:*
         version: link:../daw-contract
 
+  packages/gateway-http:
+    dependencies:
+      '@beat-twin/agent-contract':
+        specifier: workspace:*
+        version: link:../agent-contract
+      '@beat-twin/commands':
+        specifier: workspace:*
+        version: link:../commands
+      '@beat-twin/daw-contract':
+        specifier: workspace:*
+        version: link:../daw-contract
+      '@beat-twin/gateway-core':
+        specifier: workspace:*
+        version: link:../gateway-core
+      '@beat-twin/litert-provider':
+        specifier: workspace:*
+        version: link:../litert-provider
+      '@beat-twin/nanodaw-adapter':
+        specifier: workspace:*
+        version: link:../adapters/nanodaw
+      ws:
+        specifier: ^8.21.0
+        version: 8.21.0
+
   packages/litert-provider:
     dependencies:
       '@beat-twin/agent-contract':
@@ -184,12 +203,12 @@ importers:
       '@beat-twin/daw-contract':
         specifier: workspace:*
         version: link:../daw-contract
-      '@beat-twin/gateway':
-        specifier: workspace:*
-        version: link:../../apps/gateway
       '@beat-twin/gateway-core':
         specifier: workspace:*
         version: link:../gateway-core
+      '@beat-twin/gateway-http':
+        specifier: workspace:*
+        version: link:../gateway-http
       '@beat-twin/nanodaw-adapter':
         specifier: workspace:*
         version: link:../adapters/nanodaw

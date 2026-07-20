@@ -1,0 +1,35 @@
+{
+  "name": "@beat-twin/gateway-http",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Typed loopback-only HTTP and browser WebSocket delivery for Beat Twin Gateway flows.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./browser-nanodaw-websocket": {
+      "types": "./dist/browser-nanodaw-websocket.d.ts",
+      "default": "./dist/browser-nanodaw-websocket.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "node scripts/build.js"
+  },
+  "engines": {
+    "node": "^22.0.0 || ^24.0.0"
+  },
+  "dependencies": {
+    "@beat-twin/agent-contract": "workspace:*",
+    "@beat-twin/commands": "workspace:*",
+    "@beat-twin/daw-contract": "workspace:*",
+    "@beat-twin/gateway-core": "workspace:*",
+    "@beat-twin/litert-provider": "workspace:*",
+    "@beat-twin/nanodaw-adapter": "workspace:*",
+    "ws": "^8.21.0"
+  }
+}
