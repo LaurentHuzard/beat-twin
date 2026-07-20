@@ -19,7 +19,8 @@ same deterministic command path over a pure song model.
 - Pure packages under `packages/core`, `packages/commands`, `packages/audio-tone`, `packages/daw-contract`, and `packages/agent-contract`.
 - Transactional NanoDAW memory adapter and browser-proxy contract under `packages/adapters/nanodaw`.
 - Strict LiteRT-LM provider under `packages/litert-provider` and fail-closed security core under `packages/gateway-core`.
-- Loopback-only Agent HTTP API under `apps/gateway`, including durable readback for uncertain post-dispatch outcomes.
+- Loopback-only Agent HTTP API under `apps/gateway`, including process-lifetime
+  terminal readback for uncertain post-dispatch outcomes.
 - Browser NanoDAW under `apps/playground` for now; the repo path stays stable while the product name shifts.
 - Copyright-safe Bitwig API placeholder note under `bitwig-api-docs/`.
 
@@ -44,7 +45,13 @@ same deterministic command path over a pure song model.
 - Live verification requires Bitwig Studio and a local controller installation.
 - Tool exposure must stay conservative because DAW control can quickly become too broad for agents.
 - The NanoDAW has a tested memory adapter contract, but connected browser mode
-  and the authenticated Bitwig adapter remain gated work.
+  and the authenticated Bitwig adapter still require separately confirmed live
+  dual-target proof and packaging before they are production-ready.
+- Gateway pairings, plans, confirmations, and execution status are currently
+  process-memory state; restart-durable recovery is not implemented.
+- Package boundaries have outgrown their original composition points; the
+  architecture audit and incremental migration live in
+  `docs/ARCHITECTURE_AUDIT_2026-07-20.md`.
 
 ## Direction
 
