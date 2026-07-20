@@ -4,6 +4,9 @@ This directory contains the current technical notes for the public Beat Twin pro
 
 ## Current Notes
 
+- [`ARCHITECTURE_AUDIT_2026-07-20.md`](ARCHITECTURE_AUDIT_2026-07-20.md): current package/runtime map, strengths, risks, and target architecture.
+- [`ADR-002-MODULAR-MONOLITH-BOUNDARIES.md`](ADR-002-MODULAR-MONOLITH-BOUNDARIES.md): proposed dependency rules and explicit composition-root decision.
+- [`ARCHITECTURE_REFACTORING_ROADMAP_2026-07-20.md`](ARCHITECTURE_REFACTORING_ROADMAP_2026-07-20.md): incremental migration slices, dependencies, constraints, and gates.
 - [`AGENT_SETUP.md`](AGENT_SETUP.md): what a coding agent can automate and what must be requested from the user in Bitwig.
 - [`BT-101-SESSION-INSPECTOR.md`](BT-101-SESSION-INSPECTOR.md): read-only session snapshot behavior.
 - [`BT-102-PROTOCOL-SMOKE.md`](BT-102-PROTOCOL-SMOKE.md): TCP framing, offline protocol smoke tests, and connection diagnostic coverage.
