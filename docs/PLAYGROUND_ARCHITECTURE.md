@@ -35,8 +35,8 @@ per-track audio graph live in
   audio engine. Tone.js is still loaded lazily only when playback is requested.
 - `packages/adapters/nanodaw` and `packages/adapters/bitwig` implement the two
   current DAW targets.
-- `packages/mcp` implements the standalone NanoDAW MCP planning surface and its
-  current runtime composition.
+- `packages/mcp` implements the reusable NanoDAW MCP schemas, service, and
+  transport; `apps/nanodaw-mcp` owns its process composition and lifecycle.
 - `packages/ui` and `packages/utils` remain reserved until real cross-feature or
   cross-package reuse justifies them.
 
@@ -99,15 +99,20 @@ and execution rejects stale revisions before mutation.
 - `packages/daw-contract`: versioned adapter, capability, plan, report, and conformance contracts.
 - `packages/agent-contract`: strict `SongPatchV1` validation, compilation, and preview.
 - `packages/adapters/nanodaw`: transactional memory adapter and abstract browser-owned port.
-- `apps/gateway/src/browser-nanodaw-websocket.js`: authenticated loopback proxy
-  for that browser-owned port; it keeps no song snapshot. See
+- `packages/gateway-http`: typed loopback HTTP delivery and authenticated
+  browser WebSocket proxy for that browser-owned port; it keeps no song
+  snapshot. `apps/gateway` remains a compatibility facade. See
   [`BROWSER_NANODAW_WEBSOCKET.md`](BROWSER_NANODAW_WEBSOCKET.md).
 - `packages/adapters/bitwig`: authenticated, target-bound launcher-slot
   translation with strict musical bounds, stop-first-failure semantics, and
   exact note readback.
 - `packages/mcp`: standalone NanoDAW catalog, inspection, and plan-preparation
-  MCP surface. Its current runtime also composes Gateway delivery; ADR-002 moves
-  that wiring into an explicit application without changing the tool contract.
+  MCP surface. `apps/nanodaw-mcp` composes Gateway delivery, browser proxy,
+  pairing, plans, adapter, stdio, and shutdown without changing the tool
+  contract.
+- `packages/retention`: bounded, injected process-lifetime storage primitives
+  used by idempotency and safety registries. See
+  [`ADR-003-PROCESS-LIFETIME-RETENTION.md`](ADR-003-PROCESS-LIFETIME-RETENTION.md).
 - `packages/ui`: shared UI primitives once the playground repeats enough component patterns.
 - `packages/utils`: small shared helpers only when duplication appears.
 

@@ -13,6 +13,7 @@
     "@beat-twin/audio-tone": "workspace:*",
     "@beat-twin/commands": "workspace:*",
     "@beat-twin/core": "workspace:*",
+    "@beat-twin/retention": "workspace:*",
     "lucide-react": "^0.468.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

@@ -6,10 +6,27 @@ import {
   type ExecutablePlan,
   type ExecutionReport,
 } from "@beat-twin/daw-contract";
+import {
+  BoundedRetentionMap,
+  type RetentionPolicy,
+  type RetentionStore,
+} from "@beat-twin/retention";
 
 export const MAX_PLAN_TTL_MS = 120_000;
 export const MAX_CONFIRMATION_TTL_MS = 30_000;
 export const MAX_PAIRING_TTL_MS = 86_400_000;
+export const DEFAULT_PAIRING_RETENTION = Object.freeze({
+  capacity: 1_024,
+  ttlMs: MAX_PAIRING_TTL_MS,
+} satisfies RetentionPolicy);
+export const DEFAULT_PLAN_RETENTION = Object.freeze({
+  capacity: 2_048,
+  ttlMs: 24 * 60 * 60 * 1_000,
+} satisfies RetentionPolicy);
+export const DEFAULT_CONFIRMATION_RETENTION = Object.freeze({
+  capacity: 2_048,
+  ttlMs: MAX_CONFIRMATION_TTL_MS,
+} satisfies RetentionPolicy);
 
 export const SONG_WRITE_SCOPE = "song.write";
 export const TRANSPORT_WRITE_SCOPE = "transport.write";
@@ -19,6 +36,7 @@ export type GatewayCoreErrorCode =
   | "unauthenticated"
   | "forbidden"
   | "quota_exceeded"
+  | "capacity_exceeded"
   | "policy_blocked"
   | "conflict"
   | "plan_expired"
@@ -76,10 +94,10 @@ export type AuthorizationContext = {
   readonly remainingRequests: number;
 };
 
-type PairingRecord = {
+export type PairingRecord = {
   readonly actorId: string;
   readonly scopes: readonly string[];
-  readonly expiresAt: number;
+  expiresAt: number;
   readonly maxRequests: number;
   usedRequests: number;
   revoked: boolean;
@@ -89,20 +107,30 @@ export type PairingAuthorityOptions = {
   readonly clock?: Clock;
   readonly audit: AuditSink;
   readonly tokenGenerator?: TokenGenerator;
+  readonly retention?: Partial<RetentionPolicy>;
+  readonly store?: RetentionStore<string, PairingRecord>;
 };
 
 export class PairingAuthority {
   readonly #clock: Clock;
   readonly #audit: AuditSink;
   readonly #tokenGenerator: TokenGenerator;
-  readonly #records = new Map<string, PairingRecord>();
+  readonly #records: BoundedRetentionMap<string, PairingRecord>;
   readonly #recordOperations = new Map<string, Promise<void>>();
   readonly #pendingTokenHashes = new Set<string>();
+  #activeOperations = 0;
 
   constructor(options: PairingAuthorityOptions) {
     this.#clock = options.clock ?? { now: Date.now };
     this.#audit = options.audit;
     this.#tokenGenerator = options.tokenGenerator ?? randomToken;
+    this.#records = new BoundedRetentionMap({
+      name: "Gateway pairings",
+      policy: { ...DEFAULT_PAIRING_RETENTION, ...options.retention },
+      clock: this.#clock,
+      store: options.store,
+      expiresAt: (record) => record.expiresAt,
+    });
   }
 
   async issue(input: {
@@ -120,27 +148,36 @@ export class PairingAuthority {
     if (this.#records.has(tokenHash) || this.#pendingTokenHashes.has(tokenHash)) {
       throw new GatewayCoreError("conflict", "token generator produced a collision");
     }
+    try {
+      this.#records.assertCanAdd(tokenHash, this.#pendingTokenHashes.size);
+    } catch (error) {
+      throw retentionUnavailable("pairing", error);
+    }
     this.#pendingTokenHashes.add(tokenHash);
     try {
-    const now = this.#clock.now();
-    const expiresAt = now + ttlMs;
-    const record: PairingRecord = {
-      actorId,
-      scopes,
-      expiresAt,
-      maxRequests,
-      usedRequests: 0,
-      revoked: false,
-    };
-    await this.#emit({
-      type: "pairing.issued",
-      timestamp: iso(now),
-      outcome: "allowed",
-      actorId,
-      tokenFingerprint: fingerprint(tokenHash),
-    });
-    this.#records.set(tokenHash, record);
-    return deepFreeze({ token, actorId, scopes, expiresAt: iso(expiresAt), maxRequests });
+      const now = this.#clock.now();
+      const expiresAt = now + ttlMs;
+      const record: PairingRecord = {
+        actorId,
+        scopes,
+        expiresAt,
+        maxRequests,
+        usedRequests: 0,
+        revoked: false,
+      };
+      await this.#emit({
+        type: "pairing.issued",
+        timestamp: iso(now),
+        outcome: "allowed",
+        actorId,
+        tokenFingerprint: fingerprint(tokenHash),
+      });
+      try {
+        this.#records.set(tokenHash, record);
+      } catch (error) {
+        throw retentionUnavailable("pairing", error);
+      }
+      return deepFreeze({ token, actorId, scopes, expiresAt: iso(expiresAt), maxRequests });
     } finally {
       this.#pendingTokenHashes.delete(tokenHash);
     }
@@ -234,6 +271,19 @@ export class PairingAuthority {
         tokenFingerprint: fingerprint(tokenHash),
       });
       record.revoked = true;
+      record.expiresAt = now;
+    });
+  }
+
+  retentionStatus(): Readonly<{
+    records: number;
+    capacity: number;
+    activeOperations: number;
+  }> {
+    return Object.freeze({
+      records: this.#records.size,
+      capacity: this.#records.capacity,
+      activeOperations: this.#activeOperations,
     });
   }
 
@@ -242,6 +292,13 @@ export class PairingAuthority {
   }
 
   async #withRecordLock<T>(tokenHash: string, operation: () => Promise<T>): Promise<T> {
+    if (this.#activeOperations >= this.#records.capacity) {
+      throw new GatewayCoreError(
+        "capacity_exceeded",
+        `pairing operation capacity ${this.#records.capacity} is exhausted`,
+      );
+    }
+    this.#activeOperations += 1;
     const previous = this.#recordOperations.get(tokenHash) ?? Promise.resolve();
     let release!: () => void;
     const current = new Promise<void>((resolve) => {
@@ -256,6 +313,7 @@ export class PairingAuthority {
       if (this.#recordOperations.get(tokenHash) === current) {
         this.#recordOperations.delete(tokenHash);
       }
+      this.#activeOperations -= 1;
     }
   }
 }
@@ -270,14 +328,14 @@ export type PlanPolicy = (
   authorization: AuthorizationContext,
 ) => boolean | Promise<boolean>;
 
-type ConfirmationRecord = {
+export type ConfirmationRecord = {
   readonly planId: string;
   readonly planDigest: string;
   readonly expiresAt: number;
   used: boolean;
 };
 
-type StoredPlan = {
+export type StoredPlan = {
   readonly plan: ExecutablePlan;
   readonly unsignedCanonical: string;
   confirmationHash?: string;
@@ -306,6 +364,10 @@ export type GatewayPlanStoreOptions = {
   readonly clock?: Clock;
   readonly audit: AuditSink;
   readonly tokenGenerator?: TokenGenerator;
+  readonly planRetention?: Partial<RetentionPolicy>;
+  readonly planStore?: RetentionStore<string, StoredPlan>;
+  readonly confirmationRetention?: Partial<RetentionPolicy>;
+  readonly confirmationStore?: RetentionStore<string, ConfirmationRecord>;
 };
 
 export class GatewayPlanStore {
@@ -314,8 +376,8 @@ export class GatewayPlanStore {
   readonly #clock: Clock;
   readonly #audit: AuditSink;
   readonly #tokenGenerator: TokenGenerator;
-  readonly #plans = new Map<string, StoredPlan>();
-  readonly #confirmations = new Map<string, ConfirmationRecord>();
+  readonly #plans: BoundedRetentionMap<string, StoredPlan>;
+  readonly #confirmations: BoundedRetentionMap<string, ConfirmationRecord>;
   readonly #pendingPlanIds = new Set<string>();
   readonly #pendingConfirmationPlanIds = new Set<string>();
   readonly #pendingExecutionPlanIds = new Set<string>();
@@ -327,6 +389,33 @@ export class GatewayPlanStore {
     this.#clock = options.clock ?? { now: Date.now };
     this.#audit = options.audit;
     this.#tokenGenerator = options.tokenGenerator ?? randomToken;
+    const planRetention = { ...DEFAULT_PLAN_RETENTION, ...options.planRetention };
+    this.#plans = new BoundedRetentionMap({
+      name: "Gateway plans",
+      policy: planRetention,
+      clock: this.#clock,
+      store: options.planStore,
+      expiresAt: (stored) => {
+        if (stored.executionState === "completed" && stored.report) {
+          return Date.parse(stored.report.completedAt) + planRetention.ttlMs;
+        }
+        if (stored.executionState === "pending") return Date.parse(stored.plan.expiresAt);
+        return Number.POSITIVE_INFINITY;
+      },
+      canEvict: (stored) =>
+        (stored.executionState === "completed" || stored.executionState === "pending") &&
+        !this.#pendingPlanIds.has(stored.plan.planId) &&
+        !this.#pendingConfirmationPlanIds.has(stored.plan.planId) &&
+        !this.#pendingExecutionPlanIds.has(stored.plan.planId) &&
+        !this.#pendingReportPlanIds.has(stored.plan.planId),
+    });
+    this.#confirmations = new BoundedRetentionMap({
+      name: "Gateway confirmations",
+      policy: { ...DEFAULT_CONFIRMATION_RETENTION, ...options.confirmationRetention },
+      clock: this.#clock,
+      store: options.confirmationStore,
+      expiresAt: (confirmation) => confirmation.expiresAt,
+    });
   }
 
   async createPlan(input: {
@@ -339,7 +428,7 @@ export class GatewayPlanStore {
     requireExactCommandScopes(unsigned.commands, unsigned.requiredScopes);
     requirePlanScopes(auth, unsigned.requiredScopes);
     const canonical = canonicalJson(unsigned);
-    const existing = this.#plans.get(unsigned.planId);
+    const existing = this.#plans.peek(unsigned.planId);
     if (existing) {
       if (existing.unsignedCanonical === canonical) {
         if (Date.parse(existing.plan.expiresAt) <= this.#clock.now()) {
@@ -352,53 +441,62 @@ export class GatewayPlanStore {
     if (this.#pendingPlanIds.has(unsigned.planId)) {
       throw new GatewayCoreError("conflict", `planId ${unsigned.planId} is being created`);
     }
+    try {
+      this.#plans.assertCanAdd(unsigned.planId, this.#pendingPlanIds.size);
+    } catch (error) {
+      throw retentionUnavailable("plan", error);
+    }
     this.#pendingPlanIds.add(unsigned.planId);
     try {
-    const ttlMs = requireIntegerRange(
-      input.ttlMs ?? MAX_PLAN_TTL_MS,
-      1,
-      MAX_PLAN_TTL_MS,
-      "plan ttlMs",
-    );
-    const now = this.#clock.now();
-    const createdAt = iso(now);
-    const expiresAt = iso(now + ttlMs);
-    const digest = await sha256(canonicalJson({ ...unsigned, createdAt, expiresAt }));
-    const plan = deepFreeze({ ...unsigned, digest, createdAt, expiresAt }) as ExecutablePlan;
-    let allowed = false;
-    try {
-      allowed = (await this.#policy(plan, auth)) === true;
-    } catch {
-      allowed = false;
-    }
-    if (!allowed) {
+      const ttlMs = requireIntegerRange(
+        input.ttlMs ?? MAX_PLAN_TTL_MS,
+        1,
+        MAX_PLAN_TTL_MS,
+        "plan ttlMs",
+      );
+      const now = this.#clock.now();
+      const createdAt = iso(now);
+      const expiresAt = iso(now + ttlMs);
+      const digest = await sha256(canonicalJson({ ...unsigned, createdAt, expiresAt }));
+      const plan = deepFreeze({ ...unsigned, digest, createdAt, expiresAt }) as ExecutablePlan;
+      let allowed = false;
+      try {
+        allowed = (await this.#policy(plan, auth)) === true;
+      } catch {
+        allowed = false;
+      }
+      if (!allowed) {
+        await this.#emit({
+          type: "plan.created",
+          timestamp: createdAt,
+          outcome: "denied",
+          actorId: auth.actorId,
+          tokenFingerprint: auth.tokenFingerprint,
+          planId: plan.planId,
+          adapterId: plan.adapterId,
+          code: "policy_blocked",
+        });
+        throw new GatewayCoreError("policy_blocked", "plan policy rejected the immutable plan");
+      }
       await this.#emit({
         type: "plan.created",
         timestamp: createdAt,
-        outcome: "denied",
+        outcome: "allowed",
         actorId: auth.actorId,
         tokenFingerprint: auth.tokenFingerprint,
         planId: plan.planId,
         adapterId: plan.adapterId,
-        code: "policy_blocked",
       });
-      throw new GatewayCoreError("policy_blocked", "plan policy rejected the immutable plan");
-    }
-    await this.#emit({
-      type: "plan.created",
-      timestamp: createdAt,
-      outcome: "allowed",
-      actorId: auth.actorId,
-      tokenFingerprint: auth.tokenFingerprint,
-      planId: plan.planId,
-      adapterId: plan.adapterId,
-    });
-    this.#plans.set(plan.planId, {
-      plan,
-      unsignedCanonical: canonical,
-      executionState: "pending",
-    });
-    return plan;
+      try {
+        this.#plans.set(plan.planId, {
+          plan,
+          unsignedCanonical: canonical,
+          executionState: "pending",
+        });
+      } catch (error) {
+        throw retentionUnavailable("plan", error);
+      }
+      return plan;
     } finally {
       this.#pendingPlanIds.delete(unsigned.planId);
     }
@@ -413,9 +511,9 @@ export class GatewayPlanStore {
     const stored = this.#requireLivePlan(input.planId);
     requirePlanScopes(auth, stored.plan.requiredScopes);
     if (stored.confirmationHash) {
-      const previous = this.#confirmations.get(stored.confirmationHash);
-      if (previous && !previous.used && previous.expiresAt <= this.#clock.now()) {
-        this.#confirmations.delete(stored.confirmationHash);
+      const previous = this.#confirmations.peek(stored.confirmationHash);
+      if (!previous || (!previous.used && previous.expiresAt <= this.#clock.now())) {
+        if (previous) this.#confirmations.delete(stored.confirmationHash);
         stored.confirmationHash = undefined;
       } else {
         throw new GatewayCoreError("conflict", "plan already has a confirmation");
@@ -424,38 +522,51 @@ export class GatewayPlanStore {
     if (this.#pendingConfirmationPlanIds.has(stored.plan.planId)) {
       throw new GatewayCoreError("conflict", "plan confirmation is being created");
     }
+    try {
+      this.#confirmations.assertCanAdd(
+        `pending:${stored.plan.planId}`,
+        this.#pendingConfirmationPlanIds.size,
+      );
+    } catch (error) {
+      throw retentionUnavailable("confirmation", error);
+    }
     this.#pendingConfirmationPlanIds.add(stored.plan.planId);
     try {
-    const ttlMs = requireIntegerRange(
-      input.ttlMs ?? MAX_CONFIRMATION_TTL_MS,
-      1,
-      MAX_CONFIRMATION_TTL_MS,
-      "confirmation ttlMs",
-    );
-    const now = this.#clock.now();
-    const expiresAt = Math.min(now + ttlMs, Date.parse(stored.plan.expiresAt));
-    const confirmationToken = `btc_${this.#tokenGenerator()}`;
-    const confirmationHash = await sha256(confirmationToken);
-    if (this.#confirmations.has(confirmationHash)) {
-      throw new GatewayCoreError("conflict", "confirmation token collision");
-    }
-    await this.#emit({
-      type: "plan.confirmed",
-      timestamp: iso(now),
-      outcome: "allowed",
-      actorId: auth.actorId,
-      tokenFingerprint: auth.tokenFingerprint,
-      planId: stored.plan.planId,
-      adapterId: stored.plan.adapterId,
-    });
-    stored.confirmationHash = confirmationHash;
-    this.#confirmations.set(confirmationHash, {
-      planId: stored.plan.planId,
-      planDigest: stored.plan.digest,
-      expiresAt,
-      used: false,
-    });
-    return deepFreeze({ confirmationToken, expiresAt: iso(expiresAt) });
+      const ttlMs = requireIntegerRange(
+        input.ttlMs ?? MAX_CONFIRMATION_TTL_MS,
+        1,
+        MAX_CONFIRMATION_TTL_MS,
+        "confirmation ttlMs",
+      );
+      const now = this.#clock.now();
+      const expiresAt = Math.min(now + ttlMs, Date.parse(stored.plan.expiresAt));
+      const confirmationToken = `btc_${this.#tokenGenerator()}`;
+      const confirmationHash = await sha256(confirmationToken);
+      if (this.#confirmations.has(confirmationHash)) {
+        throw new GatewayCoreError("conflict", "confirmation token collision");
+      }
+      await this.#emit({
+        type: "plan.confirmed",
+        timestamp: iso(now),
+        outcome: "allowed",
+        actorId: auth.actorId,
+        tokenFingerprint: auth.tokenFingerprint,
+        planId: stored.plan.planId,
+        adapterId: stored.plan.adapterId,
+      });
+      stored.confirmationHash = confirmationHash;
+      try {
+        this.#confirmations.set(confirmationHash, {
+          planId: stored.plan.planId,
+          planDigest: stored.plan.digest,
+          expiresAt,
+          used: false,
+        });
+      } catch (error) {
+        stored.confirmationHash = undefined;
+        throw retentionUnavailable("confirmation", error);
+      }
+      return deepFreeze({ confirmationToken, expiresAt: iso(expiresAt) });
     } finally {
       this.#pendingConfirmationPlanIds.delete(stored.plan.planId);
     }
@@ -470,7 +581,7 @@ export class GatewayPlanStore {
     const stored = this.#requireLivePlan(input.planId);
     requirePlanScopes(auth, stored.plan.requiredScopes);
     const confirmationHash = await sha256(requireString(input.confirmationToken, "confirmationToken"));
-    const confirmation = this.#confirmations.get(confirmationHash);
+    const confirmation = this.#confirmations.peek(confirmationHash);
     const now = this.#clock.now();
     if (!confirmation || confirmation.planId !== stored.plan.planId || confirmation.planDigest !== stored.plan.digest) {
       throw new GatewayCoreError("unauthenticated", "confirmation does not match the immutable plan");
@@ -570,7 +681,7 @@ export class GatewayPlanStore {
     readonly planId: string;
     readonly report: ExecutionReport;
   }): Promise<ExecutionReport> {
-    const stored = this.#plans.get(requireString(input.planId, "planId"));
+    const stored = this.#plans.peek(requireString(input.planId, "planId"));
     if (!stored || stored.executionState === "pending" || !stored.executionAuthorization) {
       throw new GatewayCoreError("invalid_request", "plan execution was not consumed");
     }
@@ -613,14 +724,14 @@ export class GatewayPlanStore {
   }
 
   getPlan(planId: string): ExecutablePlan | null {
-    return this.#plans.get(planId)?.plan ?? null;
+    return this.#plans.peek(planId)?.plan ?? null;
   }
 
   async recordExecutionUncertainty(input: {
     readonly planId: string;
     readonly message: string;
   }): Promise<GatewayExecutionStatus> {
-    const stored = this.#plans.get(requireString(input.planId, "planId"));
+    const stored = this.#plans.peek(requireString(input.planId, "planId"));
     if (!stored || stored.executionState === "pending" || !stored.executionAuthorization) {
       throw new GatewayCoreError("invalid_request", "plan execution was not consumed");
     }
@@ -640,28 +751,28 @@ export class GatewayPlanStore {
     const error = deepFreeze({ code: "partial_execution" as const, message });
     this.#pendingReportPlanIds.add(stored.plan.planId);
     try {
-    // The DAW may already have mutated. Preserve the terminal uncertainty even
-    // if the audit sink is unavailable so status readback remains honest.
-    stored.uncertainty = error;
-    stored.executionState = "uncertain";
-    await this.#emit({
-      type: "plan.execution_uncertain",
-      timestamp: iso(this.#clock.now()),
-      outcome: "denied",
-      actorId: stored.executionAuthorization.actorId,
-      tokenFingerprint: stored.executionAuthorization.tokenFingerprint,
-      planId: stored.plan.planId,
-      adapterId: stored.plan.adapterId,
-      code: "partial_execution",
-    });
-    return this.getExecutionStatus(stored.plan.planId)!;
+      // The DAW may already have mutated. Preserve the terminal uncertainty even
+      // if the audit sink is unavailable so status readback remains honest.
+      stored.uncertainty = error;
+      stored.executionState = "uncertain";
+      await this.#emit({
+        type: "plan.execution_uncertain",
+        timestamp: iso(this.#clock.now()),
+        outcome: "denied",
+        actorId: stored.executionAuthorization.actorId,
+        tokenFingerprint: stored.executionAuthorization.tokenFingerprint,
+        planId: stored.plan.planId,
+        adapterId: stored.plan.adapterId,
+        code: "partial_execution",
+      });
+      return this.getExecutionStatus(stored.plan.planId)!;
     } finally {
       this.#pendingReportPlanIds.delete(stored.plan.planId);
     }
   }
 
   getExecutionStatus(planId: string): GatewayExecutionStatus | null {
-    const stored = this.#plans.get(planId);
+    const stored = this.#plans.peek(planId);
     if (!stored) return null;
     return deepFreeze({
       planId: stored.plan.planId,
@@ -671,9 +782,29 @@ export class GatewayPlanStore {
     });
   }
 
+  retentionStatus(): Readonly<{
+    plans: number;
+    planCapacity: number;
+    confirmations: number;
+    confirmationCapacity: number;
+    activeOperations: number;
+  }> {
+    return Object.freeze({
+      plans: this.#plans.size,
+      planCapacity: this.#plans.capacity,
+      confirmations: this.#confirmations.size,
+      confirmationCapacity: this.#confirmations.capacity,
+      activeOperations:
+        this.#pendingPlanIds.size +
+        this.#pendingConfirmationPlanIds.size +
+        this.#pendingExecutionPlanIds.size +
+        this.#pendingReportPlanIds.size,
+    });
+  }
+
   #requireLivePlan(planIdInput: string): StoredPlan {
     const planId = requireString(planIdInput, "planId");
-    const stored = this.#plans.get(planId);
+    const stored = this.#plans.peek(planId);
     if (!stored) throw new GatewayCoreError("invalid_request", `unknown plan ${planId}`);
     if (Date.parse(stored.plan.expiresAt) <= this.#clock.now()) {
       throw new GatewayCoreError("plan_expired", `plan ${planId} expired`);
@@ -804,6 +935,14 @@ function requireString(value: unknown, label: string): string {
     throw new GatewayCoreError("invalid_request", `${label} must be a non-empty string`);
   }
   return value.trim();
+}
+
+function retentionUnavailable(registry: string, error: unknown): GatewayCoreError {
+  const detail = error instanceof Error ? error.message : String(error);
+  return new GatewayCoreError(
+    "capacity_exceeded",
+    `${registry} retention unavailable: ${detail}`,
+  );
 }
 
 function requireUniqueStrings(value: unknown, label: string): readonly string[] {

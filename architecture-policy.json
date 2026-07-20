@@ -11,7 +11,8 @@
         "packages/core",
         "packages/commands",
         "packages/agent-contract",
-        "packages/daw-contract"
+        "packages/daw-contract",
+        "packages/retention"
       ]
     },
     {

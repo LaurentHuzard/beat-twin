@@ -737,6 +737,7 @@ function normalizeError(error) {
       unauthenticated: 401,
       forbidden: 403,
       quota_exceeded: 429,
+      capacity_exceeded: 503,
       policy_blocked: 403,
       conflict: 409,
       plan_expired: 410,

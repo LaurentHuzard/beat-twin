@@ -1,8 +1,8 @@
 {
-  "name": "@beat-twin/gateway-core",
+  "name": "@beat-twin/retention",
   "version": "0.0.0",
   "private": true,
-  "description": "Fail-closed pairing, plan, confirmation, quota, and audit core for the Beat Twin Gateway.",
+  "description": "Deterministic bounded process-lifetime retention primitives.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -16,8 +16,11 @@
     "build": "tsc -p tsconfig.build.json",
     "test": "node --test test/*.test.ts"
   },
-  "dependencies": {
-    "@beat-twin/daw-contract": "workspace:*",
-    "@beat-twin/retention": "workspace:*"
+  "engines": {
+    "node": "^22.0.0 || ^24.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
   }
 }

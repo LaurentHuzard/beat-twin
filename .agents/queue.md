@@ -19,11 +19,11 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-BT-ARCH-101 through BT-ARCH-104 / GitHub #46, #47, #49, and #48 form the single
-active architecture-hardening loop. The user explicitly authorized all four on
-2026-07-20. The loop may publish one implementation draft PR stacked on #50;
-merge, deployment, live DAW writes, and branch deletion remain human gates.
-BT-AUDIO-200 remains the next eligible product tranche after this loop.
+No new implementation item is activated. BT-ARCH-101 through BT-ARCH-104 /
+GitHub #46, #47, #49, and #48 are implemented and deterministically verified;
+their stacked draft PR awaits review. Merge, deployment, live DAW writes, and
+branch deletion remain human gates. BT-AUDIO-200 remains an eligible candidate,
+not an authorization.
 
 ## NanoDAW Live sequence
 

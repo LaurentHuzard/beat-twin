@@ -82,6 +82,9 @@ importers:
       '@beat-twin/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@beat-twin/retention':
+        specifier: workspace:*
+        version: link:../../packages/retention
       lucide-react:
         specifier: ^0.468.0
         version: 0.468.0(react@19.2.7)
@@ -137,6 +140,9 @@ importers:
       '@beat-twin/daw-contract':
         specifier: workspace:*
         version: link:../../daw-contract
+      '@beat-twin/retention':
+        specifier: workspace:*
+        version: link:../../retention
 
   packages/adapters/nanodaw:
     dependencies:
@@ -146,6 +152,9 @@ importers:
       '@beat-twin/daw-contract':
         specifier: workspace:*
         version: link:../../daw-contract
+      '@beat-twin/retention':
+        specifier: workspace:*
+        version: link:../../retention
 
   packages/agent-contract:
     dependencies:
@@ -174,6 +183,9 @@ importers:
       '@beat-twin/core':
         specifier: workspace:*
         version: link:../core
+      '@beat-twin/retention':
+        specifier: workspace:*
+        version: link:../retention
 
   packages/core: {}
 
@@ -188,6 +200,9 @@ importers:
       '@beat-twin/daw-contract':
         specifier: workspace:*
         version: link:../daw-contract
+      '@beat-twin/retention':
+        specifier: workspace:*
+        version: link:../retention
 
   packages/gateway-http:
     dependencies:
@@ -237,9 +252,21 @@ importers:
       '@beat-twin/gateway-core':
         specifier: workspace:*
         version: link:../gateway-core
+      '@beat-twin/retention':
+        specifier: workspace:*
+        version: link:../retention
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.3.5)
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+
+  packages/retention:
     devDependencies:
       '@types/node':
         specifier: ^24.0.0

@@ -168,13 +168,17 @@ class MemoryBitwigPort implements BitwigBridgePort {
   }
 }
 
-function adapter(port: MemoryBitwigPort): BitwigAdapter {
+function adapter(
+  port: MemoryBitwigPort,
+  options: Partial<ConstructorParameters<typeof BitwigAdapter>[0]> = {},
+): BitwigAdapter {
   return new BitwigAdapter({
     port,
     verifyDigest: () => true,
     now: () => NOW,
     wait: async () => {},
     clipReadyAttempts: 5,
+    ...options,
   });
 }
 
@@ -340,6 +344,80 @@ test("a post-dispatch failure stops once and reports the precise unknown boundar
   const repeated = await instance.execute(plan(snapshot.commandSnapshot.revision));
   assert.strictEqual(repeated, execution);
   assert.equal(port.calls.length, 3);
+});
+
+test("bounds observation fingerprints and lazily cleans them after expiry", async () => {
+  let now = NOW;
+  const port = new MemoryBitwigPort();
+  const instance = adapter(port, {
+    now: () => now,
+    observationRetention: { capacity: 1, ttlMs: 10 },
+  });
+  await instance.inspect();
+  port.inspection.target.binding.targetGeneration += 1;
+  await assert.rejects(instance.inspect(), /retention capacity/);
+  assert.equal(instance.retentionStatus().observations, 1);
+  now += 10;
+  await instance.inspect();
+  assert.equal(instance.retentionStatus().observations, 1);
+});
+
+test("frees terminal Bitwig request capacity only after its retention boundary", async () => {
+  let now = NOW;
+  const port = new MemoryBitwigPort();
+  port.failAuthentication = true;
+  const instance = adapter(port, {
+    now: () => now,
+    executionRetention: { capacity: 1, ttlMs: 10 },
+  });
+  const snapshot = await instance.inspect();
+  const first = await instance.execute(plan(snapshot.commandSnapshot.revision, {
+    planId: "terminal-retained",
+    requestId: "terminal-retained",
+  }));
+  assert.equal(first.status, "failed");
+  assert.equal(port.authenticateCount, 1);
+
+  const nextPlan = plan(snapshot.commandSnapshot.revision, {
+    planId: "terminal-next",
+    requestId: "terminal-next",
+  });
+  const blocked = await instance.execute(nextPlan);
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.ok ? null : blocked.error.code, "policy_blocked");
+  assert.equal(port.authenticateCount, 1);
+
+  now += 10;
+  const admitted = await instance.execute(nextPlan);
+  assert.equal(admitted.status, "failed");
+  assert.equal(port.authenticateCount, 2);
+  assert.equal(instance.retentionStatus().executions, 1);
+});
+
+test("pins uncertain Bitwig requests and refuses a second dispatch at capacity", async () => {
+  let now = NOW;
+  const port = new MemoryBitwigPort();
+  port.failMutationAt = 2;
+  const instance = adapter(port, {
+    now: () => now,
+    executionRetention: { capacity: 1, ttlMs: 10 },
+  });
+  const snapshot = await instance.inspect();
+  const first = await instance.execute(plan(snapshot.commandSnapshot.revision, {
+    planId: "retained-uncertain",
+    requestId: "retained-uncertain",
+  }));
+  assert.equal(first.status, "partial");
+  assert.equal(port.calls.length, 3);
+  now += 1_000;
+  const blocked = await instance.execute(plan(snapshot.commandSnapshot.revision, {
+    planId: "blocked-after-uncertain",
+    requestId: "blocked-after-uncertain",
+  }));
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.ok ? null : blocked.error.code, "policy_blocked");
+  assert.equal(port.calls.length, 3);
+  assert.equal(instance.retentionStatus().executions, 1);
 });
 
 test("divergent note readback is partial and never presented as complete", async () => {

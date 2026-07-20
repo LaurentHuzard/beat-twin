@@ -21,6 +21,7 @@
     "@beat-twin/core": "workspace:*",
     "@beat-twin/daw-contract": "workspace:*",
     "@beat-twin/gateway-core": "workspace:*",
+    "@beat-twin/retention": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.29.0"
   },
   "devDependencies": {

@@ -375,7 +375,7 @@ test("a consumed confirmation is never retried when adapter execution throws", a
   });
 });
 
-test("invalid adapter reports become durable uncertain outcomes after one dispatch", async () => {
+test("invalid adapter reports become process-lifetime uncertain outcomes after one dispatch", async () => {
   const adapter = createFakeAdapter({ invalidReport: true });
   const fixture = createFixture({ adapter });
   await withGateway(fixture.gatewayOptions, async (baseUrl) => {

@@ -4,6 +4,10 @@ Status: proposed by GitHub #45; accepted when the audit PR is approved
 
 Date: 2026-07-20
 
+Implementation note: GitHub #46, #47, and #49 now enforce the dependency graph,
+provide typed Gateway delivery, and place NanoDAW MCP process wiring in
+`apps/nanodaw-mcp`. The context below records the pre-migration state.
+
 ## Context
 
 Beat Twin grew from a local Bitwig MCP bridge into a pnpm monorepo containing a

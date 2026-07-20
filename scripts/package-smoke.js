@@ -15,9 +15,11 @@ import {
   executeCommandBatch,
 } from "../packages/commands/dist/index.js";
 import { createSong } from "../packages/core/dist/index.js";
+import { BoundedRetentionMap } from "../packages/retention/dist/index.js";
 
 const song = createSong({ id: "smoke-song", title: "Package smoke", bpm: 120 });
 assert.equal(song.id, "smoke-song");
+assert.equal(typeof BoundedRetentionMap, "function");
 
 const batch = executeCommandBatch(
   createCommandState(),
@@ -58,6 +60,7 @@ console.log(JSON.stringify({
   ok: true,
   packages: [
     "core",
+    "retention",
     "commands",
     "audio-tone",
     "daw-contract",

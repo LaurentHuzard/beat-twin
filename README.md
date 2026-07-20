@@ -39,10 +39,16 @@ NanoDAW/Bitwig proof and installable runtime packaging remain gated work.
 - A loopback-only Gateway HTTP API with strict pairing,
   target-fixed preview/confirmation/execution, and process-lifetime terminal
   uncertain-outcome readback.
+- A typed `@beat-twin/gateway-http` delivery package, an explicit
+  `apps/nanodaw-mcp` composition root, and CI-enforced workspace dependency
+  direction.
 - An authenticated browser WebSocket proxy and explicit connected Agent mode
   that preserve the browser as the only NanoDAW song owner.
 - A bounded `bitwig-launcher-v1` adapter with authenticated writes, fixed target
   identity, strict musical bounds, and exact note readback in deterministic tests.
+- Bounded, clock-injected process-lifetime retention for command, adapter,
+  Gateway, MCP review, and browser performance registries. Restart never
+  triggers automatic mutation replay.
 
 ## Architecture
 
@@ -84,7 +90,10 @@ Browser command drafts parse known local phrases only; they are not an AI chat p
 The standalone NanoDAW MCP path is separate from the historical Bitwig MCP:
 
 ```text
-MCP client -> NanoDAW MCP -> immutable plan -> browser review -> human confirm
+MCP client
+  -> apps/nanodaw-mcp
+  -> @beat-twin/nanodaw-mcp + @beat-twin/gateway-http
+  -> immutable plan -> browser review -> human confirm
 ```
 
 It exposes catalog, inspection, and plan-preparation tools only. It never owns
@@ -113,9 +122,10 @@ they are never model tools. The existing `TOOL_SPECS` registry remains the
 historical 57-tool Bitwig MCP surface, not the portable agent language. See
 [`docs/LOCAL-LLM-TOOL-ORCHESTRATION.md`](docs/LOCAL-LLM-TOOL-ORCHESTRATION.md).
 
-The provider, security core, loopback HTTP API, authenticated WebSocket proxy,
-and browser connected-mode wiring are implemented. Live S25 plus Bitwig
-dual-target proof, restart-durable Gateway storage, and installable packaging
+The provider, security core, typed loopback HTTP/WebSocket delivery, explicit
+NanoDAW MCP application, browser connected-mode wiring, architecture guard, and
+bounded process-lifetime retention are implemented. Live S25 plus Bitwig
+dual-target proof, restart-durable Gateway recovery, and installable packaging
 remain separate follow-up gates.
 
 ## Requirements
@@ -215,6 +225,7 @@ Run the offline checks:
 
 ```bash
 pnpm test
+pnpm check:architecture
 ```
 
 Run a syntax check:
@@ -246,6 +257,7 @@ Live tests require Bitwig Studio, the controller script, and explicit write perm
 
 - [`docs/ARCHITECTURE_AUDIT_2026-07-20.md`](docs/ARCHITECTURE_AUDIT_2026-07-20.md)
 - [`docs/ADR-002-MODULAR-MONOLITH-BOUNDARIES.md`](docs/ADR-002-MODULAR-MONOLITH-BOUNDARIES.md)
+- [`docs/ADR-003-PROCESS-LIFETIME-RETENTION.md`](docs/ADR-003-PROCESS-LIFETIME-RETENTION.md)
 - [`docs/ARCHITECTURE_REFACTORING_ROADMAP_2026-07-20.md`](docs/ARCHITECTURE_REFACTORING_ROADMAP_2026-07-20.md)
 - [`docs/BT-101-SESSION-INSPECTOR.md`](docs/BT-101-SESSION-INSPECTOR.md)
 - [`docs/BT-102-PROTOCOL-SMOKE.md`](docs/BT-102-PROTOCOL-SMOKE.md)

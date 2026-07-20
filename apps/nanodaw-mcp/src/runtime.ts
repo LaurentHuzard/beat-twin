@@ -195,6 +195,7 @@ function normalizeReviewError(error: unknown): ReviewHttpError {
     if (error.code === "unauthenticated") return new ReviewHttpError(401, error.code, error.message);
     if (error.code === "forbidden") return new ReviewHttpError(403, error.code, error.message);
     if (error.code === "quota_exceeded") return new ReviewHttpError(429, error.code, error.message);
+    if (error.code === "capacity_exceeded") return new ReviewHttpError(503, error.code, error.message);
     return new ReviewHttpError(400, error.code, error.message);
   }
   return new ReviewHttpError(500, "internal_error", "internal NanoDAW MCP error");

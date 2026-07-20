@@ -14,17 +14,16 @@ delivery, an application-owned NanoDAW MCP process topology, and explicit
 process-lifetime retention semantics that remain fail-closed under capacity,
 expiry, timeout, uncertain outcomes, and restart.
 
-## Planned Slices
+## Completed Slices
 
-1. Add a tested workspace dependency policy and run it in CI.
-2. Extract Gateway HTTP and browser WebSocket delivery into
+1. Added a tested workspace dependency policy and wired it into CI.
+2. Extracted Gateway HTTP and browser WebSocket delivery into
    `@beat-twin/gateway-http` without changing protocol behavior.
-3. Add `apps/nanodaw-mcp` as the composition root, retain the existing command,
-   and remove the package-to-app exception and ambient declaration.
-4. Introduce injected, bounded retention primitives and classify every safety
+3. Added `apps/nanodaw-mcp` as the composition root, retained the existing
+   command, and removed the package-to-app exception and ambient declaration.
+4. Introduced injected, bounded retention primitives and classified every safety
    registry without evicting active or uncertain state.
-5. Record one Orbit report and publish one implementation draft PR stacked on
-   the architecture audit PR #50.
+5. Recorded one Orbit report; draft-PR publication remains the final action.
 
 ## Product Contract
 
@@ -50,9 +49,11 @@ expiry, timeout, uncertain outcomes, and restart.
 
 ## Current State
 
-In progress on `agent/architecture-boundaries-retention`, based on draft PR #50
-at `f1c8fd8`. The user explicitly authorized all four follow-up issues on
-2026-07-20. No runtime edit had been made before this plan was activated.
+Implementation and deterministic verification are complete on
+`agent/architecture-boundaries-retention`, based on draft PR #50 at `f1c8fd8`.
+The user explicitly authorized all four follow-up issues on 2026-07-20. The
+stacked implementation draft PR is ready to publish; no live external system
+was invoked.
 
 ## Human Gates
 
@@ -65,7 +66,7 @@ at `f1c8fd8`. The user explicitly authorized all four follow-up issues on
 
 All four issue acceptance criteria are represented by deterministic tests and
 documentation, the package-to-app exception is gone, all repository checks are
-green, and one draft PR closes the issues only when merged.
+green, and the draft PR will close the issues only when merged.
 
 ## Next Activation Signal
 
