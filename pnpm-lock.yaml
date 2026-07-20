@@ -40,6 +40,37 @@ importers:
         specifier: ^8.21.0
         version: 8.21.0
 
+  apps/nanodaw-mcp:
+    dependencies:
+      '@beat-twin/gateway-core':
+        specifier: workspace:*
+        version: link:../../packages/gateway-core
+      '@beat-twin/gateway-http':
+        specifier: workspace:*
+        version: link:../../packages/gateway-http
+      '@beat-twin/nanodaw-adapter':
+        specifier: workspace:*
+        version: link:../../packages/adapters/nanodaw
+      '@beat-twin/nanodaw-mcp':
+        specifier: workspace:*
+        version: link:../../packages/mcp
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.29.0
+        version: 1.29.0(zod@4.3.5)
+    devDependencies:
+      '@beat-twin/commands':
+        specifier: workspace:*
+        version: link:../../packages/commands
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      ws:
+        specifier: ^8.21.0
+        version: 8.21.0
+
   apps/playground:
     dependencies:
       '@beat-twin/audio-tone':
@@ -206,12 +237,6 @@ importers:
       '@beat-twin/gateway-core':
         specifier: workspace:*
         version: link:../gateway-core
-      '@beat-twin/gateway-http':
-        specifier: workspace:*
-        version: link:../gateway-http
-      '@beat-twin/nanodaw-adapter':
-        specifier: workspace:*
-        version: link:../adapters/nanodaw
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.3.5)

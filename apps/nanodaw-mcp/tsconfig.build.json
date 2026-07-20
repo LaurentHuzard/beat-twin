@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "lib": ["ES2022", "DOM"],
+    "baseUrl": ".",
+    "paths": {
+      "@beat-twin/gateway-core": ["../../packages/gateway-core/dist/index.d.ts"],
+      "@beat-twin/gateway-http": ["../../packages/gateway-http/dist/index.d.ts"],
+      "@beat-twin/nanodaw-adapter": ["../../packages/adapters/nanodaw/dist/index.d.ts"],
+      "@beat-twin/nanodaw-mcp": ["../../packages/mcp/dist/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

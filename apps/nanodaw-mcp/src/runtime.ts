@@ -19,7 +19,7 @@ import {
   createNanoDawMcpService,
   type NanoDawMcpReview,
   type NanoDawMcpService,
-} from "./index.ts";
+} from "@beat-twin/nanodaw-mcp";
 
 export type NanoDawMcpRuntimeOptions = {
   readonly operatorSecret: string;
@@ -95,16 +95,20 @@ export async function createNanoDawMcpRuntime(
   const baseUrl = `http://${hostname}:${address.port}`;
   const mcpServer = createNanoDawMcpServer(service);
   let stdioStarted = false;
+  let closed = false;
 
   return Object.freeze({
     baseUrl,
     service,
     startStdio: async () => {
+      if (closed) throw new Error("NanoDAW MCP runtime is closed");
       if (stdioStarted) throw new Error("NanoDAW MCP stdio transport is already connected");
       stdioStarted = true;
       await mcpServer.connect(new StdioServerTransport());
     },
     close: async () => {
+      if (closed) return;
+      closed = true;
       await Promise.allSettled([
         mcpServer.close(),
         browserProxy.close(),
