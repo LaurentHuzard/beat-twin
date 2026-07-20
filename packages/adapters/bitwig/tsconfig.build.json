@@ -8,7 +8,8 @@
     "paths": {
       "@beat-twin/commands": ["../../commands/dist/index.d.ts"],
       "@beat-twin/core": ["../../core/dist/index.d.ts"],
-      "@beat-twin/daw-contract": ["../../daw-contract/dist/index.d.ts"]
+      "@beat-twin/daw-contract": ["../../daw-contract/dist/index.d.ts"],
+      "@beat-twin/retention": ["../../retention/dist/index.d.ts"]
     }
   },
   "include": ["src/**/*.ts"]

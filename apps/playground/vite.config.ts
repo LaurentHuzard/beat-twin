@@ -16,6 +16,9 @@ export default defineConfig({
       "@beat-twin/commands": fileURLToPath(
         new URL("../../packages/commands/src/index.ts", import.meta.url),
       ),
+      "@beat-twin/retention": fileURLToPath(
+        new URL("../../packages/retention/src/index.ts", import.meta.url),
+      ),
     },
   },
   test: {

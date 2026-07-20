@@ -20,6 +20,11 @@ import {
   type ExecutionReport,
   type ValidationResult,
 } from "@beat-twin/daw-contract";
+import {
+  BoundedRetentionMap,
+  type RetentionPolicy,
+  type RetentionStore,
+} from "@beat-twin/retention";
 
 export const NANODAW_CAPABILITY_VERSION = "nanodaw-v2";
 
@@ -93,12 +98,20 @@ export type NanoDawAdapterOptions = {
   readonly port: NanoDawPort;
   readonly verifyDigest: (plan: ExecutablePlan) => boolean;
   readonly now?: () => number;
+  readonly executionRetention?: Partial<RetentionPolicy>;
+  readonly executionStore?: RetentionStore<string, NanoDawRequestExecution>;
 };
 
-type RequestExecution = {
+export type NanoDawRequestExecution = {
   readonly planIdentity: string;
-  readonly report: Promise<ExecutionReport>;
+  state: "pending" | "terminal" | "uncertain";
+  report?: Promise<ExecutionReport>;
 };
+
+export const DEFAULT_NANODAW_EXECUTION_RETENTION = Object.freeze({
+  capacity: 2_048,
+  ttlMs: 24 * 60 * 60 * 1_000,
+} satisfies RetentionPolicy);
 
 const CAPABILITIES: DawCapabilities = Object.freeze({
   adapterId: "nanodaw",
@@ -116,12 +129,19 @@ export class NanoDawAdapter implements DawAdapter {
   readonly #port: NanoDawPort;
   readonly #verifyDigest: (plan: ExecutablePlan) => boolean;
   readonly #now: () => number;
-  readonly #requests = new Map<string, RequestExecution>();
+  readonly #requests: BoundedRetentionMap<string, NanoDawRequestExecution>;
 
   constructor(options: NanoDawAdapterOptions) {
     this.#port = options.port;
     this.#verifyDigest = options.verifyDigest;
     this.#now = options.now ?? Date.now;
+    this.#requests = new BoundedRetentionMap({
+      name: "NanoDAW adapter executions",
+      policy: { ...DEFAULT_NANODAW_EXECUTION_RETENTION, ...options.executionRetention },
+      clock: { now: this.#now },
+      store: options.executionStore,
+      canEvict: (record) => record.state === "terminal",
+    });
   }
 
   async health(): Promise<DawHealth> {
@@ -167,7 +187,8 @@ export class NanoDawAdapter implements DawAdapter {
     const existing = this.#requests.get(plan.requestId);
     if (existing) {
       if (existing.planIdentity === planIdentity) {
-        return existing.report;
+        if (existing.report) return existing.report;
+        return this.#retentionRejected(plan, "request is already being retained");
       }
 
       const snapshot = await this.inspect();
@@ -182,12 +203,46 @@ export class NanoDawAdapter implements DawAdapter {
       );
     }
 
-    const report = this.#executeOnce(plan);
-    this.#requests.set(
-      plan.requestId,
-      Object.freeze({ planIdentity, report }),
+    const record: NanoDawRequestExecution = { planIdentity, state: "pending" };
+    try {
+      // Reserve idempotency before the browser can receive a mutating batch.
+      this.#requests.set(plan.requestId, record);
+    } catch (error) {
+      return this.#retentionRejected(plan, errorMessage(error));
+    }
+    const report = this.#executeOnce(plan).then(
+      (result) => {
+        record.state = result.status === "partial" ? "uncertain" : "terminal";
+        return result;
+      },
+      (error) => {
+        record.state = "uncertain";
+        throw error;
+      },
     );
+    record.report = report;
     return report;
+  }
+
+  retentionStatus(): Readonly<{ executions: number; capacity: number }> {
+    return Object.freeze({ executions: this.#requests.size, capacity: this.#requests.capacity });
+  }
+
+  async #retentionRejected(plan: ExecutablePlan, detail: string): Promise<ExecutionReport> {
+    let snapshot: CommandSnapshot = Object.freeze({ song: null, revision: plan.baseRevision });
+    try {
+      snapshot = (await this.inspect()).commandSnapshot;
+    } catch {
+      // No mutation was dispatched; the base revision is the conservative report boundary.
+    }
+    const timestamp = this.#timestamp();
+    return rejectedReport(
+      plan,
+      snapshot,
+      timestamp,
+      dawError("policy_blocked", `NanoDAW execution retention unavailable: ${detail}`),
+      timestamp,
+    );
   }
 
   async #executeOnce(plan: ExecutablePlan): Promise<ExecutionReport> {

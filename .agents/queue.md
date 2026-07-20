@@ -1,8 +1,8 @@
 # Beat Twin Execution Queue
 
 Updated: 2026-07-20
-Branch: `agent/architecture-audit-roadmap`
-Worktree: isolated audit checkout
+Branch: `agent/architecture-boundaries-retention`
+Worktree: isolated architecture implementation checkout
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -19,10 +19,11 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-BT-ARCH-001 / GitHub #45 is the active documentation and architecture-planning
-loop. The user explicitly authorized the audit on 2026-07-20. It may publish a
-draft PR, but it does not authorize any implementation refactor. BT-AUDIO-200
-remains the next eligible product tranche after this planning loop.
+No new implementation item is activated. BT-ARCH-101 through BT-ARCH-104 /
+GitHub #46, #47, #49, and #48 are implemented and deterministically verified;
+their stacked draft PR awaits review. Merge, deployment, live DAW writes, and
+branch deletion remain human gates. BT-AUDIO-200 remains an eligible candidate,
+not an authorization.
 
 ## NanoDAW Live sequence
 

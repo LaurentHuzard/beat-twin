@@ -111,22 +111,26 @@ export function createLiveAudioController(input: {
           if (!scheduledSceneMatches(state, observation.groupId)) return;
           if (handledCancelledGroups.has(observation.groupId)) return;
           handledCancelledGroups.add(observation.groupId);
-          const cancellationBeat = Math.max(
-            observation.observedAtBeat,
-            state.currentBeat,
-            transition.requestedAtBeat,
-          );
-          if (cancellationBeat <= transition.targetBeat) {
-            host.dispatchPerformance({
-              type: "ObserveSceneCancelled",
-              groupId: observation.groupId,
-              observedAtBeat: cancellationBeat,
-            });
-          } else {
-            failTransition(transition, observation.trackId, {
-              code: "schedule_failed",
-              message: `scene cancellation arrived after target beat ${transition.targetBeat}`,
-            });
+          try {
+            const cancellationBeat = Math.max(
+              observation.observedAtBeat,
+              state.currentBeat,
+              transition.requestedAtBeat,
+            );
+            if (cancellationBeat <= transition.targetBeat) {
+              host.dispatchPerformance({
+                type: "ObserveSceneCancelled",
+                groupId: observation.groupId,
+                observedAtBeat: cancellationBeat,
+              });
+            } else {
+              failTransition(transition, observation.trackId, {
+                code: "schedule_failed",
+                message: `scene cancellation arrived after target beat ${transition.targetBeat}`,
+              });
+            }
+          } finally {
+            handledCancelledGroups.delete(observation.groupId);
           }
           return;
         }
@@ -858,6 +862,9 @@ export function createLiveAudioController(input: {
 
     emergencyStop() {
       engine.stop();
+      handledCancelledGroups.clear();
+      suppressedCancellationIds.clear();
+      suppressedTransportStopCancellationIds.clear();
       host.dispatchPerformance({ type: "ResetPerformance" });
     },
 
@@ -865,6 +872,9 @@ export function createLiveAudioController(input: {
       if (disposed) return;
       disposed = true;
       unsubscribe();
+      handledCancelledGroups.clear();
+      suppressedCancellationIds.clear();
+      suppressedTransportStopCancellationIds.clear();
       if (engineOwnership === "owned") engine.dispose();
     },
   };

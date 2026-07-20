@@ -1,0 +1,39 @@
+{
+  "name": "@beat-twin/nanodaw-mcp-app",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Explicit composition root for the browser-owned NanoDAW MCP runtime.",
+  "type": "module",
+  "main": "./dist/runtime.js",
+  "types": "./dist/runtime.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/runtime.d.ts",
+      "default": "./dist/runtime.js"
+    },
+    "./cli": {
+      "types": "./dist/cli.d.ts",
+      "default": "./dist/cli.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --test test/*.test.ts"
+  },
+  "engines": {
+    "node": "^22.0.0 || ^24.0.0"
+  },
+  "dependencies": {
+    "@beat-twin/gateway-core": "workspace:*",
+    "@beat-twin/gateway-http": "workspace:*",
+    "@beat-twin/nanodaw-adapter": "workspace:*",
+    "@beat-twin/nanodaw-mcp": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "@beat-twin/commands": "workspace:*",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0",
+    "ws": "^8.21.0"
+  }
+}

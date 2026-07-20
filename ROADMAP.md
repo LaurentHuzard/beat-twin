@@ -50,6 +50,11 @@ The browser NanoDAW is the native reference target. Bitwig is the first external
 - Bounded `bitwig-launcher-v1` adapter, authenticated controller writes,
   generation-aware target identity, strict musical bounds, and exact note
   readback covered by deterministic tests.
+- CI-enforced package dependency direction, typed Gateway HTTP/WebSocket
+  delivery, and an explicit NanoDAW MCP application composition root.
+- Bounded process-lifetime retention with injected clocks/stores, fail-closed
+  capacity behavior, pinned uncertain outcomes, and explicit no-replay restart
+  semantics.
 
 ## Next: Dual-Target Proof And Packaging
 
@@ -62,9 +67,7 @@ Gate order:
    secret, fixed empty target, bounded patch, and exact readback.
 3. Record NanoDAW atomicity and Bitwig partial/uncertain behavior as distinct
    execution semantics; never imply cross-target atomicity.
-4. Define bounded retention and restart semantics for Gateway plans,
-   confirmations, idempotency evidence, and terminal execution status.
-5. Package the Gateway, adapters, controller, and NanoDAW composition without
+4. Package the Gateway, adapters, controller, and NanoDAW composition without
    exposing the loopback-only surface publicly.
 
 Guardrails:

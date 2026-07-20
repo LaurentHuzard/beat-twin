@@ -3,7 +3,12 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "tsBuildInfoFile": "dist/.tsbuildinfo"
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "baseUrl": ".",
+    "paths": {
+      "@beat-twin/core": ["../core/dist/index.d.ts"],
+      "@beat-twin/retention": ["../retention/dist/index.d.ts"]
+    }
   },
   "include": ["src/**/*.ts"]
 }

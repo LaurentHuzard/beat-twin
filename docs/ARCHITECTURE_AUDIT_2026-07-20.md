@@ -6,6 +6,12 @@ Baseline: `main` at `2ecd6cb7681c27ae04ba41519ec8ca50f9f1f282`
 
 Date: 2026-07-20
 
+Historical snapshot: this audit describes its stated `main` baseline. The
+package-to-app, typed-delivery, composition-root, and retention findings are
+addressed by the later #46, #47, #49, and #48 implementation; current restart
+semantics are recorded in
+[`ADR-003-PROCESS-LIFETIME-RETENTION.md`](ADR-003-PROCESS-LIFETIME-RETENTION.md).
+
 ## Executive Verdict
 
 Beat Twin does not need a rewrite. Its behavioral architecture is stronger than

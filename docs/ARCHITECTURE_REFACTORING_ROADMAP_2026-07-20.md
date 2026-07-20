@@ -1,6 +1,6 @@
 # Beat Twin Architecture Refactoring Roadmap
 
-Status: proposed by GitHub #45
+Status: #46, #47, #49, and #48 implemented; review pending
 
 Date: 2026-07-20
 
@@ -12,6 +12,10 @@ independently reviewable and reversible.
 
 This is a migration queue, not one implementation authorization. Only one slice
 may become `Orbit Ready` after a human activates it.
+
+Implementation update: the user activated #46, #47, #49, and #48 together as
+one dependency-ordered Orbit loop. They remain separate commits and acceptance
+boundaries inside one draft implementation PR.
 
 ## Sequencing Rules
 
@@ -30,10 +34,10 @@ may become `Orbit Ready` after a human activates it.
 | Order | ID | GitHub | Slice | Value | Risk | Size | Depends on | Activation |
 | ---: | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0 | BT-ARCH-100 | [#45](https://github.com/LaurentHuzard/beat-twin/issues/45) | Audit, ADR, roadmap, and documentation alignment | shared baseline | low | M | - | active |
-| 1 | BT-ARCH-101 | [#46](https://github.com/LaurentHuzard/beat-twin/issues/46) | Enforce workspace dependency direction in CI | prevents new inversions | low | S | BT-ARCH-100 | next recommended |
-| 2 | BT-ARCH-102 | [#47](https://github.com/LaurentHuzard/beat-twin/issues/47) | Extract typed Gateway HTTP/WebSocket delivery | closes compiler and ownership hole | medium | L | BT-ARCH-101 | proposed |
-| 3 | BT-ARCH-103 | [#49](https://github.com/LaurentHuzard/beat-twin/issues/49) | Move NanoDAW MCP runtime wiring into an app | creates explicit lifecycle owner | medium | M | BT-ARCH-102 | proposed |
-| 4 | BT-ARCH-104 | [#48](https://github.com/LaurentHuzard/beat-twin/issues/48) | Define bounded retention and restart semantics | makes long-lived runtime honest | high | L | BT-ARCH-101 | proposed |
+| 1 | BT-ARCH-101 | [#46](https://github.com/LaurentHuzard/beat-twin/issues/46) | Enforce workspace dependency direction in CI | prevents new inversions | low | S | BT-ARCH-100 | implemented; review pending |
+| 2 | BT-ARCH-102 | [#47](https://github.com/LaurentHuzard/beat-twin/issues/47) | Extract typed Gateway HTTP/WebSocket delivery | closes compiler and ownership hole | medium | L | BT-ARCH-101 | implemented; review pending |
+| 3 | BT-ARCH-103 | [#49](https://github.com/LaurentHuzard/beat-twin/issues/49) | Move NanoDAW MCP runtime wiring into an app | creates explicit lifecycle owner | medium | M | BT-ARCH-102 | implemented; review pending |
+| 4 | BT-ARCH-104 | [#48](https://github.com/LaurentHuzard/beat-twin/issues/48) | Define bounded retention and restart semantics | makes long-lived runtime honest | high | L | BT-ARCH-101 | implemented; review pending |
 | 5 | BT-ARCH-105 | not opened | Split Playground document runtime from UI actions | reduces browser change amplification | medium | L | BT-ARCH-101 | proposed |
 | 6 | BT-ARCH-106 | not opened | Decompose live performance and audio orchestration | isolates timing-critical semantics | high | XL | BT-ARCH-105 | proposed |
 | 7 | BT-ARCH-107 | not opened | Modularize the historical Bitwig MCP facade | reduces protocol/tool drift | high | XL | BT-ARCH-101 | proposed |
@@ -93,12 +97,12 @@ graph becomes cyclic.
 
 ### Acceptance
 
-- [ ] an app-to-package edge passes;
-- [ ] a package-to-app edge fails;
-- [ ] an undeclared internal runtime import fails;
-- [ ] a cycle fails with the cycle path;
-- [ ] protected domain layers reject delivery/adapter dependencies;
-- [ ] existing build and tests remain green.
+- [x] an app-to-package edge passes;
+- [x] a package-to-app edge fails;
+- [x] an undeclared internal runtime import fails;
+- [x] a cycle fails with the cycle path;
+- [x] protected domain layers reject delivery/adapter dependencies;
+- [x] existing build and tests remain green.
 
 ### Rollback
 
@@ -132,11 +136,11 @@ consume without importing an application.
 
 ### Acceptance
 
-- [ ] real declarations replace `unknown` Gateway wiring;
-- [ ] all Gateway HTTP and WebSocket tests pass unchanged in behavior;
-- [ ] package smoke loads the new public API;
-- [ ] no package depends on `apps/gateway`;
-- [ ] route, protocol, security, and uncertain-outcome fixtures remain stable.
+- [x] real declarations replace `unknown` Gateway wiring;
+- [x] all Gateway HTTP and WebSocket tests pass unchanged in behavior;
+- [x] package smoke loads the new public API;
+- [x] no package depends on `apps/gateway`;
+- [x] route, protocol, security, and uncertain-outcome fixtures remain stable.
 
 ### Rollback
 
@@ -170,11 +174,11 @@ shutdown lifecycle.
 
 ### Acceptance
 
-- [ ] package-to-app architecture exception is removed;
-- [ ] MCP metadata and protocol tests remain unchanged;
-- [ ] one integration test proves startup, review, browser CAS batch, and clean
+- [x] package-to-app architecture exception is removed;
+- [x] MCP metadata and protocol tests remain unchanged;
+- [x] one integration test proves startup, review, browser CAS batch, and clean
       shutdown through the app;
-- [ ] root commands and documented setup remain compatible.
+- [x] root commands and documented setup remain compatible.
 
 ## BT-ARCH-104 — Retention, Idempotency, And Restart Contract ([#48](https://github.com/LaurentHuzard/beat-twin/issues/48))
 
@@ -211,12 +215,12 @@ claim.
 
 ### Acceptance
 
-- [ ] a decision record defines process-lifetime versus restart-durable state;
-- [ ] each registry has deterministic expiry/capacity tests;
-- [ ] restart tests preserve required terminal status or docs stop calling it
+- [x] a decision record defines process-lifetime versus restart-durable state;
+- [x] each registry has deterministic expiry/capacity tests;
+- [x] restart tests preserve required terminal status or docs stop calling it
       durable;
-- [ ] memory growth is bounded under a long synthetic session;
-- [ ] idempotent replay safety remains intact at every retention boundary.
+- [x] memory growth is bounded under a long synthetic session;
+- [x] idempotent replay safety remains intact at every retention boundary.
 
 ## BT-ARCH-105 — Playground Document Runtime Boundary
 

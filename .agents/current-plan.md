@@ -1,72 +1,73 @@
-# Beat Twin Orbit — Architecture Audit
+# Beat Twin Orbit — Architecture Boundaries And Retention
 
 ## Loop
 
-BT-ARCH-001 / GitHub #45 — audit the repository architecture and define an
-incremental refactoring roadmap.
+BT-ARCH-101 through BT-ARCH-104 / GitHub #46, #47, #49, and #48 — make the
+approved modular-monolith boundaries executable, move reusable delivery behind
+typed package APIs, restore explicit application composition, and bound all
+long-lived safety registries.
 
 ## Target Outcome
 
-Maintain one trustworthy architecture baseline that maps the current runtime
-and package boundaries, identifies concrete risks with code and test evidence,
-defines a target dependency model, and turns the migration into independently
-reviewable follow-up slices.
+Beat Twin has an enforced inward dependency graph, reusable typed Gateway
+delivery, an application-owned NanoDAW MCP process topology, and explicit
+process-lifetime retention semantics that remain fail-closed under capacity,
+expiry, timeout, uncertain outcomes, and restart.
 
-## Planned Changes
+## Completed Slices
 
-- inventory packages, composition roots, compatibility surfaces, runtime flows,
-  tests, documentation, and dependency direction;
-- record architectural strengths and risks without changing runtime behavior;
-- define the target modular-monolith boundaries and allowed dependency graph;
-- write a sequenced refactoring roadmap with risk, value, dependencies, and
-  explicit non-goals;
-- add a proposed ADR for package boundaries and composition roots;
-- align status and architecture documentation where it contradicts the current
-  implementation;
-- create follow-up issues only for slices that have a bounded outcome and test
-  strategy.
+1. Added a tested workspace dependency policy and wired it into CI.
+2. Extracted Gateway HTTP and browser WebSocket delivery into
+   `@beat-twin/gateway-http` without changing protocol behavior.
+3. Added `apps/nanodaw-mcp` as the composition root, retained the existing
+   command, and removed the package-to-app exception and ambient declaration.
+4. Introduced injected, bounded retention primitives and classified every safety
+   registry without evicting active or uncertain state.
+5. Recorded one Orbit report; draft-PR publication remains the final action.
 
 ## Product Contract
 
 - the browser remains the only owner of NanoDAW song state;
-- `@beat-twin/core` remains the canonical document model;
-- `@beat-twin/commands` remains the canonical mutation language;
+- `@beat-twin/core` and `@beat-twin/commands` retain their canonical roles;
 - models remain read/propose-only and never confirm or execute;
-- Gateway policy, confirmation, fixed-target planning, and uncertain-outcome
-  behavior remain fail-closed;
-- the historical Bitwig MCP surface remains compatible and read-only by default;
-- this loop changes documentation and planning only, not production behavior.
+- routes, wire formats, tool schemas, scopes, quotas, TTLs, timeouts, and target
+  identities remain compatible;
+- uncertain post-dispatch outcomes are terminal and never retried;
+- capacity pressure fails closed and never evicts active confirmations, plans,
+  pending operations, or unresolved uncertainty;
+- no live DAW write or public-network exposure is authorized.
 
 ## Verification Plan
 
-- baseline and final `pnpm test`;
-- baseline and final `pnpm typecheck`;
-- final `pnpm test:playground`, `pnpm build`, and `pnpm smoke:packages`;
-- validate every finding against concrete source and test locations;
-- verify every proposed dependency direction is acyclic;
-- run Markdown link checks, `git diff --check`, and an adversarial review for
-  accidental product, security, or live-evidence claims.
+- focused dependency-policy fixtures and package tests after each slice;
+- `pnpm test`, `pnpm typecheck`, `pnpm test:playground`, and `pnpm build`;
+- `pnpm smoke:packages` and `npm pack --dry-run`;
+- long synthetic retention sessions with injected clocks;
+- compatibility coverage for Gateway routes, WebSocket transport, MCP metadata,
+  browser CAS execution, startup, and shutdown;
+- `git diff --check`, local Markdown links, and an adversarial safety review.
 
 ## Current State
 
-Complete locally on `agent/architecture-audit-roadmap`. The user explicitly
-authorized issue #45 on 2026-07-20. The audit, proposed ADR, incremental roadmap,
-status alignment, four bounded follow-up issues, deterministic verification, and
-Orbit report are ready for draft-PR publication.
+Implementation and deterministic verification are complete on
+`agent/architecture-boundaries-retention`, based on draft PR #50 at `f1c8fd8`.
+The user explicitly authorized all four follow-up issues on 2026-07-20. The
+stacked implementation draft PR is ready to publish; no live external system
+was invoked.
 
 ## Human Gates
 
-- Issue #45 is authorized as a documentation and architecture-planning loop.
-- No implementation refactor, merge, deployment, live DAW write, or branch
-  deletion is authorized by this loop.
-- Publication is limited to a draft pull request for human review.
+- Implementation and draft-PR publication are authorized for #46, #47, #49,
+  and #48.
+- Merge, deployment, live Gateway/browser/controller/Bitwig proof, external DAW
+  writes, force-push, and branch deletion remain unauthorized.
 
 ## Exit Condition
 
-Met locally. The audit, target architecture, ADR, and roadmap are internally
-consistent, linked from the docs index, backed by the current code/tests, and
-verified offline. The draft PR closes #45 only when merged.
+All four issue acceptance criteria are represented by deterministic tests and
+documentation, the package-to-app exception is gone, all repository checks are
+green, and the draft PR will close the issues only when merged.
 
 ## Next Activation Signal
 
-Human approval of one bounded roadmap slice after review of the audit PR.
+Human review of the implementation draft PR after CI succeeds.

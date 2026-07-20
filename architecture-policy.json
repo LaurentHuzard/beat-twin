@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "layers": [
+    {
+      "name": "app",
+      "paths": [".", "apps/*"]
+    },
+    {
+      "name": "domain",
+      "paths": [
+        "packages/core",
+        "packages/commands",
+        "packages/agent-contract",
+        "packages/daw-contract",
+        "packages/retention"
+      ]
+    },
+    {
+      "name": "application",
+      "paths": ["packages/gateway-core"]
+    },
+    {
+      "name": "adapter",
+      "paths": ["packages/adapters/*"]
+    },
+    {
+      "name": "delivery",
+      "paths": ["packages/gateway-http", "packages/mcp"]
+    },
+    {
+      "name": "infrastructure",
+      "paths": ["packages/audio-tone", "packages/litert-provider"]
+    }
+  ],
+  "protectedLayerRules": [
+    {
+      "from": "domain",
+      "forbid": ["app", "adapter", "delivery"]
+    }
+  ],
+  "exceptions": []
+}

@@ -16,12 +16,15 @@ git@github.com:LaurentHuzard/beat-twin.git
 - MCP server entrypoint: `index.js`
 - Bitwig controller script: `bitwig-controller/BeatTwin/BeatTwin.control.js`
 - Browser NanoDAW: `apps/playground`
-- Standalone NanoDAW MCP planning server: `packages/mcp`
-- Pure runtime packages: `packages/core`, `packages/commands`, `packages/audio-tone`, `packages/daw-contract`, `packages/agent-contract`
+- Standalone NanoDAW MCP application: `apps/nanodaw-mcp`
+- NanoDAW MCP schemas, service, and transport: `packages/mcp`
+- Pure runtime packages: `packages/core`, `packages/retention`, `packages/commands`, `packages/audio-tone`, `packages/daw-contract`, `packages/agent-contract`
 - Transactional NanoDAW adapter: `packages/adapters/nanodaw`
 - LiteRT-LM provider and bounded model loop: `packages/litert-provider`
 - Pairing, plan, confirmation, quota, policy, and audit core: `packages/gateway-core`
-- Loopback-only paired Agent HTTP API: `apps/gateway`
+- Typed loopback-only Agent HTTP/WebSocket delivery: `packages/gateway-http`
+- Gateway compatibility facade: `apps/gateway`
+- CI dependency-direction policy: `architecture-policy.json` and `pnpm check:architecture`
 - Node 22/24 CI and compiled package smoke: `.github/workflows/ci.yml`
 - Offline tests: `tests/*.test.js`
 - Read-only live smoke: `pnpm smoke:read-only`
@@ -51,8 +54,10 @@ disposable project.
 - The authenticated browser WebSocket proxy, connected Agent mode, and bounded
   Bitwig adapter are implemented and covered offline, but the separately
   confirmed live NanoDAW/Bitwig flow is not yet proven.
-- Gateway security and execution records are process-memory state; restart
-  recovery and bounded retention need an explicit contract before packaging.
-- The NanoDAW MCP package currently imports Gateway delivery from an app through
-  a handwritten type shim. See the architecture audit for the incremental
-  composition-root migration.
+- Gateway security and execution records use bounded process-memory retention.
+  Restart-durable recovery is not implemented; after restart, callers must
+  re-pair, re-inspect, and create a newly confirmed plan without automatic
+  mutation replay.
+- Capacity is fail-closed. Active and uncertain safety evidence stays pinned,
+  so operator inspection or a process restart may be required before accepting
+  more work.

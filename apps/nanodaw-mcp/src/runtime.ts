@@ -4,7 +4,7 @@ import {
   createBrowserNanoDawWebSocketProxy,
   createGatewayRequestHandler,
   type GatewayHandler,
-} from "@beat-twin/gateway";
+} from "@beat-twin/gateway-http";
 import {
   GatewayCoreError,
   GatewayPlanStore,
@@ -19,7 +19,7 @@ import {
   createNanoDawMcpService,
   type NanoDawMcpReview,
   type NanoDawMcpService,
-} from "./index.ts";
+} from "@beat-twin/nanodaw-mcp";
 
 export type NanoDawMcpRuntimeOptions = {
   readonly operatorSecret: string;
@@ -95,16 +95,20 @@ export async function createNanoDawMcpRuntime(
   const baseUrl = `http://${hostname}:${address.port}`;
   const mcpServer = createNanoDawMcpServer(service);
   let stdioStarted = false;
+  let closed = false;
 
   return Object.freeze({
     baseUrl,
     service,
     startStdio: async () => {
+      if (closed) throw new Error("NanoDAW MCP runtime is closed");
       if (stdioStarted) throw new Error("NanoDAW MCP stdio transport is already connected");
       stdioStarted = true;
       await mcpServer.connect(new StdioServerTransport());
     },
     close: async () => {
+      if (closed) return;
+      closed = true;
       await Promise.allSettled([
         mcpServer.close(),
         browserProxy.close(),
@@ -191,6 +195,7 @@ function normalizeReviewError(error: unknown): ReviewHttpError {
     if (error.code === "unauthenticated") return new ReviewHttpError(401, error.code, error.message);
     if (error.code === "forbidden") return new ReviewHttpError(403, error.code, error.message);
     if (error.code === "quota_exceeded") return new ReviewHttpError(429, error.code, error.message);
+    if (error.code === "capacity_exceeded") return new ReviewHttpError(503, error.code, error.message);
     return new ReviewHttpError(400, error.code, error.message);
   }
   return new ReviewHttpError(500, "internal_error", "internal NanoDAW MCP error");
