@@ -23,6 +23,7 @@ jobs:
       - run: corepack enable
       - run: corepack prepare pnpm@11.10.0 --activate
       - run: pnpm install --frozen-lockfile
+      - run: pnpm check:architecture
       - run: pnpm typecheck
       - run: pnpm build
       - run: pnpm test

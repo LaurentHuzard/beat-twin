@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "layers": [
+    {
+      "name": "app",
+      "paths": [".", "apps/*"]
+    },
+    {
+      "name": "domain",
+      "paths": [
+        "packages/core",
+        "packages/commands",
+        "packages/agent-contract",
+        "packages/daw-contract"
+      ]
+    },
+    {
+      "name": "application",
+      "paths": ["packages/gateway-core"]
+    },
+    {
+      "name": "adapter",
+      "paths": ["packages/adapters/*"]
+    },
+    {
+      "name": "delivery",
+      "paths": ["packages/mcp"]
+    },
+    {
+      "name": "infrastructure",
+      "paths": ["packages/audio-tone", "packages/litert-provider"]
+    }
+  ],
+  "protectedLayerRules": [
+    {
+      "from": "domain",
+      "forbid": ["app", "adapter", "delivery"]
+    }
+  ],
+  "exceptions": [
+    {
+      "kind": "package-to-app",
+      "from": "@beat-twin/nanodaw-mcp",
+      "to": "@beat-twin/gateway",
+      "trackingIssue": "#49",
+      "reason": "Temporary compatibility edge removed by ARCH-103."
+    }
+  ]
+}
