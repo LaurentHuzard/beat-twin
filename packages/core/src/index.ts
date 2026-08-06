@@ -1,5 +1,8 @@
-export const SONG_SCHEMA_VERSION = 2;
+export const SONG_SCHEMA_VERSION = 3;
 export const LEGACY_SONG_SCHEMA_VERSION = 1;
+export const PREVIOUS_SONG_SCHEMA_VERSION = 2;
+export const AUDIO_ASSET_REFERENCE_SCHEMA_VERSION = 1;
+export const MAX_AUDIO_ASSET_BYTE_LENGTH = 512 * 1024 * 1024;
 export const DEFAULT_BPM = 120;
 export const DEFAULT_TRANSPORT_POSITION_BEATS = 0;
 
@@ -14,6 +17,34 @@ export type BuiltInInstrumentId = (typeof BUILT_IN_INSTRUMENTS)[number]["id"];
 export const DEFAULT_BUILT_IN_INSTRUMENT_ID: BuiltInInstrumentId = "lead";
 
 export type TrackKind = "instrument" | "audio" | "effect" | "group";
+
+export const AUDIO_ASSET_MEDIA_TYPES = Object.freeze([
+  "audio/aac",
+  "audio/flac",
+  "audio/mp4",
+  "audio/mpeg",
+  "audio/ogg",
+  "audio/wav",
+  "audio/webm",
+  "audio/x-wav",
+] as const);
+
+export type AudioAssetMediaType = (typeof AUDIO_ASSET_MEDIA_TYPES)[number];
+
+export type BrowserAudioAssetLocator = {
+  readonly kind: "browser-local";
+  readonly key: string;
+};
+
+export type AudioAssetReference = {
+  readonly schemaVersion: typeof AUDIO_ASSET_REFERENCE_SCHEMA_VERSION;
+  readonly id: string;
+  readonly label: string;
+  readonly mediaType: AudioAssetMediaType;
+  readonly byteLength: number;
+  readonly contentHash: string;
+  readonly locator: BrowserAudioAssetLocator;
+};
 
 export type Note = {
   readonly id: string;
@@ -58,7 +89,17 @@ export type Song = {
   readonly id: string;
   readonly title: string;
   readonly transport: Transport;
+  readonly audioAssets: readonly AudioAssetReference[];
   readonly tracks: readonly Track[];
+};
+
+export type CreateAudioAssetReferenceInput = {
+  readonly id: string;
+  readonly label: string;
+  readonly mediaType: AudioAssetMediaType;
+  readonly byteLength: number;
+  readonly contentHash: string;
+  readonly storageKey: string;
 };
 
 export type CreateSongInput = {
@@ -129,6 +170,33 @@ function assertNonEmptyString(value: unknown, label: string): string {
   return value.trim();
 }
 
+function assertExactKeys(
+  value: Record<string, unknown>,
+  allowedKeys: readonly string[],
+  label: string,
+): void {
+  const allowed = new Set(allowedKeys);
+  const unexpected = Object.keys(value).filter((key) => !allowed.has(key));
+  if (unexpected.length > 0) {
+    throw new Error(`${label} contains unsupported field: ${unexpected[0]}`);
+  }
+}
+
+function assertBoundedString(value: unknown, label: string, maxLength: number): string {
+  const normalized = assertNonEmptyString(value, label);
+  if (normalized.length > maxLength) {
+    throw new Error(`${label} must contain at most ${maxLength} characters`);
+  }
+  return normalized;
+}
+
+function assertUntrimmedString(value: unknown, label: string): string {
+  if (typeof value !== "string" || value.length === 0 || value !== value.trim()) {
+    throw new Error(`${label} must be a non-empty string without surrounding whitespace`);
+  }
+  return value;
+}
+
 function optionalString(value: unknown, fallback: string): string {
   if (value === undefined || value === null) {
     return fallback;
@@ -170,6 +238,42 @@ function assertNonNegativeNumber(value: unknown, label: string): number {
   }
 
   return numberValue;
+}
+
+function assertAudioAssetMediaType(value: unknown): AudioAssetMediaType {
+  if (AUDIO_ASSET_MEDIA_TYPES.some((mediaType) => mediaType === value)) {
+    return value as AudioAssetMediaType;
+  }
+  throw new Error(`audio asset mediaType must be one of: ${AUDIO_ASSET_MEDIA_TYPES.join(", ")}`);
+}
+
+function assertAudioAssetByteLength(value: unknown): number {
+  const byteLength = assertIntegerNumber(value, "audio asset byteLength");
+  if (byteLength <= 0 || byteLength > MAX_AUDIO_ASSET_BYTE_LENGTH) {
+    throw new Error(
+      `audio asset byteLength must be between 1 and ${MAX_AUDIO_ASSET_BYTE_LENGTH}`,
+    );
+  }
+  return byteLength;
+}
+
+function assertAudioAssetContentHash(value: unknown): string {
+  const contentHash = assertUntrimmedString(value, "audio asset contentHash");
+  if (!/^sha256:[0-9a-f]{64}$/.test(contentHash)) {
+    throw new Error("audio asset contentHash must be sha256: followed by 64 lowercase hex characters");
+  }
+  return contentHash;
+}
+
+function assertBrowserAssetStorageKey(value: unknown): string {
+  const key = assertUntrimmedString(value, "audio asset locator key");
+  if (key.length > 128) {
+    throw new Error("audio asset locator key must contain at most 128 characters");
+  }
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(key)) {
+    throw new Error("audio asset locator key must be an opaque browser-local identifier");
+  }
+  return key;
 }
 
 function assertMidiRange(value: unknown, label: string): number {
@@ -226,6 +330,13 @@ function freezeNote(note: Note): Note {
   return freeze({ ...note }) as Note;
 }
 
+function freezeAudioAssetReference(reference: AudioAssetReference): AudioAssetReference {
+  return freeze({
+    ...reference,
+    locator: freeze({ ...reference.locator }) as BrowserAudioAssetLocator,
+  }) as AudioAssetReference;
+}
+
 function freezePattern(pattern: Pattern): Pattern {
   return freeze({
     lengthBeats: pattern.lengthBeats,
@@ -251,6 +362,7 @@ function freezeSong(song: Song): Song {
   return freeze({
     ...song,
     transport: freeze({ ...song.transport }) as Transport,
+    audioAssets: freezeArray(song.audioAssets.map(freezeAudioAssetReference)),
     tracks: freezeArray(song.tracks.map(freezeTrack)),
   }) as Song;
 }
@@ -270,8 +382,38 @@ export function createSong(input: CreateSongInput): Song {
       isPlaying: false,
       isRecording: false,
     },
+    audioAssets: [],
     tracks: [],
   });
+}
+
+export function createAudioAssetReference(
+  input: CreateAudioAssetReferenceInput,
+): AudioAssetReference {
+  return freezeAudioAssetReference({
+    schemaVersion: AUDIO_ASSET_REFERENCE_SCHEMA_VERSION,
+    id: assertBoundedString(input.id, "audio asset id", 128),
+    label: assertBoundedString(input.label, "audio asset label", 256),
+    mediaType: assertAudioAssetMediaType(input.mediaType),
+    byteLength: assertAudioAssetByteLength(input.byteLength),
+    contentHash: assertAudioAssetContentHash(input.contentHash),
+    locator: {
+      kind: "browser-local",
+      key: assertBrowserAssetStorageKey(input.storageKey),
+    },
+  });
+}
+
+export function addAudioAssetReference(
+  song: Song,
+  reference: AudioAssetReference,
+): Song {
+  const normalized = normalizeAudioAssetReference(reference);
+  assertUniqueId(song.audioAssets.map((asset) => asset.id), normalized.id, "audio asset");
+  if (song.audioAssets.some((asset) => asset.locator.key === normalized.locator.key)) {
+    throw new Error(`Duplicate audio asset locator key: ${normalized.locator.key}`);
+  }
+  return freezeSong({ ...song, audioAssets: [...song.audioAssets, normalized] });
 }
 
 export function createTrack(input: CreateTrackInput): Track {
@@ -670,7 +812,7 @@ export function setTransportPosition(song: Song, positionBeats: number): Song {
 }
 
 export function serializeSong(song: Song): string {
-  return JSON.stringify(song, null, 2);
+  return JSON.stringify(normalizeSong(song), null, 2);
 }
 
 export function deserializeSong(source: string | unknown): Song {
@@ -743,6 +885,7 @@ function normalizeSong(value: unknown): Song {
   assertPlainObject(value, "song");
   if (
     value.schemaVersion !== SONG_SCHEMA_VERSION &&
+    value.schemaVersion !== PREVIOUS_SONG_SCHEMA_VERSION &&
     value.schemaVersion !== LEGACY_SONG_SCHEMA_VERSION
   ) {
     throw new Error(`Unsupported song schema: ${String(value.schemaVersion)}`);
@@ -755,6 +898,23 @@ function normalizeSong(value: unknown): Song {
   }
 
   const tracks = tracksValue.map(normalizeTrack);
+  const audioAssetsValue = value.schemaVersion === SONG_SCHEMA_VERSION ? value.audioAssets : [];
+  if (!Array.isArray(audioAssetsValue)) {
+    throw new Error("song audioAssets must be an array");
+  }
+  const audioAssets = audioAssetsValue.map(normalizeAudioAssetReference);
+  const assetIds = new Set<string>();
+  const locatorKeys = new Set<string>();
+  for (const asset of audioAssets) {
+    if (assetIds.has(asset.id)) {
+      throw new Error(`Duplicate audio asset id: ${asset.id}`);
+    }
+    if (locatorKeys.has(asset.locator.key)) {
+      throw new Error(`Duplicate audio asset locator key: ${asset.locator.key}`);
+    }
+    assetIds.add(asset.id);
+    locatorKeys.add(asset.locator.key);
+  }
   const trackIds = new Set<string>();
   for (const track of tracks) {
     if (trackIds.has(track.id)) {
@@ -768,7 +928,37 @@ function normalizeSong(value: unknown): Song {
     id: assertNonEmptyString(value.id, "song id"),
     title: optionalString(value.title, "Untitled Beat Twin Song"),
     transport,
+    audioAssets,
     tracks,
+  });
+}
+
+function normalizeAudioAssetReference(value: unknown): AudioAssetReference {
+  assertPlainObject(value, "audio asset reference");
+  assertExactKeys(
+    value,
+    ["schemaVersion", "id", "label", "mediaType", "byteLength", "contentHash", "locator"],
+    "audio asset reference",
+  );
+  if (value.schemaVersion !== AUDIO_ASSET_REFERENCE_SCHEMA_VERSION) {
+    throw new Error(`Unsupported audio asset reference schema: ${String(value.schemaVersion)}`);
+  }
+  assertPlainObject(value.locator, "audio asset locator");
+  assertExactKeys(value.locator, ["kind", "key"], "audio asset locator");
+  if (value.locator.kind !== "browser-local") {
+    throw new Error("audio asset locator kind must be browser-local");
+  }
+  return freezeAudioAssetReference({
+    schemaVersion: AUDIO_ASSET_REFERENCE_SCHEMA_VERSION,
+    id: assertBoundedString(value.id, "audio asset id", 128),
+    label: assertBoundedString(value.label, "audio asset label", 256),
+    mediaType: assertAudioAssetMediaType(value.mediaType),
+    byteLength: assertAudioAssetByteLength(value.byteLength),
+    contentHash: assertAudioAssetContentHash(value.contentHash),
+    locator: {
+      kind: "browser-local",
+      key: assertBrowserAssetStorageKey(value.locator.key),
+    },
   });
 }
 

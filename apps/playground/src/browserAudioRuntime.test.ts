@@ -121,7 +121,7 @@ describe("browser live audio controller", () => {
 function hostHarness() {
   let state = createPerformanceState();
   const song: Song = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     id: "browser-runtime-stop",
     title: "Browser runtime stop",
     transport: {
@@ -130,6 +130,7 @@ function hostHarness() {
       isPlaying: false,
       isRecording: false,
     },
+    audioAssets: [],
     tracks: [],
   };
   return {

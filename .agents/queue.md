@@ -1,8 +1,8 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-07-19
-Branch: `agent/bt-live-106-midi-recording`
-Worktree: `/tmp/beat-twin-orbit-31`
+Updated: 2026-08-06
+Branch: `agent/bt-audio-201-asset-references`
+Worktree: `/home/lolo/Workspace/lolOS/Projects/beat-twin`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -19,9 +19,10 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-No active implementation authorization. BT-LIVE-106 / GitHub #31 is complete
-and publication is explicitly authorized. BT-AUDIO-200 becomes the next
-eligible candidate after merge, but requires its own bounded Orbit plan.
+No active implementation authorization. BT-AUDIO-201 is complete locally on
+`agent/bt-audio-201-asset-references`; commit, push, and PR publication were
+authorized on 2026-08-06, while merge remains a human gate.
+BT-AUDIO-202 is the next eligible candidate but is not authorized.
 
 ## NanoDAW Live sequence
 
@@ -94,8 +95,8 @@ payload, import, decode, UI, or persistence work below is implemented here.
 
 | ID | Task | Priority | Size | Status | Depends on |
 | --- | --- | --- | --- | --- | --- |
-| BT-AUDIO-200 | Open the bounded audio-clip and sample playback tranche | P0 | XL | Ready | GitHub #31 |
-| BT-AUDIO-201 | Define versioned browser-owned audio asset references and validation | P0 | M | Parked | BT-AUDIO-200 |
+| BT-AUDIO-200 | Open the bounded audio-clip and sample playback tranche | P0 | XL | Done | GitHub #31 |
+| BT-AUDIO-201 | Define versioned browser-owned audio asset references and validation | P0 | M | Done | BT-AUDIO-200 |
 | BT-AUDIO-202 | Add explicit local import, decode, and asset lifecycle boundaries | P0 | L | Parked | BT-AUDIO-201 |
 | BT-AUDIO-203 | Implement a prepared-buffer material adapter on the live engine registry | P0 | L | Parked | BT-AUDIO-202 |
 | BT-AUDIO-204 | Prove non-warped clip offset, loop, replacement, and track-local stop timing | P0 | L | Parked | BT-AUDIO-203 |

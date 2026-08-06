@@ -2,87 +2,70 @@
 
 ## Loop
 
-BT-LIVE-106 / GitHub #31 — add quantized MIDI loop recording and overdub to
-the merged NanoDAW launcher.
+BT-AUDIO-201 — define versioned browser-owned audio asset references and
+validation.
 
 ## Target Outcome
 
-A player can queue a fixed-length MIDI take from the computer keyboard or
-on-screen pads, see the count-in and recording boundaries, layer an overdub,
-and undo only the last take while the shared live clock continues.
+NanoDAW can persist and reload bounded metadata references to browser-local
+audio assets without embedding bytes, filesystem paths, remote URLs, decoded
+buffers, or playback state in the `Song` document.
 
 ## Planned Changes
 
-- add a bounded browser-native note-input contract with keyboard/pad baseline;
-- expose optional Web MIDI as a non-blocking adapter with honest availability;
-- queue empty-slot recording on the next bar and overdub on the next active
-  loop boundary for 1, 2, 4, or 8 bars;
-- capture note-on/off beats from the same live controller clock;
-- quantize note starts to an explicit sixteenth-note grid and normalize lengths
-  inside the loop;
-- materialize each completed take as one atomic `BeatTwinCommand[]` batch;
-- create an empty-slot clip or overdub an existing active clip without replacing
-  prior notes;
-- retain one explicit `Undo last take` checkpoint independently of transport;
-- discard interrupted takes and release held inputs on blur, hidden document,
-  unmount, device disconnect, permission denial, and transport stop;
-- keep audio recording, file input, external DAWs, and hidden persistent capture
-  state out of scope.
+- add a versioned, immutable `AudioAssetReference` contract to core;
+- validate opaque browser-local storage keys, audio media types, byte lengths,
+  and SHA-256 content identities;
+- persist a unique reference registry on `Song` and reject ambiguous IDs or
+  storage keys;
+- advance the song schema with deterministic migration from existing v1/v2
+  documents to an empty asset registry;
+- cover construction, round-trip, migration, duplicate, and hostile-input
+  cases with focused core tests;
+- document the contract and the explicit boundary with BT-AUDIO-202+.
 
 ## Product Contract
 
-- `Song` remains the only persistent musical document; the capture buffer is
-  ephemeral browser state until one successful atomic commit.
-- One take yields exactly one document revision, autosave, and undo checkpoint.
-- Empty-slot recording starts on the next exact bar; overdub starts on the next
-  exact active-loop boundary. Both are observed from the live clock.
-- Empty-slot recording creates one ordinary MIDI clip; overdub only appends
-  ordinary MIDI notes to the selected existing clip.
-- An interruption discards the whole uncommitted take. No partial take is
-  applied and held input is always released locally.
-- Web MIDI permission or device failure never disables keyboard or pad input.
-- Captured notes are bounded to MIDI 0-127 and cannot escape the chosen loop.
+- The browser remains the only owner of asset bytes and NanoDAW song state.
+- A song contains metadata and an opaque browser-local key, never audio bytes,
+  a host filesystem path, a URL, a Blob URL, or a decoded buffer.
+- Reference schema and song schema are versioned independently.
+- Existing song schemas migrate deterministically with no invented assets.
+- Missing browser-local bytes are allowed at this layer; resolution and
+  lifecycle errors belong to BT-AUDIO-202.
 
 ## Verification Plan
 
-- focused quantization, lifecycle, input-adapter, command-batch, store, and UI
-  tests;
+- focused `@beat-twin/core` build and tests;
 - `pnpm test`;
 - `pnpm typecheck`;
-- `pnpm nanodaw:test`;
-- `pnpm --filter @beat-twin/playground build`;
-- `pnpm smoke:packages`;
 - `git diff --check`;
-- real-browser desktop and narrow QA covering pads, keyboard, count-in, record,
-  overdub, undo-last-take, focus-loss recovery, reload, console health, and
-  honest optional-Web-MIDI absence;
-- adversarial review for clock drift, boundary rounding, late note-off, stuck
-  input, interrupted commit, duplicate identity, history granularity, and
-  transport/runtime ownership.
+- adversarial review for path/URL smuggling, malformed hashes, unsafe numeric
+  bounds, duplicate identity, schema confusion, mutation, and migration loss.
 
 ## Current State
 
-BT-LIVE-106 is complete on `agent/bt-live-106-midi-recording`. Deterministic,
-build, package-smoke, adversarial-review, and real-browser gates pass. The human
-has explicitly authorized push, PR creation, CI-gated squash merge, and issue
-closure for this loop.
+Implementation and deterministic gates are complete on
+`agent/bt-audio-201-asset-references`. The feature remains local and uncommitted;
+publication was not authorized by the delegated implementation task; the user
+subsequently authorized commit, push, and PR publication on 2026-08-06.
 
 ## Human Gates
 
-- Only BT-LIVE-106 was authorized for this implementation loop.
-- Browser-local MIDI capture and playback of the committed clip are proven.
-  Live input monitoring, microphone/audio recording, and external DAW writes
-  remain out of scope.
-- Push, PR creation, CI-gated squash merge, and issue closure were explicitly
-  authorized on 2026-07-19. No deployment or external write was authorized.
+- The user activated BT-AUDIO-201 on 2026-08-06.
+- Import, decode, byte storage, missing-byte recovery, playback, scheduling,
+  clip attachment, and UI remain outside this loop.
+- Feature commit, push, and PR publication are authorized by the user on
+  2026-08-06. Merge, deployment, external writes, and branch deletion remain
+  gated.
 
 ## Exit Condition
 
-Met. The bounded capture flow passes deterministic and real-browser gates, each
-take is atomic and undoable, failure paths discard safely, and Orbit
-documentation is aligned for publication.
+Met. The reference contract round-trips through current song persistence, legacy
+songs migrate without fabricated assets, malformed/untrusted references fail
+closed, and all explicit scope boundaries are documented.
 
 ## Next Activation Signal
 
-BT-AUDIO-200 is the next eligible product tranche. It requires its own bounded
-Orbit plan before audio-clip or sample implementation begins.
+BT-AUDIO-202 may become eligible only after BT-AUDIO-201 is reviewed and
+published through a separate human gate.

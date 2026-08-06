@@ -61,7 +61,7 @@ The core model uses musical units that are stable across browser and DAW integra
 - note starts are relative to the clip pattern;
 - note lengths and clip lengths are beats.
 
-The serializer is schema-versioned so later imports, exports, and Bitwig adapters can reject incompatible data instead of guessing.
+The serializer is schema-versioned so later imports, exports, and Bitwig adapters can reject incompatible data instead of guessing. Song schema v3 carries only validated browser-local audio asset reference metadata; it never embeds asset bytes, paths, URLs, decoded buffers, or runtime handles.
 
 ## Command Boundary
 

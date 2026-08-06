@@ -135,7 +135,7 @@ function instrumentSong(): Song {
   });
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     id: "song-1",
     title: "Instrument routing",
     transport: {
@@ -144,6 +144,7 @@ function instrumentSong(): Song {
       isPlaying: false,
       isRecording: false,
     },
+    audioAssets: [],
     tracks: [track("drums-track", "drums", 60), track("bass-track", "bass", 36)],
   };
 }

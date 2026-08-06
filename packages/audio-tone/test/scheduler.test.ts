@@ -21,10 +21,11 @@ const baseTransport = {
 
 function makeSong(overrides: Partial<Song> = {}): Song {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     id: "song-1",
     title: "Scheduler Test",
     transport: baseTransport,
+    audioAssets: [],
     tracks: [],
     ...overrides,
   } as Song;
