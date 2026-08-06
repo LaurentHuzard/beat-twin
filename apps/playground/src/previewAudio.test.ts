@@ -112,7 +112,7 @@ describe("preview live-audio compatibility", () => {
 
 function song() {
   return {
-    schemaVersion: 2 as const,
+    schemaVersion: 3 as const,
     id: "preview-song",
     title: "Preview",
     transport: {
@@ -121,6 +121,7 @@ function song() {
       isPlaying: false,
       isRecording: false,
     },
+    audioAssets: [],
     tracks: [{
       id: "track-a",
       name: "A",

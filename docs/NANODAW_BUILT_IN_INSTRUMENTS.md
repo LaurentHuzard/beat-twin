@@ -21,9 +21,10 @@ effect, and group tracks reject instrument configuration.
 
 ## Versioning And Compatibility
 
-- Song schema v2 persists `instrumentId`.
+- Song schema v3 persists `instrumentId` plus the browser-owned audio asset
+  reference registry. Song schema v2 remains loadable with an empty registry.
 - Song schema v1 remains loadable and migrates instrument tracks to the
-  deterministic `lead` default.
+  deterministic `lead` default plus an empty registry.
 - `SongPatchV1` remains strict and unchanged. Compiling it omits an explicit
   instrument command field, and NanoDAW applies the same `lead` default.
 - `SongPatchV2` requires `track.instrumentId` and compiles it into `CreateTrack`.

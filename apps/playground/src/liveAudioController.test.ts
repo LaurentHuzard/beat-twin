@@ -1065,7 +1065,7 @@ describe("live audio controller", () => {
 
 function makeSong(): Song {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     id: "song-live",
     title: "Live controller",
     transport: {
@@ -1074,6 +1074,7 @@ function makeSong(): Song {
       isPlaying: false,
       isRecording: false,
     },
+    audioAssets: [],
     tracks: [
       {
         id: "track-a",
