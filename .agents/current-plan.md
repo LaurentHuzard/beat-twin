@@ -42,18 +42,18 @@ exists or after one explicit reveal.
 
 ## Current State
 
-Implementation and deterministic/browser gates are complete on
-`agent/bt-ux-001-first-run` from `origin/main` at `3d1448d` in the isolated
-`/tmp/lolos-ux-beat` worktree. The tranche remains local and uncommitted for
-coordinator review.
+Implementation passed exact-head CI and squash-merged as PR #55 at `9944ff8`.
+Its Orbit Ready gate is closed. A post-merge independent review follow-up adds
+explicit focus transfer into the advanced workspace and reconciles publication
+truth before the final portfolio audit.
 
 ## Human Gates
 
 - The user activated BT-UX-001 and delegated the Orbit gate on 2026-08-12.
 - This is a targeted disclosure fix inside the current visual system, not a
   redesign, framework migration, or audio-engine change.
-- No live Bitwig write, Gateway/MCP/S25 connection, publication, merge,
-  deployment, or branch deletion is part of this delegated implementation.
+- No live Bitwig write, Gateway/MCP/S25 connection, deployment, or branch
+  deletion is part of this delegated implementation.
 
 ## Exit Condition
 

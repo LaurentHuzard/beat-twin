@@ -107,6 +107,7 @@ function App() {
   const [isCommandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [isLiveRunning, setLiveRunning] = useState(false);
   const [areAdvancedToolsRevealed, setAdvancedToolsRevealed] = useState(false);
+  const workspaceRef = useRef<HTMLElement>(null);
 
   const selectedTrack =
     song?.tracks.find((track) => track.id === selectedTrackId) ?? song?.tracks[0] ?? null;
@@ -118,21 +119,28 @@ function App() {
     Boolean(buildPreviewAudition(song, selectedTrackId, selectedClipId)) && !isLiveRunning;
   const isPlayingPreview = preview.phase === "playing";
   const isFirstRun = !song && !areAdvancedToolsRevealed;
+  const focusWorkspace = useCallback(() => {
+    window.requestAnimationFrame(() => workspaceRef.current?.focus());
+  }, []);
   const revealAdvancedTools = useCallback(() => {
     setAdvancedToolsRevealed(true);
-  }, []);
+    focusWorkspace();
+  }, [focusWorkspace]);
   const createDemoAndRevealTools = useCallback(() => {
     setAdvancedToolsRevealed(true);
     createDemo();
-  }, [createDemo]);
+    focusWorkspace();
+  }, [createDemo, focusWorkspace]);
   const addTrackAndRevealTools = useCallback(() => {
     setAdvancedToolsRevealed(true);
     addTrack();
-  }, [addTrack]);
+    focusWorkspace();
+  }, [addTrack, focusWorkspace]);
   const loadSavedSongAndRevealTools = useCallback(() => {
     setAdvancedToolsRevealed(true);
     loadSavedSong();
-  }, [loadSavedSong]);
+    focusWorkspace();
+  }, [focusWorkspace, loadSavedSong]);
   const openCommandPalette = useCallback(() => {
     setCommandPaletteOpen(true);
   }, []);
@@ -310,7 +318,11 @@ function App() {
   );
 
   return (
-    <main className={`app-shell${isFirstRun ? " first-run" : ""}`}>
+    <main
+      ref={workspaceRef}
+      tabIndex={-1}
+      className={`app-shell${isFirstRun ? " first-run" : ""}`}
+    >
       <TransportStrip
         song={song}
         preview={preview}

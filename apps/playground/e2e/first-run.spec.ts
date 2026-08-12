@@ -29,6 +29,7 @@ test("first run stays focused and reveals the full local workspace on demand", a
 
   await page.getByRole("button", { name: "Show advanced tools" }).click();
 
+  await expect(page.getByRole("main")).toBeFocused();
   await expect(page.getByLabel("Beat Twin workspace")).toBeVisible();
   await expect(page.getByLabel("Agent mode")).toBeVisible();
   await page.keyboard.press("Control+K");
@@ -48,6 +49,7 @@ test("create demo history stays usable after undo returns to an empty song", asy
   await page.goto("/");
   await page.getByRole("button", { name: "Create Demo" }).click();
 
+  await expect(page.getByRole("main")).toBeFocused();
   await expect(page.getByLabel("Beat Twin workspace")).toBeVisible();
   await expect(page.getByRole("button", { name: /^Undo$/ })).toBeEnabled();
   await page.getByRole("button", { name: /^Undo$/ }).click();
