@@ -56,7 +56,54 @@ function mockPreviewAudioEngine(): PreviewAudioEngine {
   return engine;
 }
 
+function revealAdvancedTools(): void {
+  fireEvent.click(screen.getByRole("button", { name: /show advanced tools/i }));
+}
+
 describe("Playground", () => {
+  it("keeps first run focused until the user creates material or reveals advanced tools", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: /start with one musical move/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /create demo/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add track/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /load local song/i })).toBeDisabled();
+    expect(
+      screen.getByRole("group", { name: /start a nanodaw session/i }),
+    ).toHaveTextContent("No local song saved yet.");
+    expect(screen.queryByLabelText("Beat Twin workspace")).toBeNull();
+    expect(screen.queryByLabelText("Agent mode")).toBeNull();
+
+    revealAdvancedTools();
+
+    expect(screen.getByLabelText("Beat Twin workspace")).toBeInTheDocument();
+    expect(screen.getByLabelText("Agent mode")).toBeInTheDocument();
+    expect(usePlaygroundStore.getState().commandState.song).toBeNull();
+  });
+
+  it("keeps redo reachable when undo empties a session created from first run", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    expect(screen.getByLabelText("Beat Twin workspace")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^undo$/i }));
+
+    expect(usePlaygroundStore.getState().commandState.song).toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: /start with one musical move/i }),
+    ).toBeNull();
+    expect(screen.getByLabelText("Beat Twin workspace")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^redo$/i })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /^redo$/i }));
+
+    expect(usePlaygroundStore.getState().commandState.song?.title).toBe("Playground Sketch");
+    expect(screen.getByLabelText("Beat Twin workspace")).toBeInTheDocument();
+  });
+
   it("presents standalone mode without claiming optional targets are connected", () => {
     mockPreviewAudioEngine();
     render(<App />);
@@ -163,6 +210,7 @@ describe("Playground", () => {
     });
 
     render(<App />);
+    revealAdvancedTools();
     const agentMode = screen.getByLabelText("Agent mode");
     expect(within(agentMode).getByText("Off")).toBeInTheDocument();
     expect(within(agentMode).queryByLabelText("Gateway URL")).toBeNull();
@@ -249,6 +297,7 @@ describe("Playground", () => {
     });
 
     render(<App />);
+    revealAdvancedTools();
     const agentMode = screen.getByLabelText("Agent mode");
     fireEvent.click(within(agentMode).getByRole("button", { name: /enable agent mode/i }));
     fireEvent.change(within(agentMode).getByLabelText("Operator secret"), {
@@ -337,6 +386,7 @@ describe("Playground", () => {
   it("opens the command palette and runs filtered actions", () => {
     mockPreviewAudioEngine();
     render(<App />);
+    revealAdvancedTools();
 
     fireEvent.click(screen.getByRole("button", { name: /open command palette/i }));
 
@@ -358,6 +408,11 @@ describe("Playground", () => {
     render(<App />);
 
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(screen.queryByRole("dialog", { name: /command palette/i })).toBeNull();
+
+    revealAdvancedTools();
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
 
     const dialog = screen.getByRole("dialog", { name: /command palette/i });
     const search = within(dialog).getByLabelText("Command palette search");
@@ -372,6 +427,7 @@ describe("Playground", () => {
   it("keeps unavailable command palette actions disabled", () => {
     mockPreviewAudioEngine();
     render(<App />);
+    revealAdvancedTools();
 
     fireEvent.click(screen.getByRole("button", { name: /open command palette/i }));
 
@@ -386,6 +442,7 @@ describe("Playground", () => {
   it("executes recognized command drafts through local actions", () => {
     mockPreviewAudioEngine();
     render(<App />);
+    revealAdvancedTools();
 
     fireEvent.change(screen.getByLabelText("Command draft"), {
       target: { value: "demo" },
@@ -429,6 +486,7 @@ describe("Playground", () => {
   it("reports unrecognized command drafts without mutating song state", () => {
     mockPreviewAudioEngine();
     render(<App />);
+    revealAdvancedTools();
 
     fireEvent.change(screen.getByLabelText("Command draft"), {
       target: { value: "summon bass fog" },
@@ -660,6 +718,7 @@ describe("Playground", () => {
   it("undos and redos local command history", () => {
     mockPreviewAudioEngine();
     render(<App />);
+    revealAdvancedTools();
 
     expect(screen.getByRole("button", { name: /^undo$/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /^redo$/i })).toBeDisabled();

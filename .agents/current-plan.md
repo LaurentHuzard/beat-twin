@@ -2,70 +2,70 @@
 
 ## Loop
 
-BT-AUDIO-201 — define versioned browser-owned audio asset references and
-validation.
+BT-UX-001 — add first-run progressive disclosure to NanoDAW.
 
 ## Target Outcome
 
-NanoDAW can persist and reload bounded metadata references to browser-local
-audio assets without embedding bytes, filesystem paths, remote URLs, decoded
-buffers, or playback state in the `Song` document.
+On an empty first run, NanoDAW presents one calm decision surface: the centered
+transport plus Create Demo, Add Track, and Load. Advanced composition, live,
+agent, inspection, command, and storage tools remain available after a song
+exists or after one explicit reveal.
 
 ## Planned Changes
 
-- add a versioned, immutable `AudioAssetReference` contract to core;
-- validate opaque browser-local storage keys, audio media types, byte lengths,
-  and SHA-256 content identities;
-- persist a unique reference registry on `Song` and reject ambiguous IDs or
-  storage keys;
-- advance the song schema with deterministic migration from existing v1/v2
-  documents to an empty asset registry;
-- cover construction, round-trip, migration, duplicate, and hostile-input
-  cases with focused core tests;
-- document the contract and the explicit boundary with BT-AUDIO-202+.
+- derive the first-run state from the browser-owned song instead of duplicating it;
+- keep transport identity and the three entry actions in the first viewport;
+- add an explicit Advanced tools reveal that works with keyboard and touch;
+- reveal the full current workspace automatically once a song exists;
+- preserve every existing command, live, agent, persistence, undo, and safety path;
+- cover empty, explicit-reveal, and song-created states with focused tests.
 
 ## Product Contract
 
-- The browser remains the only owner of asset bytes and NanoDAW song state.
-- A song contains metadata and an opaque browser-local key, never audio bytes,
-  a host filesystem path, a URL, a Blob URL, or a decoded buffer.
-- Reference schema and song schema are versioned independently.
-- Existing song schemas migrate deterministically with no invented assets.
-- Missing browser-local bytes are allowed at this layer; resolution and
-  lifecycle errors belong to BT-AUDIO-202.
+- The browser remains the only owner of NanoDAW song state.
+- Progressive disclosure is presentation state only; it must not create,
+  replace, save, load, or mutate a song implicitly.
+- Standalone NanoDAW remains useful with no Bitwig, Gateway, MCP, or S25.
+- Bitwig writes remain hidden and blocked by default.
+- Existing advanced tools remain reachable, with a visible keyboard- and
+  touch-operable reveal on the empty state.
 
 ## Verification Plan
 
-- focused `@beat-twin/core` build and tests;
-- `pnpm test`;
-- `pnpm typecheck`;
+- focused NanoDAW component tests;
+- `pnpm nanodaw:test`;
+- `pnpm --filter @beat-twin/playground build`;
+- Playwright desktop and 390px mobile first-run interaction proof when available;
 - `git diff --check`;
-- adversarial review for path/URL smuggling, malformed hashes, unsafe numeric
-  bounds, duplicate identity, schema confusion, mutation, and migration loss.
+- adversarial review for hidden escape paths, inaccessible controls, duplicate
+  song ownership, accidental external activation, and misleading live evidence.
 
 ## Current State
 
-Implementation and deterministic gates are complete on
-`agent/bt-audio-201-asset-references`. The feature remains local and uncommitted;
-publication was not authorized by the delegated implementation task; the user
-subsequently authorized commit, push, and PR publication on 2026-08-06.
+Implementation and deterministic/browser gates are complete on
+`agent/bt-ux-001-first-run` from `origin/main` at `3d1448d` in the isolated
+`/tmp/lolos-ux-beat` worktree. The tranche remains local and uncommitted for
+coordinator review.
 
 ## Human Gates
 
-- The user activated BT-AUDIO-201 on 2026-08-06.
-- Import, decode, byte storage, missing-byte recovery, playback, scheduling,
-  clip attachment, and UI remain outside this loop.
-- Feature commit, push, and PR publication are authorized by the user on
-  2026-08-06. Merge, deployment, external writes, and branch deletion remain
-  gated.
+- The user activated BT-UX-001 and delegated the Orbit gate on 2026-08-12.
+- This is a targeted disclosure fix inside the current visual system, not a
+  redesign, framework migration, or audio-engine change.
+- No live Bitwig write, Gateway/MCP/S25 connection, publication, merge,
+  deployment, or branch deletion is part of this delegated implementation.
 
 ## Exit Condition
 
-Met. The reference contract round-trips through current song persistence, legacy
-songs migrate without fabricated assets, malformed/untrusted references fail
-closed, and all explicit scope boundaries are documented.
+Met. An empty first run exposes only the local runtime identity, three useful
+entry actions, a visible unavailable-Load reason, and an explicit advanced
+reveal. Creating material latches that user intent, so Undo can return to an
+empty song without hiding Redo; Ctrl/Cmd+K stays inactive before entry. Vitest
+passes 143 tests in 15 files, the production build passes, and four Playwright
+checks pass on 1440 x 900 and 390 x 844. The mobile first run has no horizontal
+overflow, and console QA reports no errors or warnings.
 
 ## Next Activation Signal
 
-BT-AUDIO-202 may become eligible only after BT-AUDIO-201 is reviewed and
-published through a separate human gate.
+Review BT-UX-001 and keep Orbit Ready empty until the next smallest UX slice is
+explicitly selected.

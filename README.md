@@ -222,7 +222,13 @@ Run the browser NanoDAW checks:
 pnpm nanodaw:test
 pnpm test:playground
 pnpm --filter @beat-twin/playground build
+pnpm --filter @beat-twin/playground test:e2e
 ```
+
+The Playwright smoke covers the focused first-run entry on desktop and a
+390-pixel mobile viewport. Install Chromium once with
+`pnpm --filter @beat-twin/playground exec playwright install chromium` when a
+machine does not already have the matching browser binary.
 
 Live tests require Bitwig Studio, the controller script, and explicit write permissions. They are intentionally separate from the default test suite.
 

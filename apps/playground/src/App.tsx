@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import {
   ArrowDown,
@@ -99,6 +106,7 @@ function App() {
   const submitDraft = usePlaygroundStore((state) => state.submitDraft);
   const [isCommandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [isLiveRunning, setLiveRunning] = useState(false);
+  const [areAdvancedToolsRevealed, setAdvancedToolsRevealed] = useState(false);
 
   const selectedTrack =
     song?.tracks.find((track) => track.id === selectedTrackId) ?? song?.tracks[0] ?? null;
@@ -109,9 +117,29 @@ function App() {
   const canPreview =
     Boolean(buildPreviewAudition(song, selectedTrackId, selectedClipId)) && !isLiveRunning;
   const isPlayingPreview = preview.phase === "playing";
+  const isFirstRun = !song && !areAdvancedToolsRevealed;
+  const revealAdvancedTools = useCallback(() => {
+    setAdvancedToolsRevealed(true);
+  }, []);
+  const createDemoAndRevealTools = useCallback(() => {
+    setAdvancedToolsRevealed(true);
+    createDemo();
+  }, [createDemo]);
+  const addTrackAndRevealTools = useCallback(() => {
+    setAdvancedToolsRevealed(true);
+    addTrack();
+  }, [addTrack]);
+  const loadSavedSongAndRevealTools = useCallback(() => {
+    setAdvancedToolsRevealed(true);
+    loadSavedSong();
+  }, [loadSavedSong]);
+  const openCommandPalette = useCallback(() => {
+    setCommandPaletteOpen(true);
+  }, []);
 
   useKeyboardShortcuts({
     canPreview,
+    canOpenCommandPalette: !isFirstRun,
     isPlayingPreview,
     onUndo: undo,
     onRedo: redo,
@@ -121,7 +149,7 @@ function App() {
     onCancelNoteEdit: cancelNoteEdit,
     onDuplicateClip: duplicateSelectedClip,
     onQuantizeClip: quantizeSelectedClip,
-    onOpenCommandPalette: () => setCommandPaletteOpen(true),
+    onOpenCommandPalette: openCommandPalette,
   });
 
   const commandPaletteActions = useMemo<readonly PaletteAction[]>(
@@ -132,7 +160,7 @@ function App() {
         detail: "Song sketch",
         status: song ? "Replace" : "New",
         icon: <Sparkles size={18} />,
-        run: createDemo,
+        run: createDemoAndRevealTools,
       },
       {
         id: "add-track",
@@ -140,7 +168,7 @@ function App() {
         detail: "Command bus",
         status: song ? "Track" : "Song + track",
         icon: <Plus size={18} />,
-        run: addTrack,
+        run: addTrackAndRevealTools,
       },
       {
         id: "add-clip",
@@ -225,7 +253,7 @@ function App() {
         status: persistence.hasSavedSong ? "Local" : "Blocked",
         icon: <FolderOpen size={18} />,
         disabled: !persistence.hasSavedSong,
-        run: loadSavedSong,
+        run: loadSavedSongAndRevealTools,
       },
       {
         id: "export-song",
@@ -257,15 +285,15 @@ function App() {
     ],
     [
       addClipToSelection,
-      addTrack,
+      addTrackAndRevealTools,
       canPreview,
       canRedo,
       canUndo,
-      createDemo,
+      createDemoAndRevealTools,
       duplicateSelectedClip,
       exportSong,
       isPlayingPreview,
-      loadSavedSong,
+      loadSavedSongAndRevealTools,
       persistence.hasSavedSong,
       playPreview,
       preview.label,
@@ -282,73 +310,81 @@ function App() {
   );
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell${isFirstRun ? " first-run" : ""}`}>
       <TransportStrip
         song={song}
         preview={preview}
+        isFirstRun={isFirstRun}
+        hasSavedSong={persistence.hasSavedSong}
         canPreview={canPreview}
         canUndo={canUndo}
         canRedo={canRedo}
         onUndo={undo}
         onRedo={redo}
-        onCreateDemo={createDemo}
-        onAddTrack={addTrack}
+        onCreateDemo={createDemoAndRevealTools}
+        onAddTrack={addTrackAndRevealTools}
+        onLoadSavedSong={loadSavedSongAndRevealTools}
         onAddClip={addClipToSelection}
         onTempoChange={setTempo}
         onPlayPreview={playPreview}
         onStopPreview={stopPreview}
-        onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+        onOpenCommandPalette={openCommandPalette}
+        onRevealAdvancedTools={revealAdvancedTools}
       />
 
-      <LiveLauncher
-        externalAudioActive={isPlayingPreview}
-        onRunningChange={setLiveRunning}
-      />
+      {!isFirstRun ? (
+        <div id="advanced-workspace" className="advanced-workspace">
+          <LiveLauncher
+            externalAudioActive={isPlayingPreview}
+            onRunningChange={setLiveRunning}
+          />
 
-      <StepEditor />
+          <StepEditor />
 
-      <AgentModePanel />
+          <AgentModePanel />
 
-      <section className="workspace-grid" aria-label="Beat Twin workspace">
-        <Timeline
-          song={song}
-          selectedTrackId={selectedTrack?.id ?? null}
-          selectedClipId={selectedClip?.id ?? null}
-        />
-        <Inspector
-          song={song}
-          track={selectedTrack}
-          clip={selectedClip}
-          noteDraft={noteDraft}
-          editingNoteId={editingNoteId}
-          onNoteDraftChange={setNoteDraft}
-          onCommitNote={commitNoteDraft}
-          onEditNote={editNoteFromSelection}
-          onRemoveNote={removeNoteFromSelection}
-          onCancelNoteEdit={cancelNoteEdit}
-          onDuplicateClip={duplicateSelectedClip}
-          onQuantizeClip={quantizeSelectedClip}
-          onTransposeClip={transposeSelectedClip}
-          onInstrumentChange={setSelectedTrackInstrument}
-        />
-      </section>
+          <section className="workspace-grid" aria-label="Beat Twin workspace">
+            <Timeline
+              song={song}
+              selectedTrackId={selectedTrack?.id ?? null}
+              selectedClipId={selectedClip?.id ?? null}
+            />
+            <Inspector
+              song={song}
+              track={selectedTrack}
+              clip={selectedClip}
+              noteDraft={noteDraft}
+              editingNoteId={editingNoteId}
+              onNoteDraftChange={setNoteDraft}
+              onCommitNote={commitNoteDraft}
+              onEditNote={editNoteFromSelection}
+              onRemoveNote={removeNoteFromSelection}
+              onCancelNoteEdit={cancelNoteEdit}
+              onDuplicateClip={duplicateSelectedClip}
+              onQuantizeClip={quantizeSelectedClip}
+              onTransposeClip={transposeSelectedClip}
+              onInstrumentChange={setSelectedTrackInstrument}
+            />
+          </section>
 
-      <CommandDock
-        events={events}
-        messages={messages}
-        draft={draft}
-        songJsonDraft={songJsonDraft}
-        persistence={persistence}
-        lastError={lastError}
-        onDraftChange={setDraft}
-        onSubmitDraft={submitDraft}
-        onSongJsonDraftChange={setSongJsonDraft}
-        onSaveSong={saveSong}
-        onLoadSavedSong={loadSavedSong}
-        onExportSong={exportSong}
-        onImportSong={importSong}
-        onClearSavedSong={clearSavedSong}
-      />
+          <CommandDock
+            events={events}
+            messages={messages}
+            draft={draft}
+            songJsonDraft={songJsonDraft}
+            persistence={persistence}
+            lastError={lastError}
+            onDraftChange={setDraft}
+            onSubmitDraft={submitDraft}
+            onSongJsonDraftChange={setSongJsonDraft}
+            onSaveSong={saveSong}
+            onLoadSavedSong={loadSavedSong}
+            onExportSong={exportSong}
+            onImportSong={importSong}
+            onClearSavedSong={clearSavedSong}
+          />
+        </div>
+      ) : null}
 
       <CommandPalette
         isOpen={isCommandPaletteOpen}
@@ -361,6 +397,7 @@ function App() {
 
 type KeyboardShortcutOptions = {
   readonly canPreview: boolean;
+  readonly canOpenCommandPalette: boolean;
   readonly isPlayingPreview: boolean;
   readonly onUndo: () => void;
   readonly onRedo: () => void;
@@ -375,6 +412,7 @@ type KeyboardShortcutOptions = {
 
 function useKeyboardShortcuts({
   canPreview,
+  canOpenCommandPalette,
   isPlayingPreview,
   onUndo,
   onRedo,
@@ -399,7 +437,7 @@ function useKeyboardShortcuts({
       const key = event.key.toLowerCase();
       const hasCommandModifier = event.metaKey || event.ctrlKey;
 
-      if (hasCommandModifier && key === "k") {
+      if (hasCommandModifier && key === "k" && canOpenCommandPalette) {
         event.preventDefault();
         onOpenCommandPalette();
         return;
@@ -466,6 +504,7 @@ function useKeyboardShortcuts({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
+    canOpenCommandPalette,
     canPreview,
     isPlayingPreview,
     onCancelNoteEdit,
@@ -497,6 +536,8 @@ function isEditableTarget(target: EventTarget | null): boolean {
 type TransportStripProps = {
   readonly song: Song | null;
   readonly preview: PreviewState;
+  readonly isFirstRun: boolean;
+  readonly hasSavedSong: boolean;
   readonly canPreview: boolean;
   readonly canUndo: boolean;
   readonly canRedo: boolean;
@@ -504,16 +545,20 @@ type TransportStripProps = {
   readonly onRedo: () => void;
   readonly onCreateDemo: () => void;
   readonly onAddTrack: () => void;
+  readonly onLoadSavedSong: () => void;
   readonly onAddClip: () => void;
   readonly onTempoChange: (bpm: number) => void;
   readonly onPlayPreview: () => Promise<void>;
   readonly onStopPreview: () => Promise<void>;
   readonly onOpenCommandPalette: () => void;
+  readonly onRevealAdvancedTools: () => void;
 };
 
 function TransportStrip({
   song,
   preview,
+  isFirstRun,
+  hasSavedSong,
   canPreview,
   canUndo,
   canRedo,
@@ -521,17 +566,19 @@ function TransportStrip({
   onRedo,
   onCreateDemo,
   onAddTrack,
+  onLoadSavedSong,
   onAddClip,
   onTempoChange,
   onPlayPreview,
   onStopPreview,
   onOpenCommandPalette,
+  onRevealAdvancedTools,
 }: TransportStripProps) {
   const bpm = song?.transport.bpm ?? 120;
   const isPlayingPreview = preview.phase === "playing";
 
   return (
-    <header className="transport-strip">
+    <header className={`transport-strip${isFirstRun ? " first-run" : ""}`}>
       <div className="brand-lockup">
         <div className="brand-mark" aria-hidden="true">
           <Waves size={24} />
@@ -547,111 +594,161 @@ function TransportStrip({
         </div>
       </div>
 
-      <div className="transport-meters" aria-label="Transport">
-        <div className="meter">
-          <Clock3 size={18} />
-          <span>{bpm} BPM</span>
+      {isFirstRun ? (
+        <div className="first-run-copy">
+          <p className="eyebrow">Local-first studio</p>
+          <h2>Start with one musical move.</h2>
+          <p>Create a ready-to-play sketch, add an empty track, or resume your local song.</p>
         </div>
-        <div className="meter">
-          <StepForward size={18} />
-          <span>{song?.transport.positionBeats ?? 0} beats</span>
+      ) : (
+        <div className="transport-meters" aria-label="Transport">
+          <div className="meter">
+            <Clock3 size={18} />
+            <span>{bpm} BPM</span>
+          </div>
+          <div className="meter">
+            <StepForward size={18} />
+            <span>{song?.transport.positionBeats ?? 0} beats</span>
+          </div>
+          <label className="tempo-control">
+            <TimerReset size={18} />
+            <input
+              aria-label="Tempo"
+              type="range"
+              min="60"
+              max="180"
+              step="1"
+              value={bpm}
+              onChange={(event) => onTempoChange(Number(event.currentTarget.value))}
+              disabled={!song}
+            />
+          </label>
+          <div
+            className={`preview-status ${preview.phase}`}
+            role="status"
+            aria-live="polite"
+          >
+            <Volume2 size={18} />
+            <span>{preview.label}</span>
+            {preview.detail ? <small>{preview.detail}</small> : null}
+          </div>
         </div>
-        <label className="tempo-control">
-          <TimerReset size={18} />
-          <input
-            aria-label="Tempo"
-            type="range"
-            min="60"
-            max="180"
-            step="1"
-            value={bpm}
-            onChange={(event) => onTempoChange(Number(event.currentTarget.value))}
-            disabled={!song}
-          />
-        </label>
-        <div
-          className={`preview-status ${preview.phase}`}
-          role="status"
-          aria-live="polite"
-        >
-          <Volume2 size={18} />
-          <span>{preview.label}</span>
-          {preview.detail ? <small>{preview.detail}</small> : null}
-        </div>
-      </div>
+      )}
 
-      <div className="transport-actions">
-        <button
-          type="button"
-          className="icon-button"
-          onClick={onUndo}
-          disabled={!canUndo}
-          aria-label="Undo"
-          title="Undo (Ctrl/Cmd+Z)"
+      {isFirstRun ? (
+        <div
+          className="first-run-actions"
+          role="group"
+          aria-label="Start a NanoDAW session"
         >
-          <Undo2 size={18} />
-        </button>
-        <button
-          type="button"
-          className="icon-button"
-          onClick={onRedo}
-          disabled={!canRedo}
-          aria-label="Redo"
-          title="Redo (Ctrl/Cmd+Shift+Z)"
-        >
-          <Redo2 size={18} />
-        </button>
-        <button
-          type="button"
-          className="icon-button"
-          onClick={onOpenCommandPalette}
-          aria-label="Open command palette"
-          title="Open command palette (Ctrl/Cmd+K)"
-        >
-          <CommandIcon size={18} />
-        </button>
-        <button
-          type="button"
-          className="icon-button"
-          onClick={() => {
-            void onPlayPreview();
-          }}
-          disabled={!canPreview || isPlayingPreview}
-          aria-label="Play preview"
-          title="Play preview (Space)"
-        >
-          <Play size={19} />
-        </button>
-        <button
-          type="button"
-          className="icon-button"
-          onClick={() => {
-            void onStopPreview();
-          }}
-          disabled={!isPlayingPreview}
-          aria-label="Stop preview"
-          title="Stop preview (Space)"
-        >
-          <Square size={18} />
-        </button>
-        <button type="button" className="tool-button primary" onClick={onCreateDemo}>
-          <Sparkles size={18} />
-          <span>Create Demo</span>
-        </button>
-        <button type="button" className="tool-button" onClick={onAddTrack}>
-          <Plus size={18} />
-          <span>Add Track</span>
-        </button>
-        <button
-          type="button"
-          className="icon-button"
-          onClick={onAddClip}
-          aria-label="Add clip"
-          title="Add clip"
-        >
-          <ListMusic size={19} />
-        </button>
-      </div>
+          <button type="button" className="tool-button primary" onClick={onCreateDemo}>
+            <Sparkles size={19} />
+            <span>Create Demo</span>
+          </button>
+          <button type="button" className="tool-button" onClick={onAddTrack}>
+            <Plus size={19} />
+            <span>Add Track</span>
+          </button>
+          <button
+            type="button"
+            className="tool-button"
+            onClick={onLoadSavedSong}
+            disabled={!hasSavedSong}
+            aria-label="Load local song"
+            aria-describedby={hasSavedSong ? undefined : "first-run-load-hint"}
+            title={hasSavedSong ? "Load local song" : "No local song saved yet"}
+          >
+            <FolderOpen size={19} />
+            <span>Load</span>
+          </button>
+          {!hasSavedSong ? (
+            <p id="first-run-load-hint" className="first-run-load-hint">
+              No local song saved yet.
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className="advanced-tools-trigger"
+            onClick={onRevealAdvancedTools}
+          >
+            <SlidersHorizontal size={17} />
+            <span>Show advanced tools</span>
+          </button>
+        </div>
+      ) : (
+        <div className="transport-actions">
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onUndo}
+            disabled={!canUndo}
+            aria-label="Undo"
+            title="Undo (Ctrl/Cmd+Z)"
+          >
+            <Undo2 size={18} />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onRedo}
+            disabled={!canRedo}
+            aria-label="Redo"
+            title="Redo (Ctrl/Cmd+Shift+Z)"
+          >
+            <Redo2 size={18} />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onOpenCommandPalette}
+            aria-label="Open command palette"
+            title="Open command palette (Ctrl/Cmd+K)"
+          >
+            <CommandIcon size={18} />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={() => {
+              void onPlayPreview();
+            }}
+            disabled={!canPreview || isPlayingPreview}
+            aria-label="Play preview"
+            title="Play preview (Space)"
+          >
+            <Play size={19} />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={() => {
+              void onStopPreview();
+            }}
+            disabled={!isPlayingPreview}
+            aria-label="Stop preview"
+            title="Stop preview (Space)"
+          >
+            <Square size={18} />
+          </button>
+          <button type="button" className="tool-button primary" onClick={onCreateDemo}>
+            <Sparkles size={18} />
+            <span>Create Demo</span>
+          </button>
+          <button type="button" className="tool-button" onClick={onAddTrack}>
+            <Plus size={18} />
+            <span>Add Track</span>
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onAddClip}
+            aria-label="Add clip"
+            title="Add clip"
+          >
+            <ListMusic size={19} />
+          </button>
+        </div>
+      )}
     </header>
   );
 }

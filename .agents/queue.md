@@ -1,8 +1,8 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-08-06
-Branch: `agent/bt-audio-201-asset-references`
-Worktree: `/home/lolo/Workspace/lolOS/Projects/beat-twin`
+Updated: 2026-08-12
+Branch: `agent/bt-ux-001-first-run`
+Worktree: `/tmp/lolos-ux-beat`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -19,10 +19,15 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-No active implementation authorization. BT-AUDIO-201 is complete locally on
-`agent/bt-audio-201-asset-references`; commit, push, and PR publication were
-authorized on 2026-08-06, while merge remains a human gate.
-BT-AUDIO-202 is the next eligible candidate but is not authorized.
+No active implementation authorization. BT-UX-001 is complete and verified on
+`agent/bt-ux-001-first-run`; review, commit, publication, merge, deployment,
+external writes, and branch deletion remain separate coordinator gates.
+
+## UI/UX 2026
+
+| ID | Task | Priority | Size | Status | Depends on |
+| --- | --- | --- | --- | --- | --- |
+| BT-UX-001 | Add first-run progressive disclosure to NanoDAW | P0 | M | Done | - |
 
 ## NanoDAW Live sequence
 
