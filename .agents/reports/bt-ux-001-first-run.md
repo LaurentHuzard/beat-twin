@@ -3,7 +3,7 @@
 Date: 2026-08-12
 Branch: `agent/bt-ux-001-first-run`
 Base: `origin/main` at `3d1448d`
-State: implementation and verification complete; local and uncommitted
+State: merged after exact-head CI as PR #55 at `9944ff8`; post-merge review follow-up active
 
 ## Product Outcome
 
@@ -89,8 +89,9 @@ musical quality and external runtime behavior are not.
 
 ## Git
 
-The isolated worktree remains on `agent/bt-ux-001-first-run`. No commit, push,
-PR, merge, branch deletion, or cleanup of other Beat Twin worktrees occurred.
+The implementation was committed as `6aa021d`, passed exact-head CI, and
+squash-merged as PR #55 at `9944ff8`. No deployment, remote branch deletion, or
+cleanup of other Beat Twin worktrees occurred.
 
 ## Remaining Risks
 
