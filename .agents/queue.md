@@ -1,8 +1,7 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-08-12
-Branch: `agent/bt-ux-001-followup`
-Worktree: `/tmp/lolos-ux-beat-followup`
+Updated: 2026-08-13
+Published main: `2a59406`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -20,8 +19,9 @@ may authorize a bounded product loop.
 ## Orbit Ready
 
 No active implementation authorization. BT-UX-001 passed CI and squash-merged
-as PR #55 at `9944ff8`; deployment, external writes, and branch deletion remain
-separate coordinator gates.
+as PR #55 at `9944ff8`; its focus-recovery follow-up merged as PR #56 at
+`2a59406`. Deployment, external writes, and branch deletion remain separate
+coordinator gates.
 
 ## UI/UX 2026
 

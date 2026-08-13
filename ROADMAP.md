@@ -34,6 +34,8 @@ The browser NanoDAW is the native reference target. Bitwig is the first external
 
 ## Completed Foundations
 
+- Calm first-run progressive disclosure with explicit advanced entry, preserved
+  Undo/Redo recovery, keyboard focus transfer, and desktop/mobile browser proof.
 - Node 24 local baseline, Node 22/24 CI matrix, compiled package `dist` outputs, and package smoke.
 - Strict executable commands, atomic batches, monotonic revisions, payload-bound idempotence, and stable errors.
 - `DawAdapter`, normalized capabilities/snapshots/plans/reports, and reusable fake-adapter conformance.
