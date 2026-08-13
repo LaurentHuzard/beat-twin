@@ -42,6 +42,11 @@ Read-only live validation can start with `pnpm smoke:read-only`. Manual write
 validation still requires Bitwig Studio, the Beat Twin controller, and a
 disposable project.
 
+The calm NanoDAW first run and its focus-recovery follow-up are on `main`
+through PR #55 (`9944ff8`) and PR #56 (`2a59406`). Their deterministic browser
+proof covers desktop and 390-pixel mobile interaction without claiming live
+Bitwig, Gateway, MCP, S25, or subjective listening evidence.
+
 ## Open Risks
 
 - Runtime behavior depends on Bitwig Studio and local controller-script installation.

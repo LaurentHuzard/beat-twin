@@ -3,7 +3,7 @@
 Date: 2026-08-12
 Branch: `agent/bt-ux-001-first-run`
 Base: `origin/main` at `3d1448d`
-State: merged after exact-head CI as PR #55 at `9944ff8`; post-merge review follow-up active
+State: PR #55 merged at `9944ff8`; focus-recovery follow-up PR #56 merged at `2a59406`
 
 ## Product Outcome
 
@@ -102,5 +102,5 @@ cleanup of other Beat Twin worktrees occurred.
 
 ## Next Activation Signal
 
-Review this first-run slice, then choose one bounded post-entry density problem
-before placing another item under Orbit Ready.
+Choose one bounded post-entry density problem before placing another item under
+Orbit Ready.

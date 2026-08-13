@@ -43,9 +43,8 @@ exists or after one explicit reveal.
 ## Current State
 
 Implementation passed exact-head CI and squash-merged as PR #55 at `9944ff8`.
-Its Orbit Ready gate is closed. A post-merge independent review follow-up adds
-explicit focus transfer into the advanced workspace and reconciles publication
-truth before the final portfolio audit.
+The post-merge focus-recovery follow-up also passed exact-head CI and
+squash-merged as PR #56 at `2a59406`. The Orbit Ready gate is closed.
 
 ## Human Gates
 
@@ -67,5 +66,4 @@ overflow, and console QA reports no errors or warnings.
 
 ## Next Activation Signal
 
-Review BT-UX-001 and keep Orbit Ready empty until the next smallest UX slice is
-explicitly selected.
+Keep Orbit Ready empty until the next smallest UX slice is explicitly selected.

@@ -1,6 +1,7 @@
 # BT-UX-001 — Post-merge review follow-up
 
 Date: 2026-08-12
+State: exact-head CI passed; squash-merged as PR #56 at `2a59406`
 
 PR #55 passed exact-head CI and squash-merged as `9944ff8`. The independent
 review arrived after that decision and found two follow-ups:
