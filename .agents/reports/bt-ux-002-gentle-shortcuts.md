@@ -3,7 +3,7 @@
 Date: 2026-08-14
 Branch: `agent/bt-ux-002-gentle-shortcuts`
 Base: `origin/main` at `1c25cb5`
-State: implementation and independent review complete; publication pending
+State: completed on `main` through PR #58 at `a3dba85`
 
 ## Product Outcome
 
@@ -89,7 +89,7 @@ engine warning without changing results.
 Rendered structure, browser interaction, focus, responsive behavior, console
 health, deterministic preview continuity, and local builds/tests are proven.
 No physical audio output, listening quality, MIDI device, Bitwig, Gateway, MCP,
-S25, deployment, push, PR, merge, or remote branch deletion was attempted.
+S25, deployment, or remote branch deletion was attempted.
 
 ## Remaining Risks
 
@@ -99,6 +99,8 @@ S25, deployment, push, PR, merge, or remote branch deletion was attempted.
 
 ## Next Gate
 
-Independent review approved the corrected diff. The root operator may commit,
-publish, open the single implementation PR, wait for exact-head CI, and merge.
-Deployment and branch deletion remain separate.
+Independent review approved the corrected diff, exact-head CI passed, and PR
+#58 squash-merged as `a3dba85`. The remote commit was created through the
+GitHub connector after SSH approval timed out; its tree was byte-identical to
+the reviewed local commit. Orbit Ready returned to empty. Deployment and branch
+deletion remain separate.

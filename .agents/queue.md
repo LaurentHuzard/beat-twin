@@ -18,11 +18,7 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-BT-UX-002 is the single active implementation authorization. The user activated
-this bounded frontend slice on 2026-08-14. Implementation is isolated on
-`agent/bt-ux-002-gentle-shortcuts`; local validation and independent review are
-complete. Publication, exact-head CI, merge, deployment, external writes, and
-branch deletion remain separate gates.
+_None._
 
 ## UI/UX 2026
 
