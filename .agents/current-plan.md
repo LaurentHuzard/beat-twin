@@ -2,7 +2,8 @@
 
 ## Loop
 
-BT-UX-002 — add discreet shortcut help and adaptable inspector density.
+No item is Orbit Ready. BT-UX-002 completed implementation, independent review,
+exact-head CI, and squash merge as PR #58 at `a3dba85` on 2026-08-14.
 
 ## Target Outcome
 
@@ -44,9 +45,9 @@ first run remains unchanged and shows no help overlay.
 
 ## Current State
 
-Implementation, local validation, and independent review are complete on
-`agent/bt-ux-002-gentle-shortcuts` from published `origin/main` at `1c25cb5`.
-Publication is the next separate gate.
+BT-UX-002 is complete on `main` through PR #58 (`a3dba85`). The remote commit
+was published through the GitHub connector after SSH approval timed out; its Git
+tree exactly matched the independently reviewed local commit.
 
 ## Human Gates
 
@@ -67,4 +68,5 @@ inspected screenshots, console health, diff check, and adversarial review pass.
 
 ## Next Activation Signal
 
-Return Orbit Ready to empty after publication and exact-head merge evidence.
+Orbit Ready is empty. Deployment, branch deletion, and any successor Orbit
+remain separate gates.
