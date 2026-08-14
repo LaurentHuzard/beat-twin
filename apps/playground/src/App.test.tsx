@@ -82,6 +82,64 @@ describe("Playground", () => {
     expect(usePlaygroundStore.getState().commandState.song).toBeNull();
   });
 
+  it("keeps shortcut help voluntary and returns focus after Escape dismissal", async () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+
+    fireEvent.keyDown(window, { key: "?", shiftKey: true });
+    expect(screen.queryByRole("dialog", { name: /keyboard shortcuts/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /shortcuts/i })).toBeNull();
+
+    revealAdvancedTools();
+    const trigger = screen.getByRole("button", { name: /shortcuts/i });
+    fireEvent.click(trigger);
+
+    const guide = screen.getByRole("dialog", { name: /keyboard shortcuts/i });
+    expect(guide).toHaveTextContent("Ctrl/Cmd + K");
+    await waitFor(() =>
+      expect(within(guide).getByRole("button", { name: /close keyboard shortcuts/i }))
+        .toHaveFocus(),
+    );
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(screen.queryByRole("dialog", { name: /keyboard shortcuts/i })).toBeNull();
+    await waitFor(() => expect(trigger).toHaveFocus());
+
+    fireEvent.keyDown(window, { key: "?", shiftKey: true });
+    expect(screen.getByRole("dialog", { name: /keyboard shortcuts/i })).toBeInTheDocument();
+
+    const commandDraft = screen.getByLabelText("Command draft");
+    commandDraft.focus();
+    fireEvent.keyDown(commandDraft, { key: "Escape" });
+
+    expect(screen.queryByRole("dialog", { name: /keyboard shortcuts/i })).toBeNull();
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("changes inspector density without stopping an active preview or mutating the song", async () => {
+    const engine = mockPreviewAudioEngine();
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    fireEvent.click(screen.getByRole("button", { name: /play preview/i }));
+    await waitFor(() => expect(engine.play).toHaveBeenCalledTimes(1));
+
+    const revisionBeforeDensityChange = usePlaygroundStore.getState().commandState.revision;
+    const inspector = screen.getByLabelText("Inspector");
+    const densityToggle = within(inspector).getByRole("button", { name: "Compact" });
+
+    expect(inspector).toHaveAttribute("data-density", "comfortable");
+    fireEvent.click(densityToggle);
+
+    expect(inspector).toHaveAttribute("data-density", "compact");
+    expect(densityToggle).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Auditioning Kick Ladder")).toBeInTheDocument();
+    expect(engine.stop).not.toHaveBeenCalled();
+    expect(usePlaygroundStore.getState().commandState.revision)
+      .toBe(revisionBeforeDensityChange);
+  });
+
   it("keeps redo reachable when undo empties a session created from first run", () => {
     mockPreviewAudioEngine();
     render(<App />);

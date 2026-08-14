@@ -136,6 +136,12 @@ restored song.
 Browser keyboard shortcuts invoke existing local Playground actions only, and
 are ignored while focus is inside editable fields.
 
+Shortcut discovery is ephemeral presentation state in `App.tsx`. The inline
+guide is available only after explicit first-run entry, never owns song or
+performance state, and yields unmodified note keys to an armed MIDI recorder.
+Inspector density is another ephemeral presentation choice: it changes spacing
+only and cannot call preview, live, command, persistence, MCP, or DAW paths.
+
 Browser timeline selection feedback is derived from local `Song` state only. It
 highlights selected tracks and clips, summarizes track/clip/note counts, and
 draws clip-local note markers without adding a new mutation path.

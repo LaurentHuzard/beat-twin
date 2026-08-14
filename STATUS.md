@@ -43,9 +43,13 @@ validation still requires Bitwig Studio, the Beat Twin controller, and a
 disposable project.
 
 The calm NanoDAW first run and its focus-recovery follow-up are on `main`
-through PR #55 (`9944ff8`) and PR #56 (`2a59406`). Their deterministic browser
-proof covers desktop and 390-pixel mobile interaction without claiming live
-Bitwig, Gateway, MCP, S25, or subjective listening evidence.
+through PR #55 (`9944ff8`) and PR #56 (`2a59406`). BT-UX-002 is locally complete
+on `agent/bt-ux-002-gentle-shortcuts`: voluntary inline shortcut help closes
+with Escape and Inspector density changes without stopping active preview
+state. Deterministic browser proof covers desktop and 390-pixel mobile
+interaction without claiming live Bitwig, Gateway, MCP, S25, device audio, or
+subjective listening evidence. Independent review approved the corrected diff;
+publication remains the next separate gate.
 
 ## Open Risks
 

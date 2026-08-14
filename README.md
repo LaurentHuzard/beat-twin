@@ -62,7 +62,11 @@ The current Bitwig bridge still lives in `index.js`; adapter extraction is inten
 Browser save/load is also local NanoDAW state, not a Bitwig mutation.
 Browser pattern tools are local document edits for duplicate, quantize, and transpose.
 Browser undo/redo restores local NanoDAW command snapshots only.
-Browser keyboard shortcuts invoke existing local NanoDAW actions only.
+Browser keyboard shortcuts invoke existing local NanoDAW actions only. After
+entering the full workspace, the visible Shortcuts control or `?` opens an
+inline reference that closes with Escape and restores trigger focus. The guide
+never appears automatically on first run. Inspector Compact mode changes only
+presentation density and leaves preview/live audio state untouched.
 Browser timeline feedback is derived from local song state and does not call Bitwig.
 Browser command palette actions reuse the same local NanoDAW action boundary.
 Browser command drafts parse known local phrases only; they are not an AI chat path.
@@ -225,8 +229,9 @@ pnpm --filter @beat-twin/playground build
 pnpm --filter @beat-twin/playground test:e2e
 ```
 
-The Playwright smoke covers the focused first-run entry on desktop and a
-390-pixel mobile viewport. Install Chromium once with
+The Playwright smoke covers the focused first-run entry, voluntary shortcut
+help, Escape focus recovery, and adaptable Inspector density during preview on
+desktop and a 390-pixel mobile viewport. Install Chromium once with
 `pnpm --filter @beat-twin/playground exec playwright install chromium` when a
 machine does not already have the matching browser binary.
 

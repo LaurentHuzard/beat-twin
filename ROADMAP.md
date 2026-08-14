@@ -34,6 +34,8 @@ The browser NanoDAW is the native reference target. Bitwig is the first external
 
 ## Completed Foundations
 
+- Voluntary inline shortcut learning with Escape focus recovery and a
+  presentation-only compact Inspector mode that does not interrupt preview.
 - Calm first-run progressive disclosure with explicit advanced entry, preserved
   Undo/Redo recovery, keyboard focus transfer, and desktop/mobile browser proof.
 - Node 24 local baseline, Node 22/24 CI matrix, compiled package `dist` outputs, and package smoke.

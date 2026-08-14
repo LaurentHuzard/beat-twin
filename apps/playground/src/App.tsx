@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type RefObject,
   type ReactNode,
 } from "react";
 
@@ -62,6 +63,17 @@ import {
 
 const beatColumns = 16;
 
+const shortcutGroups = Object.freeze([
+  Object.freeze({ label: "Commands", keys: "Ctrl/Cmd + K" }),
+  Object.freeze({ label: "Undo", keys: "Ctrl/Cmd + Z" }),
+  Object.freeze({ label: "Redo", keys: "Ctrl/Cmd + Shift + Z" }),
+  Object.freeze({ label: "Play / stop preview", keys: "Space" }),
+  Object.freeze({ label: "Add or save note", keys: "N" }),
+  Object.freeze({ label: "Duplicate clip", keys: "D" }),
+  Object.freeze({ label: "Quantize to 1/4", keys: "Q" }),
+  Object.freeze({ label: "Shortcut guide", keys: "?" }),
+]);
+
 function App() {
   const song = usePlaygroundStore((state) => state.commandState.song);
   const events = usePlaygroundStore((state) => state.commandState.log);
@@ -105,9 +117,12 @@ function App() {
   const setDraft = usePlaygroundStore((state) => state.setDraft);
   const submitDraft = usePlaygroundStore((state) => state.submitDraft);
   const [isCommandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [isShortcutGuideOpen, setShortcutGuideOpen] = useState(false);
   const [isLiveRunning, setLiveRunning] = useState(false);
   const [areAdvancedToolsRevealed, setAdvancedToolsRevealed] = useState(false);
+  const [isInspectorCompact, setInspectorCompact] = useState(false);
   const workspaceRef = useRef<HTMLElement>(null);
+  const shortcutGuideTriggerRef = useRef<HTMLButtonElement>(null);
 
   const selectedTrack =
     song?.tracks.find((track) => track.id === selectedTrackId) ?? song?.tracks[0] ?? null;
@@ -142,12 +157,23 @@ function App() {
     focusWorkspace();
   }, [focusWorkspace, loadSavedSong]);
   const openCommandPalette = useCallback(() => {
+    setShortcutGuideOpen(false);
     setCommandPaletteOpen(true);
+  }, []);
+  const openShortcutGuide = useCallback(() => {
+    setCommandPaletteOpen(false);
+    setShortcutGuideOpen(true);
+  }, []);
+  const closeShortcutGuide = useCallback(() => {
+    setShortcutGuideOpen(false);
+    window.requestAnimationFrame(() => shortcutGuideTriggerRef.current?.focus());
   }, []);
 
   useKeyboardShortcuts({
     canPreview,
     canOpenCommandPalette: !isFirstRun,
+    canOpenShortcutGuide: !isFirstRun,
+    isShortcutGuideOpen,
     isPlayingPreview,
     onUndo: undo,
     onRedo: redo,
@@ -158,6 +184,8 @@ function App() {
     onDuplicateClip: duplicateSelectedClip,
     onQuantizeClip: quantizeSelectedClip,
     onOpenCommandPalette: openCommandPalette,
+    onOpenShortcutGuide: openShortcutGuide,
+    onCloseShortcutGuide: closeShortcutGuide,
   });
 
   const commandPaletteActions = useMemo<readonly PaletteAction[]>(
@@ -341,8 +369,13 @@ function App() {
         onPlayPreview={playPreview}
         onStopPreview={stopPreview}
         onOpenCommandPalette={openCommandPalette}
+        onOpenShortcutGuide={openShortcutGuide}
+        isShortcutGuideOpen={isShortcutGuideOpen}
         onRevealAdvancedTools={revealAdvancedTools}
+        shortcutGuideTriggerRef={shortcutGuideTriggerRef}
       />
+
+      <ShortcutGuide isOpen={isShortcutGuideOpen} onClose={closeShortcutGuide} />
 
       {!isFirstRun ? (
         <div id="advanced-workspace" className="advanced-workspace">
@@ -376,6 +409,8 @@ function App() {
               onQuantizeClip={quantizeSelectedClip}
               onTransposeClip={transposeSelectedClip}
               onInstrumentChange={setSelectedTrackInstrument}
+              isCompact={isInspectorCompact}
+              onCompactChange={setInspectorCompact}
             />
           </section>
 
@@ -410,6 +445,8 @@ function App() {
 type KeyboardShortcutOptions = {
   readonly canPreview: boolean;
   readonly canOpenCommandPalette: boolean;
+  readonly canOpenShortcutGuide: boolean;
+  readonly isShortcutGuideOpen: boolean;
   readonly isPlayingPreview: boolean;
   readonly onUndo: () => void;
   readonly onRedo: () => void;
@@ -420,11 +457,15 @@ type KeyboardShortcutOptions = {
   readonly onDuplicateClip: () => void;
   readonly onQuantizeClip: (gridBeats: number) => void;
   readonly onOpenCommandPalette: () => void;
+  readonly onOpenShortcutGuide: () => void;
+  readonly onCloseShortcutGuide: () => void;
 };
 
 function useKeyboardShortcuts({
   canPreview,
   canOpenCommandPalette,
+  canOpenShortcutGuide,
+  isShortcutGuideOpen,
   isPlayingPreview,
   onUndo,
   onRedo,
@@ -435,10 +476,24 @@ function useKeyboardShortcuts({
   onDuplicateClip,
   onQuantizeClip,
   onOpenCommandPalette,
+  onOpenShortcutGuide,
+  onCloseShortcutGuide,
 }: KeyboardShortcutOptions): void {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isEditableTarget(event.target)) {
+      if (event.defaultPrevented) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+
+      if (key === "escape" && isShortcutGuideOpen) {
+        event.preventDefault();
+        onCloseShortcutGuide();
+        return;
+      }
+
+      if (isEditableTarget(event.target)) {
         return;
       }
 
@@ -446,7 +501,6 @@ function useKeyboardShortcuts({
         return;
       }
 
-      const key = event.key.toLowerCase();
       const hasCommandModifier = event.metaKey || event.ctrlKey;
 
       if (hasCommandModifier && key === "k" && canOpenCommandPalette) {
@@ -473,6 +527,15 @@ function useKeyboardShortcuts({
       }
 
       if (hasCommandModifier || event.altKey) {
+        return;
+      }
+
+      const requestsShortcutGuide =
+        key === "?" || (event.code === "Slash" && event.shiftKey);
+
+      if (requestsShortcutGuide && canOpenShortcutGuide) {
+        event.preventDefault();
+        onOpenShortcutGuide();
         return;
       }
 
@@ -517,12 +580,16 @@ function useKeyboardShortcuts({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     canOpenCommandPalette,
+    canOpenShortcutGuide,
     canPreview,
+    isShortcutGuideOpen,
     isPlayingPreview,
     onCancelNoteEdit,
     onCommitNote,
     onDuplicateClip,
     onOpenCommandPalette,
+    onOpenShortcutGuide,
+    onCloseShortcutGuide,
     onPlayPreview,
     onQuantizeClip,
     onRedo,
@@ -563,7 +630,10 @@ type TransportStripProps = {
   readonly onPlayPreview: () => Promise<void>;
   readonly onStopPreview: () => Promise<void>;
   readonly onOpenCommandPalette: () => void;
+  readonly onOpenShortcutGuide: () => void;
+  readonly isShortcutGuideOpen: boolean;
   readonly onRevealAdvancedTools: () => void;
+  readonly shortcutGuideTriggerRef: RefObject<HTMLButtonElement | null>;
 };
 
 function TransportStrip({
@@ -584,7 +654,10 @@ function TransportStrip({
   onPlayPreview,
   onStopPreview,
   onOpenCommandPalette,
+  onOpenShortcutGuide,
+  isShortcutGuideOpen,
   onRevealAdvancedTools,
+  shortcutGuideTriggerRef,
 }: TransportStripProps) {
   const bpm = song?.transport.bpm ?? 120;
   const isPlayingPreview = preview.phase === "playing";
@@ -719,6 +792,20 @@ function TransportStrip({
             <CommandIcon size={18} />
           </button>
           <button
+            ref={shortcutGuideTriggerRef}
+            type="button"
+            className="shortcut-guide-trigger"
+            onClick={onOpenShortcutGuide}
+            aria-haspopup="dialog"
+            aria-expanded={isShortcutGuideOpen}
+            aria-controls="shortcut-guide"
+            aria-keyshortcuts="?"
+            title="Open keyboard shortcuts (?)"
+          >
+            <span aria-hidden="true">?</span>
+            <span>Shortcuts</span>
+          </button>
+          <button
             type="button"
             className="icon-button"
             onClick={() => {
@@ -762,6 +849,67 @@ function TransportStrip({
         </div>
       )}
     </header>
+  );
+}
+
+type ShortcutGuideProps = {
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+};
+
+function ShortcutGuide({ isOpen, onClose }: ShortcutGuideProps) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    }
+  }, [isOpen]);
+
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <aside
+      id="shortcut-guide"
+      className="shortcut-guide"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="shortcut-guide-title"
+    >
+      <div className="shortcut-guide-heading">
+        <div>
+          <p className="eyebrow">Local gestures</p>
+          <h2 id="shortcut-guide-title">Keyboard shortcuts</h2>
+          <p>Available after entering the workspace. Recording keeps priority.</p>
+        </div>
+        <button
+          ref={closeButtonRef}
+          type="button"
+          className="icon-button"
+          onClick={onClose}
+          aria-label="Close keyboard shortcuts"
+          aria-keyshortcuts="Escape"
+          title="Close keyboard shortcuts (Escape)"
+        >
+          <X size={18} />
+        </button>
+      </div>
+      <dl className="shortcut-list">
+        {shortcutGroups.map((shortcut) => (
+          <div key={shortcut.label}>
+            <dt>{shortcut.label}</dt>
+            <dd>
+              <kbd>{shortcut.keys}</kbd>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="shortcut-guide-hint">
+        Escape closes this guide and returns focus to Shortcuts.
+      </p>
+    </aside>
   );
 }
 
@@ -1104,6 +1252,8 @@ type InspectorProps = {
   readonly onQuantizeClip: (gridBeats: number) => void;
   readonly onTransposeClip: (semitones: number) => void;
   readonly onInstrumentChange: (instrumentId: BuiltInInstrumentId) => void;
+  readonly isCompact: boolean;
+  readonly onCompactChange: (isCompact: boolean) => void;
 };
 
 function Inspector({
@@ -1121,14 +1271,31 @@ function Inspector({
   onQuantizeClip,
   onTransposeClip,
   onInstrumentChange,
+  isCompact,
+  onCompactChange,
 }: InspectorProps) {
   const notes = clip?.pattern.notes ?? [];
 
   return (
-    <aside className="inspector" aria-label="Inspector">
-      <div className="surface-title">
-        <SlidersHorizontal size={18} />
-        <h2>Inspector</h2>
+    <aside
+      className={`inspector${isCompact ? " compact" : ""}`}
+      aria-label="Inspector"
+      data-density={isCompact ? "compact" : "comfortable"}
+    >
+      <div className="inspector-heading">
+        <div className="surface-title">
+          <SlidersHorizontal size={18} />
+          <h2>Inspector</h2>
+        </div>
+        <button
+          type="button"
+          className="inspector-density-toggle"
+          aria-pressed={isCompact}
+          onClick={() => onCompactChange(!isCompact)}
+          title="Toggle compact inspector density"
+        >
+          Compact
+        </button>
       </div>
 
       <dl className="inspector-list">

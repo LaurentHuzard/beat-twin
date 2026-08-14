@@ -18,6 +18,8 @@ test("first run stays focused and reveals the full local workspace on demand", a
   await expect(page.getByRole("button", { name: "Add Track" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Load local song" })).toBeDisabled();
   await expect(page.getByText("No local song saved yet.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Shortcuts" })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toHaveCount(0);
   await expect(page.getByLabel("Beat Twin workspace")).toHaveCount(0);
   await expect(page.locator("html")).toHaveJSProperty(
     "scrollWidth",
@@ -36,6 +38,57 @@ test("first run stays focused and reveals the full local workspace on demand", a
   await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
   await page.keyboard.press("Escape");
   expect(consoleErrors).toEqual([]);
+});
+
+test("shortcut help and inspector density stay voluntary during preview", async ({
+  page,
+}) => {
+  const consoleErrors: string[] = [];
+  const consoleWarnings: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+    if (message.type() === "warning") consoleWarnings.push(message.text());
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Show advanced tools" }).click();
+
+  const shortcutTrigger = page.getByRole("button", { name: "Shortcuts" });
+  const shortcutTriggerBox = await shortcutTrigger.boundingBox();
+  expect(shortcutTriggerBox?.height).toBeGreaterThanOrEqual(44);
+  await shortcutTrigger.click();
+  const guide = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  await expect(guide).toBeVisible();
+  await expect(guide.getByRole("button", { name: "Close keyboard shortcuts" }))
+    .toBeFocused();
+
+  await page.keyboard.press("Escape");
+  await expect(guide).toHaveCount(0);
+  await expect(shortcutTrigger).toBeFocused();
+
+  await page.keyboard.press("Shift+/");
+  await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Create Demo" }).click();
+  await page.getByRole("button", { name: "Play preview" }).click();
+  await expect(page.getByText("Auditioning Kick Ladder")).toBeVisible();
+
+  const inspector = page.getByLabel("Inspector");
+  await expect(inspector).toHaveAttribute("data-density", "comfortable");
+  const densityToggle = inspector.getByRole("button", { name: "Compact" });
+  const densityToggleBox = await densityToggle.boundingBox();
+  expect(densityToggleBox?.height).toBeGreaterThanOrEqual(44);
+  await densityToggle.click();
+  await expect(inspector).toHaveAttribute("data-density", "compact");
+  await expect(page.getByText("Auditioning Kick Ladder")).toBeVisible();
+
+  await expect(page.locator("html")).toHaveJSProperty(
+    "scrollWidth",
+    await page.evaluate(() => innerWidth),
+  );
+  expect(consoleErrors).toEqual([]);
+  expect(consoleWarnings).toEqual([]);
 });
 
 test("create demo history stays usable after undo returns to an empty song", async ({
