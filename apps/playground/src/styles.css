@@ -54,6 +54,7 @@ textarea:focus-visible {
 }
 
 .transport-strip,
+.shortcut-guide,
 .timeline-surface,
 .inspector,
 .command-dock,
@@ -147,6 +148,107 @@ textarea:focus-visible {
 .advanced-tools-trigger:hover {
   color: #17201f;
   background: #eef3ed;
+}
+
+.shortcut-guide-trigger,
+.inspector-density-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  border: 1px solid #b9c6bf;
+  border-radius: 8px;
+  padding: 0 11px;
+  color: #40504b;
+  background: #f4f7f2;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.shortcut-guide-trigger > span:first-child {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  color: #ffffff;
+  background: #2d7f73;
+  font-size: 0.8rem;
+}
+
+.shortcut-guide-trigger:hover,
+.inspector-density-toggle:hover,
+.inspector-density-toggle[aria-pressed="true"] {
+  border-color: #8fb9a1;
+  color: #133d35;
+  background: #dff0e5;
+}
+
+.shortcut-guide {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  background: #fbfcfa;
+}
+
+.shortcut-guide-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.shortcut-guide-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.shortcut-guide-heading h2,
+.shortcut-guide-heading p,
+.shortcut-guide-hint {
+  margin: 0;
+}
+
+.shortcut-guide-heading p:last-child,
+.shortcut-guide-hint {
+  color: #68736e;
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.shortcut-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.shortcut-list div {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  border: 1px solid #dbe4d9;
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.shortcut-list dt {
+  color: #53605a;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.shortcut-list dd {
+  margin: 0;
+}
+
+.shortcut-list kbd {
+  color: #17201f;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 900;
 }
 
 .brand-lockup,
@@ -1933,6 +2035,46 @@ h2 {
   gap: 16px;
 }
 
+.inspector-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.inspector-density-toggle {
+  min-height: 44px;
+  padding: 0 9px;
+  font-size: 0.7rem;
+}
+
+.inspector.compact {
+  gap: 10px;
+  padding: 10px;
+}
+
+.inspector.compact .inspector-list {
+  gap: 4px;
+}
+
+.inspector.compact .inspector-list div {
+  min-height: 27px;
+}
+
+.inspector.compact .instrument-selector select {
+  min-height: 32px;
+}
+
+.inspector.compact .note-strip {
+  gap: 4px;
+  min-height: 36px;
+}
+
+.inspector.compact .pattern-tools,
+.inspector.compact .note-editor {
+  padding-top: 8px;
+}
+
 .inspector-list {
   display: grid;
   gap: 10px;
@@ -2432,6 +2574,10 @@ h2 {
   .storage-panel {
     grid-column: auto;
     grid-template-columns: 1fr;
+  }
+
+  .shortcut-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .palette-backdrop {

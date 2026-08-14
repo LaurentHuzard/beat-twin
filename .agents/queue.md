@@ -1,7 +1,7 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-08-13
-Published main: `2a59406`
+Updated: 2026-08-14
+Published main: `1c25cb5`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -18,16 +18,18 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-No active implementation authorization. BT-UX-001 passed CI and squash-merged
-as PR #55 at `9944ff8`; its focus-recovery follow-up merged as PR #56 at
-`2a59406`. Deployment, external writes, and branch deletion remain separate
-coordinator gates.
+BT-UX-002 is the single active implementation authorization. The user activated
+this bounded frontend slice on 2026-08-14. Implementation is isolated on
+`agent/bt-ux-002-gentle-shortcuts`; local validation and independent review are
+complete. Publication, exact-head CI, merge, deployment, external writes, and
+branch deletion remain separate gates.
 
 ## UI/UX 2026
 
 | ID | Task | Priority | Size | Status | Depends on |
 | --- | --- | --- | --- | --- | --- |
 | BT-UX-001 | Add first-run progressive disclosure to NanoDAW | P0 | M | Done | - |
+| BT-UX-002 | Add discreet shortcut help and adaptable inspector density | P3 | S | In progress | BT-UX-001 |
 
 ## NanoDAW Live sequence
 
