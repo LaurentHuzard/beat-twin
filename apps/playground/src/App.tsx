@@ -52,6 +52,7 @@ import {
 } from "@beat-twin/core";
 
 import { AgentModePanel } from "./AgentModePanel";
+import { BitwigRemote } from "./BitwigRemote";
 import { LiveLauncher } from "./LiveLauncher";
 import { StepEditor } from "./StepEditor";
 import { buildPreviewAudition, type PreviewState } from "./previewAudio";
@@ -121,6 +122,7 @@ function App() {
   const [isLiveRunning, setLiveRunning] = useState(false);
   const [areAdvancedToolsRevealed, setAdvancedToolsRevealed] = useState(false);
   const [isInspectorCompact, setInspectorCompact] = useState(false);
+  const [activeSurface, setActiveSurface] = useState<"nanodaw" | "bitwig">("nanodaw");
   const workspaceRef = useRef<HTMLElement>(null);
   const shortcutGuideTriggerRef = useRef<HTMLButtonElement>(null);
 
@@ -170,9 +172,9 @@ function App() {
   }, []);
 
   useKeyboardShortcuts({
-    canPreview,
-    canOpenCommandPalette: !isFirstRun,
-    canOpenShortcutGuide: !isFirstRun,
+    canPreview: canPreview && activeSurface === "nanodaw",
+    canOpenCommandPalette: !isFirstRun && activeSurface === "nanodaw",
+    canOpenShortcutGuide: !isFirstRun && activeSurface === "nanodaw",
     isShortcutGuideOpen,
     isPlayingPreview,
     onUndo: undo,
@@ -345,6 +347,10 @@ function App() {
     ],
   );
 
+  if (activeSurface === "bitwig") {
+    return <BitwigRemote onClose={() => setActiveSurface("nanodaw")} />;
+  }
+
   return (
     <main
       ref={workspaceRef}
@@ -372,6 +378,7 @@ function App() {
         onOpenShortcutGuide={openShortcutGuide}
         isShortcutGuideOpen={isShortcutGuideOpen}
         onRevealAdvancedTools={revealAdvancedTools}
+        onOpenBitwig={() => setActiveSurface("bitwig")}
         shortcutGuideTriggerRef={shortcutGuideTriggerRef}
       />
 
@@ -633,6 +640,7 @@ type TransportStripProps = {
   readonly onOpenShortcutGuide: () => void;
   readonly isShortcutGuideOpen: boolean;
   readonly onRevealAdvancedTools: () => void;
+  readonly onOpenBitwig: () => void;
   readonly shortcutGuideTriggerRef: RefObject<HTMLButtonElement | null>;
 };
 
@@ -657,6 +665,7 @@ function TransportStrip({
   onOpenShortcutGuide,
   isShortcutGuideOpen,
   onRevealAdvancedTools,
+  onOpenBitwig,
   shortcutGuideTriggerRef,
 }: TransportStripProps) {
   const bpm = song?.transport.bpm ?? 120;
@@ -759,9 +768,17 @@ function TransportStrip({
             <SlidersHorizontal size={17} />
             <span>Show advanced tools</span>
           </button>
+          <button type="button" className="advanced-tools-trigger bitwig-entry" onClick={onOpenBitwig}>
+            <Waves size={17} />
+            <span>Open Bitwig Remote</span>
+          </button>
         </div>
       ) : (
         <div className="transport-actions">
+          <button type="button" className="shortcut-guide-trigger" onClick={onOpenBitwig}>
+            <Waves size={17} />
+            <span>Bitwig Remote</span>
+          </button>
           <button
             type="button"
             className="icon-button"

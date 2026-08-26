@@ -2538,6 +2538,349 @@ h2 {
   font-weight: 800;
 }
 
+.bitwig-entry {
+  border-top: 1px solid #dbe4d9;
+}
+
+.bitwig-remote {
+  min-height: 100vh;
+  padding: 18px;
+  color: #e9efec;
+  background:
+    radial-gradient(circle at 72% 0%, rgb(45 127 115 / 28%), transparent 34%),
+    linear-gradient(145deg, #111917 0%, #18231f 54%, #101614 100%);
+}
+
+.bitwig-remote-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  max-width: 1220px;
+  margin: 0 auto 16px;
+}
+
+.bitwig-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bitwig-brand h1,
+.bitwig-brand p,
+.bitwig-section-heading h2,
+.bitwig-section-heading p,
+.bitwig-session-stack h2,
+.bitwig-session-stack p,
+.bitwig-confirmation h2,
+.bitwig-confirmation p,
+.bitwig-empty-state h2,
+.bitwig-empty-state p {
+  margin: 0;
+}
+
+.bitwig-brand .brand-mark {
+  color: #dff0e5;
+  background: #2d7f73;
+}
+
+.bitwig-brand .eyebrow,
+.bitwig-section-heading .eyebrow,
+.bitwig-track-list .eyebrow,
+.bitwig-confirmation .eyebrow {
+  color: #89a59a;
+}
+
+.bitwig-back,
+.bitwig-refresh,
+.bitwig-transport-actions button,
+.bitwig-confirm-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid #40534c;
+  border-radius: 8px;
+  padding: 0 14px;
+  color: #dfe8e4;
+  background: #1b2824;
+  font-weight: 800;
+}
+
+.bitwig-back:hover,
+.bitwig-refresh:hover,
+.bitwig-transport-actions button:hover:not(:disabled),
+.bitwig-confirm-actions button:hover {
+  border-color: #70a38f;
+  background: #233a32;
+}
+
+.bitwig-security-strip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  max-width: 1220px;
+  margin: 0 auto 16px;
+  border: 1px solid #34463f;
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: #9db0a8;
+  background: rgb(21 31 28 / 82%);
+}
+
+.bitwig-security-strip > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.bitwig-security-strip strong {
+  color: #e9efec;
+}
+
+.connection-pill {
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.connection-pill.connected {
+  color: #b9edc9;
+  background: #174b32;
+}
+
+.connection-pill.offline {
+  color: #f0c6ba;
+  background: #4b2720;
+}
+
+.bitwig-console {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.8fr);
+  gap: 16px;
+  max-width: 1220px;
+  margin: 0 auto;
+}
+
+.bitwig-transport,
+.bitwig-session-stack > section,
+.bitwig-empty-state {
+  border: 1px solid #34463f;
+  border-radius: 10px;
+  background: rgb(22 32 29 / 90%);
+  box-shadow: 0 20px 56px rgb(0 0 0 / 24%);
+}
+
+.bitwig-transport {
+  display: grid;
+  align-content: start;
+  gap: 22px;
+  min-height: 480px;
+  padding: clamp(20px, 4vw, 38px);
+}
+
+.bitwig-section-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.bitwig-section-heading h2 {
+  font-size: clamp(1.4rem, 3vw, 2.1rem);
+}
+
+.bitwig-tempo {
+  display: grid;
+  min-width: 94px;
+  border-left: 1px solid #40534c;
+  padding-left: 18px;
+}
+
+.bitwig-tempo strong {
+  font-size: 1.8rem;
+}
+
+.bitwig-tempo span,
+.bitwig-position span,
+.bitwig-position small,
+.bitwig-session-stack span {
+  color: #89a097;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.bitwig-position {
+  display: grid;
+  gap: 5px;
+  border: 1px solid #34463f;
+  border-radius: 8px;
+  padding: 18px;
+  background: #121b18;
+}
+
+.bitwig-position strong {
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.8rem, 5vw, 3.4rem);
+  letter-spacing: -0.04em;
+}
+
+.bitwig-transport-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bitwig-transport-actions button {
+  min-height: 58px;
+}
+
+.bitwig-transport-actions button.primary,
+.bitwig-confirm-actions button.primary {
+  border-color: #3a9a83;
+  color: #07110e;
+  background: #73c7ad;
+}
+
+.bitwig-transport-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.bitwig-policy-note,
+.bitwig-offline-copy,
+.bitwig-notice,
+.bitwig-command-error {
+  margin: 0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: #b9c8c2;
+  background: #202e29;
+  line-height: 1.5;
+}
+
+.bitwig-policy-note code {
+  color: #b9edc9;
+}
+
+.bitwig-command-error {
+  color: #ffd2c7;
+  background: #4b2720;
+}
+
+.bitwig-notice {
+  color: #b9edc9;
+  background: #174b32;
+}
+
+.bitwig-session-stack {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.bitwig-session-stack > section {
+  display: grid;
+  gap: 9px;
+  padding: 18px;
+}
+
+.bitwig-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8db6a6;
+}
+
+.bitwig-card-title h2 {
+  color: #9db0a8;
+  font-size: 0.77rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.bitwig-session-stack strong {
+  font-size: 1.1rem;
+}
+
+.bitwig-track-list ol {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 22px;
+  color: #cfdbd6;
+}
+
+.bitwig-track-list > p:last-child {
+  color: #89a097;
+  line-height: 1.5;
+}
+
+.bitwig-empty-state {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  max-width: 760px;
+  min-height: 360px;
+  margin: 70px auto;
+  padding: 40px;
+  text-align: center;
+}
+
+.bitwig-empty-state p {
+  max-width: 52ch;
+  color: #9db0a8;
+  line-height: 1.5;
+}
+
+.bitwig-confirmation {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  left: 18px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  max-width: 920px;
+  margin: 0 auto;
+  border: 1px solid #70a38f;
+  border-radius: 10px;
+  padding: 18px;
+  color: #e9efec;
+  background: #17241f;
+  box-shadow: 0 28px 80px rgb(0 0 0 / 55%);
+}
+
+.bitwig-confirmation > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.bitwig-confirmation p:last-child {
+  color: #9db0a8;
+}
+
+.bitwig-confirm-actions {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.is-spinning {
+  animation: bitwig-spin 800ms linear infinite;
+}
+
+@keyframes bitwig-spin {
+  to { transform: rotate(360deg); }
+}
+
 @media (max-width: 980px) {
   .transport-strip,
   .workspace-grid,
@@ -2688,5 +3031,56 @@ h2 {
 
   .first-run-load-hint {
     grid-column: auto;
+  }
+
+  .bitwig-remote {
+    padding: 12px;
+  }
+
+  .bitwig-remote-header,
+  .bitwig-console {
+    grid-template-columns: 1fr;
+  }
+
+  .bitwig-remote-header {
+    align-items: stretch;
+  }
+
+  .bitwig-brand {
+    grid-row: 1;
+  }
+
+  .bitwig-back,
+  .bitwig-refresh {
+    justify-self: stretch;
+  }
+
+  .bitwig-security-strip {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .connection-pill {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .bitwig-section-heading,
+  .bitwig-confirmation {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .bitwig-transport {
+    min-height: 0;
+    padding: 18px;
+  }
+
+  .bitwig-transport-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .bitwig-confirm-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 }

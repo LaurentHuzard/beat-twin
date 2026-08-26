@@ -1,7 +1,7 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-08-14
-Published main: `1c25cb5`
+Updated: 2026-08-26
+Published main: `306fb23`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -19,6 +19,12 @@ may authorize a bounded product loop.
 ## Orbit Ready
 
 _None._
+
+## Bitwig Web Controller
+
+| ID | Task | Priority | Size | Status | Depends on |
+| --- | --- | --- | --- | --- | --- |
+| BT-WEB-001 | Restore a secure React Bitwig controller against the current bridge | P0 | L | Done | BT-207, BT-212 |
 
 ## UI/UX 2026
 

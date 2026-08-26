@@ -2,71 +2,78 @@
 
 ## Loop
 
-No item is Orbit Ready. BT-UX-002 completed implementation, independent review,
-exact-head CI, and squash merge as PR #58 at `a3dba85` on 2026-08-14.
+No item is Orbit Ready. BT-WEB-001 is complete locally on
+`agent/bt-web-001-react-bitwig-controller` from published `main` at `306fb23`.
 
 ## Target Outcome
 
-After entering the full NanoDAW workspace, a musician can voluntarily reveal a
-compact keyboard reference, close it with Escape, and switch the Inspector to a
-denser presentation without interrupting preview or live audio state. The calm
-first run remains unchanged and shows no help overlay.
+From the existing Beat Twin web app, a musician can open an honest Bitwig Remote
+surface, inspect current dependency/session state through a loopback server-side
+bridge, and invoke a small supported command set only after an explicit browser
+confirmation. Provider and Bitwig authentication secrets never enter browser
+state or bundles.
 
 ## Planned Changes
 
-- add one visible Shortcuts action only inside the advanced transport;
-- expose the existing local shortcuts in a non-modal, keyboard-dismissable guide;
-- return focus to the invocation control when the guide closes;
-- add a presentation-only Compact control to the Inspector;
-- preserve BT-UX-001, Undo/Redo, recording-key ownership, and all audio/external boundaries;
-- cover voluntary invocation, Escape dismissal, first-run absence, density changes,
-  and unchanged preview playback with focused and browser tests.
+- add a loopback-only Vite development bridge that delegates tool availability
+  and execution to the current Beat Twin MCP policy layer;
+- add a Bitwig Remote React surface inside the existing playground with clear
+  disconnected, read-only, confirmation, success, and failure states;
+- start with session inspection and bounded transport commands supported by the
+  current bridge; do not reintroduce archive-only tool claims;
+- keep NanoDAW first-run and browser-owned song state independent from Bitwig;
+- cover the bridge contract and controller behavior with synthetic tests, then
+  perform browser QA without issuing a live Bitwig write.
 
 ## Product Contract
 
 - The browser remains the only owner of NanoDAW song state.
-- Help visibility and Inspector density are ephemeral React presentation state.
-- Neither control may start, stop, replace, save, load, or mutate musical state.
+- Bitwig connection and session state are fetched through same-origin loopback
+  endpoints; browser code receives neither provider keys nor bridge secrets.
+- The server derives visible and executable tools from the current MCP policy.
+- Every mutating browser action requires an explicit per-action confirmation.
 - Standalone NanoDAW remains useful with no Bitwig, Gateway, MCP, or S25.
 - Bitwig writes remain hidden and blocked by default.
-- The first-run surface remains the BT-UX-001 decision surface with no automatic
-  help, coach mark, dialog, or overlay.
+- Archived `llm2Bitwig` components are design/behavior references only; missing
+  or unproven tools are not advertised as current capabilities.
 
 ## Verification Plan
 
-- focused NanoDAW component tests;
+- focused bridge and React component tests using synthetic clients;
 - `pnpm nanodaw:test`;
 - `pnpm --filter @beat-twin/playground build`;
-- Playwright desktop and 390px mobile help, focus, density, and first-run proof;
+- Playwright desktop and 390px mobile disconnected/read-only controller proof;
 - screenshot inspection and console checks;
 - `git diff --check`;
-- adversarial review for shortcut conflicts, inaccessible dismissal, accidental
-  audio interruption, duplicate song ownership, and external activation.
+- adversarial review for leaked secrets, policy bypass, stale confirmations,
+  accidental live writes, duplicate song ownership, and false capability claims.
 
 ## Current State
 
-BT-UX-002 is complete on `main` through PR #58 (`a3dba85`). The remote commit
-was published through the GitHub connector after SSH approval timed out; its Git
-tree exactly matched the independently reviewed local commit.
+The secure Bitwig Remote, loopback server bridge, synthetic coverage, docs, and
+runtime read-only proof are complete. Current live dependency truth remains
+separate: Bitwig Studio is stopped and the controller TCP endpoint is unavailable
+on this workstation. The reviewed branch is locally committed and remains
+unpublished.
 
 ## Human Gates
 
-- The user activated parallel frontend improvements and delegated the Orbit gate
-  on 2026-08-14; BT-UX-002 is the selected Beat Twin slice.
-- This is a small extension of the current visual system, not a redesign,
-  framework migration, or audio-engine change.
-- No live Bitwig write, Gateway/MCP/S25 connection, deployment, or branch
-  deletion is part of this delegated implementation.
+- The user explicitly supplied `Orbit Ready BT-WEB-001` on 2026-08-26.
+- The selected slice may change Beat Twin source and deterministic tests only.
+- Starting Bitwig, installing or changing its controller, exercising a live
+  write, publication, merge, deployment, and branch deletion remain separate
+  human gates.
 
 ## Exit Condition
 
-Met locally. The help is absent on first run, voluntary after entry, dismissable
-with Escape with focus recovery, and useful on desktop/mobile. Inspector density
-changes while preview remains active, with no song revision or audio stop call.
-The focused tests, 145-test NanoDAW suite, build, six Playwright cases, four
-inspected screenshots, console health, diff check, and adversarial review pass.
+Met locally. The Bitwig Remote is reachable from the current playground; it
+reports dependency and policy state honestly; no secret enters the browser
+bundle; unsupported archive tools are absent; mutating commands require fresh
+confirmation; 148 NanoDAW tests, 177 root unit tests, the production build, 10
+Playwright cases, visual inspection, console health, diff check, and adversarial
+review pass without a live Bitwig write.
 
 ## Next Activation Signal
 
-Orbit Ready is empty. Deployment, branch deletion, and any successor Orbit
-remain separate gates.
+Orbit Ready is empty. Publication, live Bitwig validation, merge, deployment,
+branch deletion, and any successor Orbit remain separate gates.

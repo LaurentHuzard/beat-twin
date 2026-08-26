@@ -10,6 +10,7 @@ This directory contains the current technical notes for the public Beat Twin pro
 - [`BT-103-POLICY-GATE.md`](BT-103-POLICY-GATE.md): write-policy model and current tool classification.
 - [`BT-104-ARRANGEMENT-PLAN.md`](BT-104-ARRANGEMENT-PLAN.md): plan-only arrangement helper.
 - [`BITWIG_MANUAL_SMOKE_CHECKLIST.md`](BITWIG_MANUAL_SMOKE_CHECKLIST.md): manual live verification with Bitwig Studio.
+- [`BITWIG_WEB_REMOTE.md`](BITWIG_WEB_REMOTE.md): secure React Bitwig control surface, loopback API, policy gates, and current limits.
 - [`FUTURE-DIRECTION.md`](FUTURE-DIRECTION.md): conservative direction for arrangement assistance.
 - [`LOCAL_MCP_SETUP.md`](LOCAL_MCP_SETUP.md): local MCP and Bitwig controller setup, including `pnpm smoke:read-only`.
 - [`LOCAL-LLM-TOOL-ORCHESTRATION.md`](LOCAL-LLM-TOOL-ORCHESTRATION.md): the laptop Gateway to S25 provider loop, model-visible tools, and fixture gate.

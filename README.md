@@ -6,10 +6,12 @@
 
 Beat Twin is an experimental, local-first orchestration layer between musical agents and DAWs.
 
-Its current repo contains three working musical surfaces:
+Its current repo contains four working musical surfaces:
 
 - a Bitwig Studio MCP bridge with explicit write-policy gates;
 - a standalone browser NanoDAW built on the canonical Beat Twin song and command models;
+- a secure browser Bitwig Remote that reuses the current MCP policy and
+  authenticated controller path without exposing secrets to React;
 - a NanoDAW MCP planning surface that prepares instrument-track and MIDI-clip
   plans for explicit review and confirmation in the browser, without Bitwig.
 
@@ -24,6 +26,8 @@ authenticated browser WebSocket proxy and Bitwig adapter remain gated follow-up 
 - A short read-only live smoke that separates TCP/controller setup failures from session-inspection failures.
 - Transport, mixer, clip, scene, device, and application write tools, hidden and blocked by default.
 - A Bitwig controller script that speaks JSON-RPC over a local TCP connection.
+- A loopback same-origin React Bitwig Remote for session inspection and
+  explicitly confirmed restart/play/stop commands when transport writes are enabled.
 - Offline protocol and policy tests that run without launching Bitwig.
 - A browser NanoDAW for command-first song sketches, Tone.js audition, note editing, pattern tools, keyboard shortcuts, local undo/redo, JSON save/load, visible timeline feedback, a local command palette, and deterministic command drafts.
 - Atomic `ExecutableBeatTwinCommand[]` batches with monotonic revisions, stable errors, and idempotent request IDs.
@@ -47,6 +51,19 @@ MCP client
 ```
 
 The Node process is the MCP server. It connects to the Bitwig controller on demand through `BITWIG_HOST` and `BITWIG_PORT`.
+
+The local browser Bitwig Remote reuses the same implementation contract:
+
+```text
+React Bitwig Remote
+  -> same-origin Vite loopback endpoint
+  -> current MCP tool registry and policy
+  -> authenticated local TCP JSON-RPC bridge
+  -> Bitwig controller script
+```
+
+It exposes no provider key or bridge secret to the browser. See
+[`docs/BITWIG_WEB_REMOTE.md`](docs/BITWIG_WEB_REMOTE.md).
 
 The browser NanoDAW foundation now lives alongside the MCP bridge:
 
@@ -125,6 +142,11 @@ node index.js
 ```
 
 Configure your MCP client to run that command from this repository. A portable example lives in [`llm-mcp/mcp.example.json`](llm-mcp/mcp.example.json).
+
+The browser controller is available from **Open Bitwig Remote** in the
+playground started by `tp up`, or through `pnpm nanodaw:dev`. It is read-only by
+default; its server-side transport policy and live-write gate are documented in
+[`docs/BITWIG_WEB_REMOTE.md`](docs/BITWIG_WEB_REMOTE.md).
 
 Codex example:
 
@@ -231,7 +253,9 @@ pnpm --filter @beat-twin/playground test:e2e
 
 The Playwright smoke covers the focused first-run entry, voluntary shortcut
 help, Escape focus recovery, and adaptable Inspector density during preview on
-desktop and a 390-pixel mobile viewport. Install Chromium once with
+desktop and a 390-pixel mobile viewport. It also covers the disconnected,
+policy-locked Bitwig Remote and proves that this state sends no command POST.
+Install Chromium once with
 `pnpm --filter @beat-twin/playground exec playwright install chromium` when a
 machine does not already have the matching browser binary.
 
@@ -243,6 +267,7 @@ Live tests require Bitwig Studio, the controller script, and explicit write perm
 - [`docs/BT-102-PROTOCOL-SMOKE.md`](docs/BT-102-PROTOCOL-SMOKE.md)
 - [`docs/BT-103-POLICY-GATE.md`](docs/BT-103-POLICY-GATE.md)
 - [`docs/BT-104-ARRANGEMENT-PLAN.md`](docs/BT-104-ARRANGEMENT-PLAN.md)
+- [`docs/BITWIG_WEB_REMOTE.md`](docs/BITWIG_WEB_REMOTE.md)
 - [`docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md`](docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md)
 - [`docs/FUTURE-DIRECTION.md`](docs/FUTURE-DIRECTION.md)
 - [`docs/LOCAL-LLM-TOOL-ORCHESTRATION.md`](docs/LOCAL-LLM-TOOL-ORCHESTRATION.md)
