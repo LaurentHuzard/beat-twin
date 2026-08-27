@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  DEFAULT_LITERT_AGENT_SYSTEM_PROMPT,
   LITERT_AGENT_TOOL_NAMES,
   LITERT_AGENT_TOOL_SPECS,
   LiteRtProviderError,
@@ -169,9 +170,122 @@ test("runs the real fixture through validation without mutating a DAW", async ()
     requests.map(({ url }) => new URL(url).pathname),
     ["/v1/models", "/v1/chat/completions"],
   );
-  const body = JSON.parse(String(requests[1]?.init?.body)) as { tools: unknown[]; messages: unknown[] };
+  const body = JSON.parse(String(requests[1]?.init?.body)) as {
+    messages: Array<Record<string, unknown>>;
+    parallel_tool_calls: unknown;
+    tool_choice: unknown;
+    tools: unknown[];
+  };
   assert.deepEqual(body.tools, LITERT_AGENT_TOOL_SPECS);
+  assert.equal(body.tool_choice, "auto");
+  assert.equal(body.parallel_tool_calls, false);
   assert.equal(body.messages.length, 2);
+  assert.equal(body.messages[0]?.role, "system");
+  assert.equal(body.messages[0]?.content, DEFAULT_LITERT_AGENT_SYSTEM_PROMPT);
+});
+
+test("requires and constrains an explicitly requested BPM in the request tool schema", async () => {
+  const requests: Array<{ url: string; init?: RequestInit }> = [];
+  const patch = { ...validPatch(), tempoBpm: 132 } as const;
+  const provider = createLiteRtProvider({
+    baseUrl: "http://phone.local:9379/",
+    fetch: queueFetch(
+      [
+        modelsResponse("gemma4-e2b"),
+        completion([
+          {
+            id: "call-propose",
+            name: "propose_song_patch",
+            arguments: JSON.stringify(patch),
+          },
+        ]),
+      ],
+      requests,
+    ),
+  });
+
+  const result = await provider.runAgent({
+    request: "Crée une boucle minimale à 132 BPM.",
+    handlers: handlers(),
+  });
+
+  assert.equal(result.patch.tempoBpm, 132);
+  const body = JSON.parse(String(requests[1]?.init?.body)) as {
+    tools: Array<{
+      function: {
+        name: string;
+        parameters: {
+          required?: string[];
+          properties?: Record<string, Record<string, unknown>>;
+        };
+      };
+    }>;
+  };
+  assert.deepEqual(
+    body.tools.map((tool) => tool.function.name),
+    LITERT_AGENT_TOOL_NAMES,
+  );
+  const proposal = body.tools.find((tool) => tool.function.name === "propose_song_patch");
+  assert.deepEqual(proposal?.function.parameters.required, ["schemaVersion", "tempoBpm", "track"]);
+  assert.deepEqual(proposal?.function.parameters.properties?.tempoBpm, {
+    type: "number",
+    minimum: 40,
+    maximum: 240,
+    enum: [132],
+  });
+  assert.deepEqual(LITERT_AGENT_TOOL_SPECS[2].function.parameters.required, [
+    "schemaVersion",
+    "track",
+  ]);
+  assert.equal("enum" in LITERT_AGENT_TOOL_SPECS[2].function.parameters.properties.tempoBpm, false);
+});
+
+test("rejects a proposal that omits or changes an explicitly requested BPM", async () => {
+  for (const patch of [
+    { ...validPatch(), tempoBpm: 120 },
+    (() => {
+      const { tempoBpm: _tempoBpm, ...withoutTempo } = validPatch();
+      return withoutTempo;
+    })(),
+  ]) {
+    const provider = createLiteRtProvider({
+      baseUrl: "http://phone.local:9379/",
+      fetch: queueFetch([
+        modelsResponse("gemma4-e2b"),
+        completion([
+          {
+            id: "call-propose",
+            name: "propose_song_patch",
+            arguments: JSON.stringify(patch),
+          },
+        ]),
+      ]),
+    });
+
+    await assert.rejects(
+      provider.runAgent({ request: "Create at 132 BPM", handlers: handlers() }),
+      assertProviderError("invalid_tool_arguments"),
+    );
+  }
+});
+
+test("fails before network access for conflicting or out-of-range explicit BPM", async () => {
+  for (const request of ["Try 120 BPM, then 132 BPM", "Create at 300 BPM", "Create at -132 BPM"]) {
+    let fetchCalls = 0;
+    const provider = createLiteRtProvider({
+      baseUrl: "http://phone.local:9379/",
+      fetch: (async () => {
+        fetchCalls += 1;
+        throw new Error("unexpected fetch");
+      }) as typeof fetch,
+    });
+
+    await assert.rejects(
+      provider.runAgent({ request, handlers: handlers() }),
+      assertProviderError("configuration_error"),
+    );
+    assert.equal(fetchCalls, 0);
+  }
 });
 
 test("executes read tools across steps and returns only after a valid proposal", async () => {

@@ -1,7 +1,7 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-08-26
-Published main: `306fb23`
+Updated: 2026-08-27
+Publication base for this queue update: `035e82d`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -19,6 +19,14 @@ may authorize a bounded product loop.
 ## Orbit Ready
 
 _None._
+
+## RTX Bounded Agent Loop
+
+| ID | Task | Status |
+| --- | --- | --- |
+| BT-RTX-001 | Stabilize the bounded Qwen tool loop and prove RTX proposal generation before read-only Bitwig composition | Done |
+| BT-RTX-002 | Bind a human-selected empty Bitwig launcher slot for read-only inspection and preview | Done |
+| BT-RTX-003 | Enforce an explicit BPM constraint in the model-facing proposal schema without inventing tempo | Done |
 
 ## Bitwig Web Controller
 

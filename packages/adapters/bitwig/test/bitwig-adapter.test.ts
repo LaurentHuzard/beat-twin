@@ -107,9 +107,11 @@ class MemoryBitwigPort implements BitwigBridgePort {
   clipReadyInspectionDelay = 0;
   inspectionCount = 0;
   pendingClipLength: number | null = null;
+  inspectionGate?: Promise<void>;
 
   async inspectTarget(): Promise<BitwigTargetInspection> {
     this.inspectionCount += 1;
+    await this.inspectionGate;
     if (this.failInspectionAfterAuthentication && this.authenticateCount > 0) {
       throw new Error("target inspection unavailable");
     }
@@ -191,6 +193,27 @@ test("read health and target inspection remain available before write authentica
   ]);
   assert.equal(snapshot.commandSnapshot.song, null);
   assert.equal(snapshot.commandSnapshot.revision, 0);
+  assert.equal(port.authenticateCount, 0);
+  assert.equal(port.calls.length, 0);
+});
+
+test("concurrent read-only health and inspection share one controller observation", async () => {
+  const port = new MemoryBitwigPort();
+  let releaseInspection!: () => void;
+  port.inspectionGate = new Promise<void>((resolve) => {
+    releaseInspection = resolve;
+  });
+  const instance = adapter(port);
+
+  const health = instance.health();
+  const snapshot = instance.inspect();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(port.inspectionCount, 1);
+  releaseInspection();
+
+  assert.equal((await health).status, "healthy");
+  assert.equal((await snapshot).commandSnapshot.revision, 0);
+  assert.equal(port.inspectionCount, 1);
   assert.equal(port.authenticateCount, 0);
   assert.equal(port.calls.length, 0);
 });

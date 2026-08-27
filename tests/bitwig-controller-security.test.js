@@ -30,6 +30,22 @@ test("controller exposes bounded target identity and exact note readback methods
   assert.match(source, /TARGET_STEP_SIZE_BEATS = 0\.25/);
 });
 
+test("controller binds a human-selected empty bank slot before falling back to a clip cursor", () => {
+  assert.match(source, /var targetTracks = \[\]/);
+  assert.match(source, /var targetSlots = \[\]/);
+  assert.match(source, /slot\.isSelected\(\)\.markInterested\(\)/);
+  assert.match(source, /slot\.isSelected\(\)\.addValueObserver\(refreshTargetGeneration\)/);
+  const selectedTarget = source.indexOf("var selected = selectedBankTarget()");
+  const cursorFallback = source.indexOf("var cursorTrackPosition = cursorClipTrack.position().get()");
+  assert.ok(selectedTarget >= 0 && selectedTarget < cursorFallback);
+  assert.match(source, /selected\.track\.exists\(\)\.get\(\)/);
+  assert.match(source, /selected\.slot\.exists\(\)\.get\(\)/);
+  assert.match(source, /return \{ ambiguous: true \}/);
+  assert.match(source, /createTarget\.slot\.createEmptyClip\(targetLengthBeats\)/);
+  assert.doesNotMatch(source, /cursorClipSlot\.createEmptyClip\(targetLengthBeats\)/);
+  assert.match(source, /boundedCursorMatches\(noteTarget\)/);
+});
+
 test("target writes validate binding and musical bounds before mutation", () => {
   const bindingCheck = source.indexOf("requireCurrentTarget(noteBinding)");
   const noteMutation = source.indexOf("boundedCursorClip.setStep(0, noteStep");

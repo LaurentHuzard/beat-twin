@@ -11,7 +11,7 @@ export const LITERT_AGENT_TOOL_NAMES = Object.freeze([
 ] as const);
 
 export const DEFAULT_LITERT_AGENT_SYSTEM_PROMPT =
-  "Inspect DAW sessions when useful, then propose exactly one strict SongPatchV1. Never confirm or execute a plan.";
+  "Call at most one tool per assistant turn. After calling a read tool, wait for its result before calling another tool. propose_song_patch must be the only tool call in its assistant turn. Preserve every explicit musical constraint from the user's request. An explicit tempo requires the exact top-level SongPatch field, for example 132 BPM requires tempoBpm: 132. Never confirm or execute a plan.";
 
 export type LiteRtAgentToolName = (typeof LITERT_AGENT_TOOL_NAMES)[number];
 
@@ -45,7 +45,8 @@ export const LITERT_AGENT_TOOL_SPECS = deepFreeze([
     type: "function",
     function: {
       name: "propose_song_patch",
-      description: "Propose a strict SongPatchV1. This never confirms or executes a plan.",
+      description:
+        "Propose a strict SongPatchV1. Include the exact top-level tempoBpm when the user requests a tempo. This never confirms or executes a plan.",
       parameters: SONG_PATCH_V1_TOOL_SCHEMA,
     },
   },
@@ -180,6 +181,8 @@ export function createLiteRtProvider(options: LiteRtProviderOptions): LiteRtProv
       throw new LiteRtProviderError("configuration_error", "systemPrompt must be a non-empty string");
     }
 
+    const explicitTempoBpm = parseExplicitTempoBpm(input.request);
+    const toolSpecs = toolSpecsForExplicitTempo(explicitTempoBpm);
     const models = await listModels();
     const model = resolveModel(config.model, models);
     const messages: ChatRequestMessage[] = [
@@ -201,8 +204,9 @@ export function createLiteRtProvider(options: LiteRtProviderOptions): LiteRtProv
           model,
           temperature: 0,
           messages,
-          tools: LITERT_AGENT_TOOL_SPECS,
+          tools: toolSpecs,
           tool_choice: "auto",
+          parallel_tool_calls: false,
         }),
       });
       const completion = parseChatCompletionResponse(payload);
@@ -253,6 +257,12 @@ export function createLiteRtProvider(options: LiteRtProviderOptions): LiteRtProv
             "invalid_tool_arguments",
             "propose_song_patch arguments are not a valid SongPatchV1",
             { cause: error },
+          );
+        }
+        if (explicitTempoBpm !== undefined && patch.tempoBpm !== explicitTempoBpm) {
+          throw new LiteRtProviderError(
+            "invalid_tool_arguments",
+            `propose_song_patch tempoBpm must equal the explicitly requested ${explicitTempoBpm} BPM`,
           );
         }
         callLog.push({ step, id: proposal.call.id, name: proposal.name });
@@ -579,6 +589,58 @@ function resolveModel(configured: string | undefined, models: readonly LiteRtMod
     throw new LiteRtProviderError("invalid_response", "/v1/models returned no models");
   }
   return first.id;
+}
+
+function parseExplicitTempoBpm(request: string): number | undefined {
+  const values: number[] = [];
+  const pattern = /(?<![\p{L}\p{N}_.,])([+-]?\d+(?:[.,]\d+)?)\s*BPM\b/giu;
+  for (const match of request.matchAll(pattern)) {
+    const value = Number(match[1]?.replace(",", "."));
+    if (!Number.isFinite(value) || value < 40 || value > 240) {
+      throw new LiteRtProviderError(
+        "configuration_error",
+        "explicit BPM must be a finite number between 40 and 240",
+      );
+    }
+    values.push(value);
+  }
+  const distinctValues = [...new Set(values)];
+  if (distinctValues.length > 1) {
+    throw new LiteRtProviderError(
+      "configuration_error",
+      "request contains conflicting explicit BPM values",
+    );
+  }
+  return distinctValues[0];
+}
+
+function toolSpecsForExplicitTempo(explicitTempoBpm: number | undefined): readonly unknown[] {
+  if (explicitTempoBpm === undefined) {
+    return LITERT_AGENT_TOOL_SPECS;
+  }
+  return deepFreeze(
+    LITERT_AGENT_TOOL_SPECS.map((tool) =>
+      tool.function.name !== "propose_song_patch"
+        ? tool
+        : {
+            ...tool,
+            function: {
+              ...tool.function,
+              parameters: {
+                ...tool.function.parameters,
+                required: ["schemaVersion", "tempoBpm", "track"],
+                properties: {
+                  ...tool.function.parameters.properties,
+                  tempoBpm: {
+                    ...tool.function.parameters.properties.tempoBpm,
+                    enum: [explicitTempoBpm],
+                  },
+                },
+              },
+            },
+          },
+    ),
+  );
 }
 
 function parseToolName(value: string): LiteRtAgentToolName {

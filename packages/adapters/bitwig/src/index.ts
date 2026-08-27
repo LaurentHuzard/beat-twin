@@ -169,6 +169,7 @@ export class BitwigAdapter implements DawAdapter {
   readonly #clipReadyAttempts: number;
   readonly #observationsByFingerprint = new Map<string, Observation>();
   readonly #requests = new Map<string, RequestExecution>();
+  #observationInFlight: Promise<Observation> | undefined;
   #nextRevision = 0;
 
   constructor(options: BitwigAdapterOptions) {
@@ -186,7 +187,7 @@ export class BitwigAdapter implements DawAdapter {
   async health(): Promise<DawHealth> {
     const checkedAt = this.#timestamp();
     try {
-      const inspection = validateBitwigTargetInspection(await this.#port.inspectTarget());
+      const { inspection } = await this.#observe();
       if (!inspection.target.available) {
         return Object.freeze({
           adapterId: this.id,
@@ -374,6 +375,19 @@ export class BitwigAdapter implements DawAdapter {
   }
 
   async #observe(): Promise<Observation> {
+    if (this.#observationInFlight) return this.#observationInFlight;
+    const observation = this.#readObservation();
+    this.#observationInFlight = observation;
+    try {
+      return await observation;
+    } finally {
+      if (this.#observationInFlight === observation) {
+        this.#observationInFlight = undefined;
+      }
+    }
+  }
+
+  async #readObservation(): Promise<Observation> {
     const inspection = validateBitwigTargetInspection(await this.#port.inspectTarget());
     const fingerprint = inspectionFingerprint(inspection);
     const existing = this.#observationsByFingerprint.get(fingerprint);
