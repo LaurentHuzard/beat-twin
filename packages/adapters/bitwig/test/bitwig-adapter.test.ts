@@ -102,6 +102,7 @@ class MemoryBitwigPort implements BitwigBridgePort {
   failAuthentication = false;
   failMutationAt = -1;
   corruptReadback = false;
+  noteReadbackInspectionDelay = 0;
   replaceTargetOnAuthentication = false;
   failInspectionAfterAuthentication = false;
   clipReadyInspectionDelay = 0;
@@ -127,6 +128,10 @@ class MemoryBitwigPort implements BitwigBridgePort {
     }
     const copy = structuredClone(this.inspection);
     if (this.corruptReadback && copy.target.hasContent) copy.notes = [];
+    if (this.noteReadbackInspectionDelay > 0 && copy.target.hasContent) {
+      this.noteReadbackInspectionDelay -= 1;
+      copy.notes = copy.notes.slice(0, 1);
+    }
     return copy;
   }
 
@@ -253,6 +258,20 @@ test("clip readiness polling is read-only and never retries clip creation", asyn
   assert.equal(execution.ok, true);
   assert.equal(port.calls.filter((entry) => entry.method === "target.create_clip").length, 1);
   assert.equal(port.inspectionCount >= 6, true);
+});
+
+test("bounded readback polling waits for note observers without retrying mutations", async () => {
+  const port = new MemoryBitwigPort();
+  port.noteReadbackInspectionDelay = 3;
+  const instance = adapter(port);
+  const snapshot = await instance.inspect();
+  const execution = await instance.execute(plan(snapshot.commandSnapshot.revision));
+
+  assert.equal(execution.ok, true);
+  assert.equal(execution.status, "succeeded");
+  assert.equal(port.calls.length, 5);
+  assert.equal(port.calls.filter((entry) => entry.method === "target.set_note").length, 2);
+  assert.equal(port.inspectionCount >= 7, true);
 });
 
 test("invalid names and notes beyond the clip are rejected before authentication", async () => {

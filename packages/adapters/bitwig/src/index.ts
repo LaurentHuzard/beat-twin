@@ -32,6 +32,8 @@ export const BITWIG_CAPABILITY_VERSION = "bitwig-launcher-v1";
 export const BITWIG_BRIDGE_PROTOCOL_VERSION = "beat-twin-bitwig-v2";
 export const BITWIG_STEP_SIZE_BEATS = 0.25;
 export const BITWIG_MAX_STEPS = 64;
+const BITWIG_READBACK_ATTEMPTS = 80;
+const BITWIG_READBACK_WAIT_MS = 25;
 
 export const BITWIG_SUPPORTED_COMMANDS = Object.freeze([
   "CreateSong",
@@ -146,6 +148,14 @@ type RequestExecution = {
   readonly planIdentity: string;
   readonly report: Promise<ExecutionReport>;
 };
+
+type ReadbackResult =
+  | { readonly ok: true; readonly inspection: BitwigTargetInspection }
+  | {
+      readonly ok: false;
+      readonly inspection?: BitwigTargetInspection;
+      readonly message: string;
+    };
 
 const CAPABILITIES: DawCapabilities = Object.freeze({
   adapterId: "bitwig",
@@ -335,34 +345,17 @@ export class BitwigAdapter implements DawAdapter {
       }
     }
 
-    let readback: BitwigTargetInspection;
-    try {
-      readback = validateBitwigTargetInspection(await this.#port.inspectTarget());
-    } catch (error) {
-      const uncertain = dawError(
-        "partial_execution",
-        `Bitwig readback failed after mutation: ${errorMessage(error)}`,
-      );
-      return partialAfterReadback(
-        plan,
-        snapshot.commandSnapshot,
-        startedAt,
-        this.#timestamp(),
-        results,
-        uncertain,
-      );
-    }
-
-    const readbackError = compareReadback(
+    const readback = await this.#awaitExpectedReadback(
       projection.snapshot.song,
       observation.inspection.target.binding,
-      readback,
     );
-    if (readbackError) {
-      const uncertain = dawError("partial_execution", readbackError);
+    if (!readback.ok) {
+      const uncertain = dawError("partial_execution", readback.message);
       return partialAfterReadback(
         plan,
-        projectInspection(readback, snapshot.commandSnapshot.revision),
+        readback.inspection === undefined
+          ? snapshot.commandSnapshot
+          : projectInspection(readback.inspection, snapshot.commandSnapshot.revision),
         startedAt,
         this.#timestamp(),
         results,
@@ -370,8 +363,36 @@ export class BitwigAdapter implements DawAdapter {
       );
     }
 
-    this.#recordSuccessfulReadback(readback, projection.snapshot);
+    this.#recordSuccessfulReadback(readback.inspection, projection.snapshot);
     return successReport(plan, projection.snapshot, startedAt, this.#timestamp());
+  }
+
+  async #awaitExpectedReadback(
+    expected: Song | null,
+    binding: BitwigTargetBinding,
+  ): Promise<ReadbackResult> {
+    let lastInspection: BitwigTargetInspection | undefined;
+    let lastMessage = "Bitwig readback did not converge after mutation";
+    for (let attempt = 0; attempt < BITWIG_READBACK_ATTEMPTS; attempt += 1) {
+      try {
+        const inspection = validateBitwigTargetInspection(await this.#port.inspectTarget());
+        lastInspection = inspection;
+        const mismatch = compareReadback(expected, binding, inspection);
+        if (mismatch === null) return Object.freeze({ ok: true, inspection });
+        lastMessage = mismatch;
+        if (mismatch === "Bitwig target identity changed after execution") break;
+      } catch (error) {
+        lastMessage = `Bitwig readback failed after mutation: ${errorMessage(error)}`;
+      }
+      if (attempt + 1 < BITWIG_READBACK_ATTEMPTS) {
+        await this.#wait(BITWIG_READBACK_WAIT_MS);
+      }
+    }
+    return Object.freeze({
+      ok: false,
+      ...(lastInspection === undefined ? {} : { inspection: lastInspection }),
+      message: lastMessage,
+    });
   }
 
   async #observe(): Promise<Observation> {
