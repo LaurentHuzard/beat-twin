@@ -9,6 +9,7 @@
     ".": "./src/index.js"
   },
   "scripts": {
+    "start:rtx-bitwig-preview": "node src/rtx-bitwig-preview-cli.js",
     "test": "node --test test/*.test.js"
   },
   "engines": {
@@ -16,6 +17,7 @@
   },
   "dependencies": {
     "@beat-twin/agent-contract": "workspace:*",
+    "@beat-twin/bitwig-adapter": "workspace:*",
     "@beat-twin/commands": "workspace:*",
     "@beat-twin/daw-contract": "workspace:*",
     "@beat-twin/gateway-core": "workspace:*",

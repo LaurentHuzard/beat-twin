@@ -123,6 +123,12 @@ historical 57-tool Bitwig MCP surface, not the portable agent language. See
 The provider, security core, and loopback HTTP API are implemented; the
 authenticated WebSocket session proxy and browser connected-mode wiring remain follow-up work.
 
+The preview-only RTX-to-Bitwig composition can be started with
+`pnpm gateway:rtx-bitwig-preview`. It performs real controller inspection,
+bounded Qwen proposal generation, compilation, and immutable preview while
+omitting confirmation and execution routes. See
+[`docs/RTX_BITWIG_PREVIEW_RUNTIME.md`](docs/RTX_BITWIG_PREVIEW_RUNTIME.md).
+
 ## Requirements
 
 - Node.js 24 for local development; Node.js 22 and 24 are covered by CI
@@ -271,6 +277,7 @@ Live tests require Bitwig Studio, the controller script, and explicit write perm
 - [`docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md`](docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md)
 - [`docs/FUTURE-DIRECTION.md`](docs/FUTURE-DIRECTION.md)
 - [`docs/LOCAL-LLM-TOOL-ORCHESTRATION.md`](docs/LOCAL-LLM-TOOL-ORCHESTRATION.md)
+- [`docs/RTX_BITWIG_PREVIEW_RUNTIME.md`](docs/RTX_BITWIG_PREVIEW_RUNTIME.md)
 - [`docs/ADR-001-GEMMA-MOBILE-AGENT.md`](docs/ADR-001-GEMMA-MOBILE-AGENT.md)
 - [`docs/GEMMA-MOBILE-VERTICAL-SLICE.md`](docs/GEMMA-MOBILE-VERTICAL-SLICE.md)
 - [`docs/PLAYGROUND_ARCHITECTURE.md`](docs/PLAYGROUND_ARCHITECTURE.md)

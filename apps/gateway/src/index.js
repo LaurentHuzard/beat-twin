@@ -76,6 +76,12 @@ export function createGatewayRequestHandler(options) {
       if (url.search.length > 0) {
         throw new GatewayHttpError("invalid_request", "query parameters are not accepted");
       }
+      if (
+        config.previewOnly &&
+        /^\/v1\/plans\/[^/]+\/(?:status|confirm|execute)$/.test(url.pathname)
+      ) {
+        throw new GatewayHttpError("route_not_found", "route not found", 404);
+      }
 
       if (request.method === "POST" && url.pathname === "/v1/pair") {
         const body = await readJsonObject(request, config.bodyLimitBytes);
@@ -440,6 +446,9 @@ function validateOptions(options) {
   );
   const pairingScopes = uniqueNonBlankStrings(options.pairingScopes ?? DEFAULT_PAIRING_SCOPES, "pairingScopes");
   const corsOrigins = uniqueNonBlankStrings(options.corsOrigins ?? [], "corsOrigins");
+  if (typeof options.previewOnly !== "undefined" && typeof options.previewOnly !== "boolean") {
+    throw new GatewayHttpError("configuration_error", "previewOnly must be a boolean", 500);
+  }
   if (typeof options.idGenerator !== "undefined" && typeof options.idGenerator !== "function") {
     throw new GatewayHttpError("configuration_error", "idGenerator must be a function", 500);
   }
@@ -457,6 +466,7 @@ function validateOptions(options) {
     maxAgentRequestCharacters,
     adapterExecutionTimeoutMs,
     corsOrigins,
+    previewOnly: options.previewOnly ?? false,
     idGenerator: options.idGenerator ?? randomUUID,
   });
 }

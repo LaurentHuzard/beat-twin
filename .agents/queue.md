@@ -1,7 +1,7 @@
 # Beat Twin Execution Queue
 
 Updated: 2026-08-27
-Publication base for this queue update: `d840644`
+Publication base for this queue update: `2edf207`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -28,6 +28,7 @@ _None._
 | BT-RTX-002 | Bind a human-selected empty Bitwig launcher slot for read-only inspection and preview | Done |
 | BT-RTX-003 | Enforce an explicit BPM constraint in the model-facing proposal schema without inventing tempo | Done |
 | BT-RTX-004 | Prove one freshly confirmed Bitwig execution and exact readback | Done |
+| BT-213A | Compose a supported preview-only RTX-to-Bitwig Gateway runtime | Done |
 
 ## Bitwig Web Controller
 
