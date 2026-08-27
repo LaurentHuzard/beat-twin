@@ -42,6 +42,7 @@ const request = {
   ],
   tools: LITERT_AGENT_TOOL_SPECS,
   tool_choice: "auto",
+  parallel_tool_calls: false,
 };
 
 const response = await requestJson(new URL("v1/chat/completions", baseUrl), {

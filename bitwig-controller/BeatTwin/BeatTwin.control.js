@@ -12,6 +12,8 @@ var cursorClip;
 var boundedCursorClip;
 var remoteControlsBank;
 var deviceBanks = [];
+var targetTracks = [];
+var targetSlots = [];
 var popupBrowser;
 var browserResultBank;
 var bridgeSecretSetting;
@@ -130,6 +132,8 @@ function init() {
   // Mark interested for Track Bank
   for (var i = 0; i < 8; i++) {
     var track = trackBank.getItemAt(i);
+    track.exists().markInterested();
+    track.position().markInterested();
     track.volume().markInterested();
     track.pan().markInterested();
     track.mute().markInterested();
@@ -137,6 +141,10 @@ function init() {
     track.arm().markInterested();
     track.name().markInterested();
     track.color().markInterested();
+    track.exists().addValueObserver(refreshTargetGeneration);
+    track.position().addValueObserver(refreshTargetGeneration);
+    targetTracks.push(track);
+    targetSlots.push([]);
 
     var deviceBank = track.createDeviceBank(8);
     for (var d = 0; d < 8; d++) {
@@ -151,10 +159,18 @@ function init() {
     var clipLauncher = track.clipLauncherSlotBank();
     for (var j = 0; j < 8; j++) {
       var slot = clipLauncher.getItemAt(j);
+      slot.exists().markInterested();
+      slot.sceneIndex().markInterested();
+      slot.name().markInterested();
       slot.hasContent().markInterested();
+      slot.isSelected().markInterested();
       slot.isPlaying().markInterested();
       slot.isRecording().markInterested();
       slot.isPlaybackQueued().markInterested();
+      slot.exists().addValueObserver(refreshTargetGeneration);
+      slot.sceneIndex().addValueObserver(refreshTargetGeneration);
+      slot.isSelected().addValueObserver(refreshTargetGeneration);
+      targetSlots[i].push(slot);
     }
   }
   
@@ -312,13 +328,77 @@ function isBridgeReadMethod(method) {
     method === "browser.list_results";
 }
 
+function selectedBankTarget() {
+  var selected = null;
+  for (var trackIndex = 0; trackIndex < targetTracks.length; trackIndex++) {
+    for (var slotIndex = 0; slotIndex < targetSlots[trackIndex].length; slotIndex++) {
+      var slot = targetSlots[trackIndex][slotIndex];
+      if (!slot.isSelected().get()) {
+        continue;
+      }
+      if (selected !== null) {
+        return { ambiguous: true };
+      }
+      selected = {
+        ambiguous: false,
+        track: targetTracks[trackIndex],
+        slot: slot
+      };
+    }
+  }
+  return selected;
+}
+
+function currentTargetState() {
+  var selected = selectedBankTarget();
+  if (selected && selected.ambiguous) {
+    return {
+      available: false,
+      track: null,
+      slot: null,
+      trackPosition: -1,
+      slotSceneIndex: -1
+    };
+  }
+  if (selected) {
+    var bankTrackPosition = selected.track.position().get();
+    var bankSlotSceneIndex = selected.slot.sceneIndex().get();
+    return {
+      available: selected.track.exists().get() && selected.slot.exists().get() && bankTrackPosition >= 0 && bankSlotSceneIndex >= 0,
+      track: selected.track,
+      slot: selected.slot,
+      trackPosition: bankTrackPosition,
+      slotSceneIndex: bankSlotSceneIndex
+    };
+  }
+
+  var cursorTrackPosition = cursorClipTrack.position().get();
+  var cursorSlotSceneIndex = cursorClipSlot.sceneIndex().get();
+  return {
+    available: cursorClipTrack.exists().get() && cursorClipSlot.exists().get() && cursorTrackPosition >= 0 && cursorSlotSceneIndex >= 0,
+    track: cursorClipTrack,
+    slot: cursorClipSlot,
+    trackPosition: cursorTrackPosition,
+    slotSceneIndex: cursorSlotSceneIndex
+  };
+}
+
+function boundedCursorMatches(target) {
+  return target.available &&
+    boundedCursorClip.exists().get() &&
+    cursorClipTrack.exists().get() &&
+    cursorClipSlot.exists().get() &&
+    cursorClipTrack.position().get() === target.trackPosition &&
+    cursorClipSlot.sceneIndex().get() === target.slotSceneIndex;
+}
+
 function targetSignature() {
+  var target = currentTargetState();
   return [
     application.projectName().get(),
-    cursorClipTrack.exists().get(),
-    cursorClipTrack.position().get(),
-    cursorClipSlot.exists().get(),
-    cursorClipSlot.sceneIndex().get()
+    target.available,
+    target.trackPosition,
+    target.slotSceneIndex
   ].join("|");
 }
 
@@ -337,11 +417,12 @@ function anchorBoundedGrid() {
 
 function currentTargetBinding() {
   refreshTargetGeneration();
+  var target = currentTargetState();
   return {
     controllerInstanceId: controllerInstanceId,
     projectName: application.projectName().get(),
-    trackPosition: cursorClipTrack.position().get(),
-    slotSceneIndex: cursorClipSlot.sceneIndex().get(),
+    trackPosition: target.trackPosition,
+    slotSceneIndex: target.slotSceneIndex,
     targetGeneration: targetGeneration
   };
 }
@@ -363,10 +444,11 @@ function requireCurrentTarget(binding) {
   if (!sameTargetBinding(binding, current)) {
     throw bridgeError(-32003, "Target identity changed; create and confirm a fresh plan");
   }
-  if (!cursorClipTrack.exists().get() || !cursorClipSlot.exists().get() || current.trackPosition < 0 || current.slotSceneIndex < 0) {
+  var target = currentTargetState();
+  if (!target.available) {
     throw bridgeError(-32004, "No stable launcher target is selected");
   }
-  return current;
+  return target;
 }
 
 function isIntegerInRange(value, minimum, maximum) {
@@ -377,8 +459,8 @@ function isQuarterBeat(value) {
   return typeof value === "number" && isFinite(value) && value > 0 && Math.abs(value * 4 - Math.round(value * 4)) < 0.0000001;
 }
 
-function readTargetNotes() {
-  if (!boundedCursorClip.exists().get() || !cursorClipSlot.hasContent().get()) {
+function readTargetNotes(target) {
+  if (!target.available || !target.slot.hasContent().get() || !boundedCursorMatches(target)) {
     return [];
   }
   anchorBoundedGrid();
@@ -401,21 +483,22 @@ function readTargetNotes() {
 }
 
 function inspectBoundTarget(bridgeSession) {
+  var target = currentTargetState();
   var binding = currentTargetBinding();
-  var available = cursorClipTrack.exists().get() && cursorClipSlot.exists().get() && binding.trackPosition >= 0 && binding.slotSceneIndex >= 0;
+  var clipExists = boundedCursorMatches(target);
   return {
     protocolVersion: BRIDGE_PROTOCOL_VERSION,
     controllerInstanceId: controllerInstanceId,
     projectName: binding.projectName,
     writeAuthenticated: Boolean(bridgeSession.authenticated),
     target: {
-      available: available,
+      available: target.available,
       binding: binding,
-      trackName: cursorClipTrack.name().get(),
-      slotName: cursorClipSlot.name().get(),
-      hasContent: cursorClipSlot.hasContent().get(),
-      clipExists: boundedCursorClip.exists().get(),
-      clipLengthBeats: boundedCursorClip.exists().get() ? boundedCursorClip.getLoopLength().get() : null
+      trackName: target.available ? target.track.name().get() : "",
+      slotName: target.available ? target.slot.name().get() : "",
+      hasContent: target.available ? target.slot.hasContent().get() : false,
+      clipExists: clipExists,
+      clipLengthBeats: clipExists ? boundedCursorClip.getLoopLength().get() : null
     },
     transport: {
       tempoBpm: transport.tempo().value().getRaw(),
@@ -426,7 +509,7 @@ function inspectBoundTarget(bridgeSession) {
       stepSizeBeats: TARGET_STEP_SIZE_BEATS,
       maxSteps: TARGET_GRID_STEPS
     },
-    notes: available ? readTargetNotes() : []
+    notes: target.available ? readTargetNotes(target) : []
   };
 }
 
@@ -482,11 +565,11 @@ function handleRequest(request, connection, bridgeSession) {
       case "target.set_track_name":
         var renameBinding = request.params && request.params[0];
         var trackName = request.params && request.params[1];
-        requireCurrentTarget(renameBinding);
+        var renameTarget = requireCurrentTarget(renameBinding);
         if (typeof trackName !== "string" || trackName.length < 1 || trackName.length > 64) {
           throw invalidParams("Track name must contain 1-64 characters");
         }
-        cursorClipTrack.setName(trackName);
+        renameTarget.track.setName(trackName);
         result = "OK";
         break;
 
@@ -504,14 +587,14 @@ function handleRequest(request, connection, bridgeSession) {
       case "target.create_clip":
         var createBinding = request.params && request.params[0];
         var targetLengthBeats = request.params && request.params[1];
-        requireCurrentTarget(createBinding);
+        var createTarget = requireCurrentTarget(createBinding);
         if (!isIntegerInRange(targetLengthBeats, 1, 16)) {
           throw invalidParams("Clip length must be an integer from 1 to 16 beats");
         }
-        if (cursorClipSlot.hasContent().get()) {
+        if (createTarget.slot.hasContent().get()) {
           throw bridgeError(-32005, "Target launcher slot is not empty");
         }
-        cursorClipSlot.createEmptyClip(targetLengthBeats);
+        createTarget.slot.createEmptyClip(targetLengthBeats);
         result = "OK";
         break;
 
@@ -521,8 +604,8 @@ function handleRequest(request, connection, bridgeSession) {
         var notePitch = request.params && request.params[2];
         var noteVelocity = request.params && request.params[3];
         var noteDuration = request.params && request.params[4];
-        requireCurrentTarget(noteBinding);
-        if (!cursorClipSlot.hasContent().get() || !boundedCursorClip.exists().get()) {
+        var noteTarget = requireCurrentTarget(noteBinding);
+        if (!noteTarget.slot.hasContent().get() || !boundedCursorMatches(noteTarget)) {
           throw bridgeError(-32006, "Target launcher clip is unavailable");
         }
         if (!isIntegerInRange(noteStep, 0, TARGET_GRID_STEPS - 1)) {
@@ -546,8 +629,8 @@ function handleRequest(request, connection, bridgeSession) {
         var clearBinding = request.params && request.params[0];
         var clearStep = request.params && request.params[1];
         var clearPitch = request.params && request.params[2];
-        requireCurrentTarget(clearBinding);
-        if (!cursorClipSlot.hasContent().get() || !boundedCursorClip.exists().get()) {
+        var clearTarget = requireCurrentTarget(clearBinding);
+        if (!clearTarget.slot.hasContent().get() || !boundedCursorMatches(clearTarget)) {
           throw bridgeError(-32006, "Target launcher clip is unavailable");
         }
         if (!isIntegerInRange(clearStep, 0, TARGET_GRID_STEPS - 1) || !isIntegerInRange(clearPitch, 0, 127)) {
