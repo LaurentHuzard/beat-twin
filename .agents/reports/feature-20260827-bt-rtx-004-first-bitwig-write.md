@@ -3,7 +3,7 @@
 Date: 2026-08-27
 Branch: `agent/bt-rtx-004-first-bitwig-write`
 Base: merged `main` at `d840644`
-State: complete and validated; commit and push authorized separately by the user
+State: complete and validated; commit, push, PR, and merge authorized separately by the user
 
 ## Product Outcome
 
@@ -99,5 +99,4 @@ contract was not changed.
 - no mutation was retried after the partial report;
 - the stored partial outcome was preserved despite later successful readback;
 - the corrective change retries reads only and stays bounded to two seconds;
-- PR creation, merge, deployment, branch deletion, and secret cleanup remain
-  separate gates.
+- deployment, branch deletion, and secret cleanup remain separate gates.

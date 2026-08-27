@@ -63,8 +63,9 @@ the supported Node range remains unchanged.
 - The user supplied the exact final plan ID and digest confirmation before the
   one live execution.
 - The user explicitly authorized commit and push on 2026-08-27.
-- No PR creation, merge, deployment, branch deletion, or second live write was
-  authorized or performed.
+- The user explicitly authorized PR creation and merge on 2026-08-27.
+- No deployment, branch deletion, or second live write was authorized or
+  performed.
 
 ## Exit Condition
 
