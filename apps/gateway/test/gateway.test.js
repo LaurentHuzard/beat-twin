@@ -310,6 +310,43 @@ test("agent run is preview-only, creates an immutable fixed-target plan, then ex
   });
 });
 
+test("preview-only Gateway omits confirmation, execution, and execution-status routes", async () => {
+  const fixture = createFixture({ gatewayOptions: { previewOnly: true } });
+  await withGateway(fixture.gatewayOptions, async (baseUrl) => {
+    const issued = await pair(baseUrl);
+    const authorization = { authorization: `Bearer ${issued.body.token}` };
+    const run = await jsonFetch(`${baseUrl}/v1/agent/runs`, {
+      method: "POST",
+      headers: { ...authorization, "content-type": "application/json" },
+      body: JSON.stringify({ dawId: "nanodaw", request: "Make a bass loop" }),
+    });
+
+    assert.equal(run.response.status, 201);
+    assert.equal(fixture.adapter.executeCount, 0);
+
+    for (const [method, suffix, body] of [
+      ["POST", "confirm", undefined],
+      ["POST", "execute", JSON.stringify({ confirmationToken: "unreachable" })],
+      ["GET", "status", undefined],
+    ]) {
+      const response = await jsonFetch(
+        `${baseUrl}/v1/plans/${run.body.plan.planId}/${suffix}`,
+        {
+          method,
+          headers: body
+            ? { ...authorization, "content-type": "application/json" }
+            : authorization,
+          body,
+        },
+      );
+      assert.equal(response.response.status, 404);
+      assert.equal(response.body.error.code, "route_not_found");
+    }
+
+    assert.equal(fixture.adapter.executeCount, 0);
+  });
+});
+
 test("an explicit SongPatchV2 instrument survives gateway preview and plan materialization", async () => {
   const fixture = createFixture({
     provider: createFakeProvider({ patch: INSTRUMENT_PATCH }),

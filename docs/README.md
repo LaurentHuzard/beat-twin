@@ -14,6 +14,7 @@ This directory contains the current technical notes for the public Beat Twin pro
 - [`FUTURE-DIRECTION.md`](FUTURE-DIRECTION.md): conservative direction for arrangement assistance.
 - [`LOCAL_MCP_SETUP.md`](LOCAL_MCP_SETUP.md): local MCP and Bitwig controller setup, including `pnpm smoke:read-only`.
 - [`LOCAL-LLM-TOOL-ORCHESTRATION.md`](LOCAL-LLM-TOOL-ORCHESTRATION.md): the laptop Gateway to S25 provider loop, model-visible tools, and fixture gate.
+- [`RTX_BITWIG_PREVIEW_RUNTIME.md`](RTX_BITWIG_PREVIEW_RUNTIME.md): supported preview-only composition of the Gateway, RTX provider, and real Bitwig inspection.
 - [`ADR-001-GEMMA-MOBILE-AGENT.md`](ADR-001-GEMMA-MOBILE-AGENT.md): the accepted dual-target boundary; the historical filename is retained while native Android is deferred.
 - [`GEMMA-MOBILE-VERTICAL-SLICE.md`](GEMMA-MOBILE-VERTICAL-SLICE.md): the first NanoDAW Agent-mode slice targeting NanoDAW or Bitwig.
 - [`NANODAW_BUILT_IN_INSTRUMENTS.md`](NANODAW_BUILT_IN_INSTRUMENTS.md): bounded instrument catalog, Song/SongPatch compatibility, atomic execution, playback, demo recipe, and limitations.

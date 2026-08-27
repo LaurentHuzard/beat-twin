@@ -2,81 +2,76 @@
 
 ## Loop
 
-`BT-RTX-004` is complete locally on `agent/bt-rtx-004-first-bitwig-write` from
-merged `main` at `d840644`. Orbit Ready is empty.
+`BT-213A` is complete locally on `agent/bt-213a-rtx-bitwig-runtime` from
+merged `main` at `2edf207`. Orbit Ready is empty.
 
 ## Target Outcome
 
-Prepare the first real Bitwig write from a fresh Gateway-to-Qwen proposal,
-display the exact stable target and materialized commands, and stop for a
-second explicit human confirmation. Only after that confirmation may the
-existing Gateway and `BitwigAdapter` execute the plan once and verify exact
-readback.
+Add the smallest supported local runtime that composes the existing loopback
+Gateway, OpenAI-compatible LiteRT provider, and bounded Bitwig adapter so an
+operator can run health, real session inspection, Qwen proposal generation,
+compilation, and preview without an ephemeral harness.
 
 ## Product Contract
 
-- use a disposable Bitwig project and one human-selected empty instrument slot;
-- inspect and bind the target before proposal generation;
-- keep the model limited to `list_daw_targets`, `inspect_session`, and
-  `propose_song_patch`;
-- keep confirmation, authentication, execution, policy, audit, and readback
-  outside the model;
-- never replace the target or commands after confirmation;
-- dispatch execution at most once and never retry an uncertain mutation;
-- report any partial or uncertain outcome honestly.
+- listen only on an explicit loopback host;
+- use the existing provider, Gateway, plan store, compiler, and Bitwig adapter;
+- expose only `list_daw_targets`, `inspect_session`, and `propose_song_patch` to
+  the model;
+- keep confirmation and execution outside the model;
+- omit plan status, confirmation, and execution routes in this runtime;
+- make the Bitwig transport itself incapable of authentication or mutation;
+- validate configuration without starting Bitwig or llama.cpp;
+- never print operator or Bitwig bridge secrets;
+- preserve the historical MCP path and NanoDAW browser ownership unchanged.
 
 ## Current State
 
-The exact confirmed plan `plan-bt-rtx-004-final-2`, digest
-`f52a18ff4fef1914941995fc8fa32a2e2b4c53d6a86abcbd7f252dfa268ac325`, was
-consumed once. Bitwig accepted authentication and materialized tempo 132 BPM,
-track name `Electronic Loop`, a four-beat clip, and four C4 notes at steps 2,
-6, 10, and 14.
+The repository now provides `pnpm gateway:rtx-bitwig-preview` for the supported
+daemon and `pnpm smoke:rtx-bitwig-preview` for one disposable diagnostic run.
+Both compose the existing Gateway, provider, compiler, plan store, and
+`BitwigAdapter`; neither can confirm or execute a plan.
 
-The adapter's immediate readback observed only two notes and correctly stored
-a terminal `partial` report. A later independent read-only reconciliation saw
-all four exact notes. No mutation was retried. The adapter now polls readback
-for at most two seconds after dispatch so delayed controller observers can
-converge; this corrective behavior is deterministically tested but was not
-validated through a second live write.
+The live smoke used `qwen3-8b`, the real Bitwig controller, and project `New 2`
+with track position 0, scene slot 1, target generation 14, and an empty target.
+Qwen completed two model steps and returned a valid 132 BPM patch. Beat Twin
+materialized four commands and an immutable preview. No authentication or
+mutation call occurred, and the target remained empty.
 
 ## Verification
 
-- live Gateway preview and exact confirmation: passed;
-- one authenticated live execution: consumed once;
-- durable execution report: `partial`, note readback mismatch;
-- later read-only reconciliation: exact four-note state present;
-- focused Bitwig adapter build/test: passed;
-- `pnpm test`: 192 passed, 0 failed;
+- focused Gateway suite: 15 passed, 0 failed;
+- `pnpm test`: 195 passed, 0 failed;
 - `pnpm typecheck`: passed;
-- controller syntax and `git diff --check`: passed;
-- no second live write or mutation retry occurred.
+- `pnpm smoke:packages`: passed;
+- JavaScript/controller syntax checks: passed;
+- `git diff --check`: passed;
+- live RTX `/v1/models`: `qwen3-8b`, passed after starting the existing remote
+  llama.cpp command;
+- live Bitwig controller inspection: passed;
+- live Gateway-to-Qwen-to-Bitwig preview: passed;
+- live Bitwig write: not attempted and unavailable in this runtime.
 
 All local commands ran on Node 26.4.0 with the known unsupported-engine warning;
 the supported Node range remains unchanged.
 
 ## Human Gates
 
-- The user explicitly supplied `Orbit Ready BT-RTX-004` on 2026-08-27.
-- The user approved the musical preview and securely provisioned the bridge
-  secret without exposing it in the conversation.
-- The user supplied the exact final plan ID and digest confirmation before the
-  one live execution.
-- The user explicitly authorized commit and push on 2026-08-27.
-- The user explicitly authorized PR creation and merge on 2026-08-27.
-- No deployment, branch deletion, or second live write was authorized or
-  performed.
+- The user explicitly activated `BT-213A` on 2026-08-27.
+- The user authorized starting the existing llama.cpp setup through the `rtx`
+  SSH target.
+- The user explicitly selected a new empty Bitwig slot for the read-only proof.
+- No live DAW write, commit, push, PR, merge, deployment, remote server stop, or
+  branch deletion was authorized or performed.
 
 ## Exit Condition
 
-The loop is complete through its honest partial branch: one exact plan was
-confirmed and dispatched once, its immediate mismatch was stored durably, and
-read-only reconciliation established the eventual real Bitwig state without
-retrying any mutation.
+The supported loopback runtime starts from a repository command, deterministic
+evidence proves its preview-only boundary, and live RTX plus Bitwig evidence
+reached an exact immutable preview without exposing or invoking a write path.
 
 ## Next Activation Signal
 
-A future disposable-slot write may validate the new bounded readback polling,
-but requires a new Orbit Ready item and a new exact confirmation. BT-213 can now
-be reconciled against the existing NanoDAW execution evidence and this Bitwig
-execution evidence before deciding whether BT-214 packaging is ready.
+`BT-213B` may prove one portable patch through separately previewed and
+confirmed NanoDAW and Bitwig plans. It requires a new Orbit Ready activation;
+any Bitwig write additionally requires a fresh exact preview and confirmation.

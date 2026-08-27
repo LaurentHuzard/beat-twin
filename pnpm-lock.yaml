@@ -29,6 +29,9 @@ importers:
       '@beat-twin/agent-contract':
         specifier: workspace:*
         version: link:../../packages/agent-contract
+      '@beat-twin/bitwig-adapter':
+        specifier: workspace:*
+        version: link:../../packages/adapters/bitwig
       '@beat-twin/commands':
         specifier: workspace:*
         version: link:../../packages/commands
