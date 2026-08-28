@@ -50,6 +50,11 @@ Defaults:
 
 `BEAT_TWIN_GATEWAY_HOST` and `BITWIG_HOST` accept only `127.0.0.1` or `::1`.
 Ports may be changed with `BEAT_TWIN_GATEWAY_PORT` and `BITWIG_PORT`.
+Remote model steps use a 60-second timeout by default; override it with the
+positive integer `LITERT_TIMEOUT_MS` when needed.
+RTX requests also cap Qwen reasoning at 512 tokens by default through llama.cpp's
+per-request `thinking_budget_tokens`; override the non-negative bound with
+`LITERT_THINKING_BUDGET_TOKENS`. Other provider runtimes omit this extension.
 
 Startup output identifies the local URL, model, and controller address. It
 never includes the operator secret or a pairing token.

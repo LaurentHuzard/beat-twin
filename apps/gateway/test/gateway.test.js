@@ -128,6 +128,56 @@ function createFakeProvider(options = {}) {
   };
 }
 
+function createDualTargetAdapter(id, revision) {
+  let executeCount = 0;
+  const snapshot = () => ({
+    adapterId: id,
+    capabilityVersion: `${id}-dual-v1`,
+    observedAt: new Date().toISOString(),
+    commandSnapshot: { song: null, revision },
+  });
+  return {
+    id,
+    get executeCount() {
+      return executeCount;
+    },
+    health: async () => ({
+      adapterId: id,
+      status: "healthy",
+      checkedAt: new Date().toISOString(),
+    }),
+    capabilities: async () => ({
+      adapterId: id,
+      capabilityVersion: `${id}-dual-v1`,
+      supportedCommands: ["CreateSong", "CreateTrack", "CreateClip", "AddNote"],
+      scopes: ["song.write"],
+      limitations: [],
+    }),
+    inspect: async () => snapshot(),
+    execute: async (plan) => {
+      executeCount += 1;
+      revision += 1;
+      const timestamp = new Date().toISOString();
+      return Object.freeze({
+        ok: true,
+        status: "succeeded",
+        adapterId: id,
+        planId: plan.planId,
+        requestId: plan.requestId,
+        baseRevision: plan.baseRevision,
+        finalSnapshot: Object.freeze({ song: null, revision }),
+        startedAt: timestamp,
+        completedAt: timestamp,
+        results: Object.freeze(plan.commands.map((command, index) => Object.freeze({
+          index,
+          command,
+          status: "succeeded",
+        }))),
+      });
+    },
+  };
+}
+
 function createFixture(options = {}) {
   const audit = [];
   const pairing = new PairingAuthority({
@@ -141,6 +191,7 @@ function createFixture(options = {}) {
     policy: options.policy ?? (() => true),
   });
   const adapter = options.adapter ?? createFakeAdapter();
+  const adapters = options.adapters ?? new Map([["nanodaw", adapter]]);
   const provider = options.provider ?? createFakeProvider();
   let id = 0;
   return {
@@ -154,7 +205,7 @@ function createFixture(options = {}) {
       pairing,
       planStore,
       provider,
-      adapters: new Map([["nanodaw", adapter]]),
+      adapters,
       idGenerator: () => `fixed-${++id}`,
       ...options.gatewayOptions,
     },
@@ -344,6 +395,137 @@ test("preview-only Gateway omits confirmation, execution, and execution-status r
     }
 
     assert.equal(fixture.adapter.executeCount, 0);
+  });
+});
+
+test("one model patch creates independent NanoDAW and Bitwig plans and confirmations cannot cross", async () => {
+  const nanodaw = createDualTargetAdapter("nanodaw", 3);
+  const bitwig = createDualTargetAdapter("bitwig", 7);
+  let providerRuns = 0;
+  const provider = {
+    listModels: async () => [{ id: "qwen3-8b" }],
+    runAgent: async ({ request, handlers }) => {
+      providerRuns += 1;
+      assert.equal(request, "Use the same restrained loop for both targets at 124 BPM");
+      assert.deepEqual(await handlers.list_daw_targets(), [
+        { id: "nanodaw" },
+        { id: "bitwig" },
+      ]);
+      const nanoSnapshot = await handlers.inspect_session({ dawId: "nanodaw" });
+      const bitwigSnapshot = await handlers.inspect_session({ dawId: "bitwig" });
+      assert.equal(nanoSnapshot.commandSnapshot.revision, 3);
+      assert.equal(bitwigSnapshot.commandSnapshot.revision, 7);
+      assert.deepEqual(await handlers.propose_song_patch(PATCH), {
+        previewOnly: true,
+        dawIds: ["nanodaw", "bitwig"],
+      });
+      return Object.freeze({
+        model: "qwen3-8b",
+        steps: 3,
+        patch: PATCH,
+        toolCalls: Object.freeze([
+          Object.freeze({ step: 1, id: "inspect-nano", name: "inspect_session" }),
+          Object.freeze({ step: 2, id: "inspect-bitwig", name: "inspect_session" }),
+          Object.freeze({ step: 3, id: "propose", name: "propose_song_patch" }),
+        ]),
+      });
+    },
+  };
+  const fixture = createFixture({
+    adapters: new Map([
+      ["nanodaw", nanodaw],
+      ["bitwig", bitwig],
+    ]),
+    provider,
+  });
+
+  await withGateway(fixture.gatewayOptions, async (baseUrl) => {
+    const issued = await pair(baseUrl);
+    const authorization = { authorization: `Bearer ${issued.body.token}` };
+    const run = await jsonFetch(`${baseUrl}/v1/agent/dual-target-runs`, {
+      method: "POST",
+      headers: { ...authorization, "content-type": "application/json" },
+      body: JSON.stringify({
+        dawIds: ["nanodaw", "bitwig"],
+        request: "Use the same restrained loop for both targets at 124 BPM",
+      }),
+    });
+
+    assert.equal(run.response.status, 201);
+    assert.equal(providerRuns, 1);
+    assert.deepEqual(run.body.toolCalls.map(({ step, name }) => ({ step, name })), [
+      { step: 1, name: "inspect_session" },
+      { step: 2, name: "inspect_session" },
+      { step: 3, name: "propose_song_patch" },
+    ]);
+    assert.deepEqual(run.body.patch, PATCH);
+    assert.deepEqual(run.body.targets.map(({ dawId }) => dawId), ["nanodaw", "bitwig"]);
+    const [nanoTarget, bitwigTarget] = run.body.targets;
+    assert.equal(nanoTarget.plan.baseRevision, 3);
+    assert.equal(bitwigTarget.plan.baseRevision, 7);
+    assert.notEqual(nanoTarget.plan.planId, bitwigTarget.plan.planId);
+    assert.notEqual(nanoTarget.plan.requestId, bitwigTarget.plan.requestId);
+    assert.notEqual(nanoTarget.plan.digest, bitwigTarget.plan.digest);
+    assert.deepEqual(
+      nanoTarget.plan.commands.map(({ type }) => type),
+      bitwigTarget.plan.commands.map(({ type }) => type),
+    );
+    assert.equal(
+      nanoTarget.plan.commands.some((left) =>
+        bitwigTarget.plan.commands.some((right) => left.id === right.id)),
+      false,
+    );
+    assert.deepEqual(nanoTarget.preview.commands, nanoTarget.plan.commands);
+    assert.deepEqual(bitwigTarget.preview.commands, bitwigTarget.plan.commands);
+
+    const nanoConfirmation = await jsonFetch(
+      `${baseUrl}/v1/plans/${nanoTarget.plan.planId}/confirm`,
+      { method: "POST", headers: authorization },
+    );
+    const bitwigConfirmation = await jsonFetch(
+      `${baseUrl}/v1/plans/${bitwigTarget.plan.planId}/confirm`,
+      { method: "POST", headers: authorization },
+    );
+    assert.equal(nanoConfirmation.response.status, 200);
+    assert.equal(bitwigConfirmation.response.status, 200);
+    assert.notEqual(
+      nanoConfirmation.body.confirmationToken,
+      bitwigConfirmation.body.confirmationToken,
+    );
+
+    const crossed = await jsonFetch(
+      `${baseUrl}/v1/plans/${bitwigTarget.plan.planId}/execute`,
+      {
+        method: "POST",
+        headers: { ...authorization, "content-type": "application/json" },
+        body: JSON.stringify({ confirmationToken: nanoConfirmation.body.confirmationToken }),
+      },
+    );
+    assert.equal(crossed.response.status, 401);
+    assert.equal(crossed.body.error.code, "unauthenticated");
+    assert.equal(nanodaw.executeCount, 0);
+    assert.equal(bitwig.executeCount, 0);
+
+    const nanoExecution = await jsonFetch(
+      `${baseUrl}/v1/plans/${nanoTarget.plan.planId}/execute`,
+      {
+        method: "POST",
+        headers: { ...authorization, "content-type": "application/json" },
+        body: JSON.stringify({ confirmationToken: nanoConfirmation.body.confirmationToken }),
+      },
+    );
+    const bitwigExecution = await jsonFetch(
+      `${baseUrl}/v1/plans/${bitwigTarget.plan.planId}/execute`,
+      {
+        method: "POST",
+        headers: { ...authorization, "content-type": "application/json" },
+        body: JSON.stringify({ confirmationToken: bitwigConfirmation.body.confirmationToken }),
+      },
+    );
+    assert.equal(nanoExecution.response.status, 200);
+    assert.equal(bitwigExecution.response.status, 200);
+    assert.equal(nanodaw.executeCount, 1);
+    assert.equal(bitwig.executeCount, 1);
   });
 });
 

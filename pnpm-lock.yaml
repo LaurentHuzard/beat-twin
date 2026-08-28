@@ -44,6 +44,9 @@ importers:
       '@beat-twin/litert-provider':
         specifier: workspace:*
         version: link:../../packages/litert-provider
+      '@beat-twin/nanodaw-adapter':
+        specifier: workspace:*
+        version: link:../../packages/adapters/nanodaw
       ws:
         specifier: ^8.21.0
         version: 8.21.0

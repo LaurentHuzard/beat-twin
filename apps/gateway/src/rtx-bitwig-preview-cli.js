@@ -16,6 +16,8 @@ const runtime = await startRtxBitwigPreviewRuntime({
   operatorSecret: config.operatorSecret,
   providerBaseUrl: config.providerBaseUrl,
   model: config.model,
+  providerTimeoutMs: config.providerTimeoutMs,
+  thinkingBudgetTokens: config.thinkingBudgetTokens,
   gatewayHost: config.gatewayHost,
   gatewayPort: config.gatewayPort,
   bitwigCall: (method, params) => client.send(method, params),

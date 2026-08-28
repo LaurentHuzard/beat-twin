@@ -104,6 +104,8 @@ export type LiteRtProviderOptions = {
   readonly model?: string;
   readonly fetch?: typeof globalThis.fetch;
   readonly timeoutMs?: number;
+  /** Optional llama.cpp-compatible per-request reasoning budget. Omitted by default. */
+  readonly thinkingBudgetTokens?: number;
   /** Must remain between one and four. The default and absolute maximum are four. */
   readonly maxSteps?: number;
   readonly apiKey?: string;
@@ -207,6 +209,9 @@ export function createLiteRtProvider(options: LiteRtProviderOptions): LiteRtProv
           tools: toolSpecs,
           tool_choice: "auto",
           parallel_tool_calls: false,
+          ...(config.thinkingBudgetTokens === undefined
+            ? {}
+            : { thinking_budget_tokens: config.thinkingBudgetTokens }),
         }),
       });
       const completion = parseChatCompletionResponse(payload);
@@ -437,6 +442,7 @@ type ValidatedConfig = {
   readonly model?: string;
   readonly fetch: typeof globalThis.fetch;
   readonly timeoutMs: number;
+  readonly thinkingBudgetTokens?: number;
   readonly maxSteps: number;
   readonly apiKey?: string;
 };
@@ -485,6 +491,15 @@ function validateOptions(options: LiteRtProviderOptions): ValidatedConfig {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
     throw new LiteRtProviderError("configuration_error", "timeoutMs must be a positive integer");
   }
+  if (
+    options.thinkingBudgetTokens !== undefined &&
+    (!Number.isSafeInteger(options.thinkingBudgetTokens) || options.thinkingBudgetTokens < 0)
+  ) {
+    throw new LiteRtProviderError(
+      "configuration_error",
+      "thinkingBudgetTokens must be a non-negative integer",
+    );
+  }
   const maxSteps = options.maxSteps ?? 4;
   if (!Number.isSafeInteger(maxSteps) || maxSteps < 1 || maxSteps > 4) {
     throw new LiteRtProviderError("configuration_error", "maxSteps must be an integer from 1 to 4");
@@ -502,6 +517,9 @@ function validateOptions(options: LiteRtProviderOptions): ValidatedConfig {
     ...(options.model === undefined ? {} : { model: options.model }),
     fetch: configuredFetch,
     timeoutMs,
+    ...(options.thinkingBudgetTokens === undefined
+      ? {}
+      : { thinkingBudgetTokens: options.thinkingBudgetTokens }),
     maxSteps,
     ...(options.apiKey === undefined ? {} : { apiKey: options.apiKey }),
   });

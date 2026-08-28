@@ -28,6 +28,16 @@ export function readRtxBitwigPreviewConfig(env = process.env) {
   const operatorSecret = requireSecret(env.BEAT_TWIN_OPERATOR_SECRET);
   const providerBaseUrl = requireHttpUrl(env.LITERT_BASE_URL, "LITERT_BASE_URL");
   const model = requireNonBlank(env.LITERT_MODEL, "LITERT_MODEL");
+  const providerTimeoutMs = parsePositiveInteger(
+    env.LITERT_TIMEOUT_MS,
+    60_000,
+    "LITERT_TIMEOUT_MS",
+  );
+  const thinkingBudgetTokens = parseNonNegativeInteger(
+    env.LITERT_THINKING_BUDGET_TOKENS,
+    512,
+    "LITERT_THINKING_BUDGET_TOKENS",
+  );
   const gatewayHost = env.BEAT_TWIN_GATEWAY_HOST?.trim() || "127.0.0.1";
   assertAllowedListenHost(gatewayHost);
   const gatewayPort = parsePort(env.BEAT_TWIN_GATEWAY_PORT, 8788, "BEAT_TWIN_GATEWAY_PORT");
@@ -39,6 +49,8 @@ export function readRtxBitwigPreviewConfig(env = process.env) {
     operatorSecret,
     providerBaseUrl,
     model,
+    providerTimeoutMs,
+    thinkingBudgetTokens,
     gatewayHost,
     gatewayPort,
     bitwigHost,
@@ -61,6 +73,8 @@ export async function startRtxBitwigPreviewRuntime(options) {
   const provider = config.provider ?? createLiteRtProvider({
     baseUrl: config.providerBaseUrl,
     model: config.model,
+    timeoutMs: config.providerTimeoutMs,
+    thinkingBudgetTokens: config.thinkingBudgetTokens,
     fetch: config.fetch,
   });
   const readOnlyPort = Object.freeze({
@@ -120,13 +134,30 @@ function validateRuntimeOptions(options) {
     requireHttpUrl(options.providerBaseUrl, "providerBaseUrl");
     requireNonBlank(options.model, "model");
   }
+  const providerTimeoutMs = parsePositiveInteger(
+    options.providerTimeoutMs,
+    60_000,
+    "providerTimeoutMs",
+  );
+  const thinkingBudgetTokens = parseNonNegativeInteger(
+    options.thinkingBudgetTokens,
+    512,
+    "thinkingBudgetTokens",
+  );
   if (options.fetch !== undefined && typeof options.fetch !== "function") {
     throw new Error("fetch must be a function");
   }
   if (options.audit !== undefined && typeof options.audit !== "function") {
     throw new Error("audit must be a function");
   }
-  return Object.freeze({ ...options, operatorSecret, gatewayHost, gatewayPort });
+  return Object.freeze({
+    ...options,
+    operatorSecret,
+    gatewayHost,
+    gatewayPort,
+    providerTimeoutMs,
+    thinkingBudgetTokens,
+  });
 }
 
 function requireSecret(value) {
@@ -166,6 +197,24 @@ function parsePort(value, fallback, label) {
   if (value === undefined || value === "") return fallback;
   if (!/^\d+$/.test(value)) throw new Error(`${label} must be an integer from 0 to 65535`);
   return parseRuntimePort(Number(value), label);
+}
+
+function parsePositiveInteger(value, fallback, label) {
+  if (value === undefined || value === "") return fallback;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`${label} must be a positive integer`);
+  }
+  return parsed;
+}
+
+function parseNonNegativeInteger(value, fallback, label) {
+  if (value === undefined || value === "") return fallback;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    throw new Error(`${label} must be a non-negative integer`);
+  }
+  return parsed;
 }
 
 function parseRuntimePort(value, label) {

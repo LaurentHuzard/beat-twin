@@ -19,6 +19,8 @@
     "smoke:packages": "corepack pnpm run build:packages && node scripts/package-smoke.js",
     "capture:s25-tool-call": "corepack pnpm run build:packages && node scripts/capture-litert-tool-call.js",
     "gateway:rtx-bitwig-preview": "corepack pnpm run build:packages && corepack pnpm --filter @beat-twin/gateway start:rtx-bitwig-preview",
+    "gateway:rtx-dual-target": "corepack pnpm run build:packages && corepack pnpm --filter @beat-twin/gateway start:rtx-dual-target",
+    "preview:rtx-dual-target": "node scripts/prepare-dual-target-preview.js",
     "test:protocol-smoke": "node --test tests/protocol-smoke.test.js",
     "test:live": "node scripts/run-live-tests.js",
     "smoke:read-only": "node scripts/read-only-smoke.js",

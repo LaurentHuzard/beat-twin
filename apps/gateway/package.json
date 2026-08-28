@@ -9,6 +9,7 @@
     ".": "./src/index.js"
   },
   "scripts": {
+    "start:rtx-dual-target": "node src/rtx-dual-target-cli.js",
     "start:rtx-bitwig-preview": "node src/rtx-bitwig-preview-cli.js",
     "test": "node --test test/*.test.js"
   },
@@ -22,6 +23,7 @@
     "@beat-twin/daw-contract": "workspace:*",
     "@beat-twin/gateway-core": "workspace:*",
     "@beat-twin/litert-provider": "workspace:*",
+    "@beat-twin/nanodaw-adapter": "workspace:*",
     "ws": "^8.21.0"
   }
 }
