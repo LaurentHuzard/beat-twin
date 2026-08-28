@@ -175,13 +175,43 @@ test("runs the real fixture through validation without mutating a DAW", async ()
     parallel_tool_calls: unknown;
     tool_choice: unknown;
     tools: unknown[];
+    thinking_budget_tokens?: unknown;
   };
   assert.deepEqual(body.tools, LITERT_AGENT_TOOL_SPECS);
   assert.equal(body.tool_choice, "auto");
   assert.equal(body.parallel_tool_calls, false);
+  assert.equal(body.thinking_budget_tokens, undefined);
   assert.equal(body.messages.length, 2);
   assert.equal(body.messages[0]?.role, "system");
   assert.equal(body.messages[0]?.content, DEFAULT_LITERT_AGENT_SYSTEM_PROMPT);
+});
+
+test("sends an optional bounded reasoning budget without changing the default payload", async () => {
+  const requests: Array<{ url: string; init?: RequestInit }> = [];
+  const provider = createLiteRtProvider({
+    baseUrl: "http://rtx.local:8002/",
+    model: "gemma4-e2b",
+    thinkingBudgetTokens: 512,
+    fetch: queueFetch([
+      modelsResponse("gemma4-e2b"),
+      completion([{
+        id: "call-propose",
+        name: "propose_song_patch",
+        arguments: JSON.stringify(validPatch()),
+      }]),
+    ], requests),
+  });
+
+  await provider.runAgent({ request: "Create one note", handlers: handlers() });
+  const body = JSON.parse(String(requests[1]?.init?.body)) as Record<string, unknown>;
+  assert.equal(body.thinking_budget_tokens, 512);
+  assert.throws(
+    () => createLiteRtProvider({
+      baseUrl: "http://rtx.local:8002/",
+      thinkingBudgetTokens: -1,
+    }),
+    assertProviderError("configuration_error"),
+  );
 });
 
 test("requires and constrains an explicitly requested BPM in the request tool schema", async () => {

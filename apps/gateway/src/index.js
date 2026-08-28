@@ -237,9 +237,97 @@ export function createGatewayRequestHandler(options) {
           dawId: adapter.id,
           model: run.model,
           steps: run.steps,
+          toolCalls: run.toolCalls,
           patch: run.patch,
           preview,
           plan,
+        }, cors);
+        return;
+      }
+
+      if (request.method === "POST" && url.pathname === "/v1/agent/dual-target-runs") {
+        const token = bearerToken(request);
+        await config.pairing.authorize(token, "agent.run");
+        const body = await readJsonObject(request, config.bodyLimitBytes);
+        assertExactKeys(body, ["dawIds", "request"]);
+        if (!isNonBlankString(body.request)) {
+          throw new GatewayHttpError("invalid_request", "request must be a non-empty string");
+        }
+        if (body.request.length > config.maxAgentRequestCharacters) {
+          throw new GatewayHttpError("invalid_request", "agent request is too long", 413);
+        }
+        const dawIds = requireDualTargetIds(body.dawIds);
+        const observations = await Promise.all(dawIds.map(async (dawId) => {
+          const adapter = requireAdapter(config.adapters, dawId);
+          const [health, capabilities, snapshot] = await Promise.all([
+            adapter.health(),
+            adapter.capabilities(),
+            adapter.inspect(),
+          ]);
+          validateAdapterInspection(adapter, health, capabilities, snapshot);
+          return Object.freeze({ adapter, capabilities, snapshot });
+        }));
+        const observationsById = new Map(
+          observations.map((observation) => [observation.adapter.id, observation]),
+        );
+        const run = await config.provider.runAgent({
+          request: body.request,
+          handlers: {
+            list_daw_targets: () => dawIds.map((id) => ({ id })),
+            inspect_session: ({ dawId }) => {
+              const observation = observationsById.get(dawId);
+              if (!observation) {
+                throw new GatewayHttpError(
+                  "target_mismatch",
+                  `dual-target agent run is fixed to ${dawIds.join(" and ")}`,
+                  422,
+                );
+              }
+              return observation.snapshot;
+            },
+            propose_song_patch: () => ({ previewOnly: true, dawIds }),
+          },
+        });
+
+        const runId = `run-${config.idGenerator()}`;
+        const preparedTargets = observations.map(({ adapter, capabilities, snapshot }) => {
+          const requestId = `request-${config.idGenerator()}`;
+          const compileOptions = { idSeed: requestId, snapshot: snapshot.commandSnapshot };
+          const commands = compileSongPatch(run.patch, compileOptions);
+          const preview = previewSongPatch(run.patch, compileOptions);
+          const requiredScopes = deriveRequiredCommandScopes(commands);
+          validatePlanCapabilities(capabilities, commands, requiredScopes);
+          return Object.freeze({
+            dawId: adapter.id,
+            preview,
+            unsignedPlan: {
+              planId: `plan-${config.idGenerator()}`,
+              requestId,
+              adapterId: adapter.id,
+              capabilityVersion: capabilities.capabilityVersion,
+              baseRevision: snapshot.commandSnapshot.revision,
+              commands,
+              requiredScopes,
+            },
+          });
+        });
+        const targets = [];
+        for (const prepared of preparedTargets) {
+          const plan = await config.planStore.createPlan({ token, plan: prepared.unsignedPlan });
+          targets.push(Object.freeze({
+            dawId: prepared.dawId,
+            preview: prepared.preview,
+            plan,
+          }));
+        }
+
+        sendJson(response, 201, {
+          runId,
+          model: run.model,
+          steps: run.steps,
+          toolCalls: run.toolCalls,
+          patch: run.patch,
+          targets,
         }, cors);
         return;
       }
@@ -568,6 +656,21 @@ function requireAdapter(adapters, dawId) {
     throw new GatewayHttpError("adapter_unavailable", `adapter ${dawId} is not configured`, 503);
   }
   return adapter;
+}
+
+function requireDualTargetIds(value) {
+  if (
+    !Array.isArray(value) ||
+    value.length !== 2 ||
+    value.some((id) => id !== "nanodaw" && id !== "bitwig") ||
+    new Set(value).size !== 2
+  ) {
+    throw new GatewayHttpError(
+      "invalid_request",
+      "dawIds must contain nanodaw and bitwig exactly once",
+    );
+  }
+  return Object.freeze([...value]);
 }
 
 function bearerToken(request) {

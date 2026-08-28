@@ -174,6 +174,8 @@ test("RTX Bitwig preview config fails closed and accepts loopback defaults", asy
   assert.equal(config.gatewayPort, 8788);
   assert.equal(config.bitwigHost, "127.0.0.1");
   assert.equal(config.bitwigPort, 8888);
+  assert.equal(config.providerTimeoutMs, 60_000);
+  assert.equal(config.thinkingBudgetTokens, 512);
   assert.equal(config.providerBaseUrl.href, "http://192.168.1.141:8002/");
   const runtime = await startRtxBitwigPreviewRuntime({
     operatorSecret: OPERATOR_SECRET,
@@ -200,5 +202,23 @@ test("RTX Bitwig preview config fails closed and accepts loopback defaults", asy
       LITERT_MODEL: "qwen3-8b",
     }),
     /at least 16 characters/,
+  );
+  assert.throws(
+    () => readRtxBitwigPreviewConfig({
+      BEAT_TWIN_OPERATOR_SECRET: OPERATOR_SECRET,
+      LITERT_BASE_URL: "http://rtx.test:8002/",
+      LITERT_MODEL: "qwen3-8b",
+      LITERT_TIMEOUT_MS: "0",
+    }),
+    /positive integer/,
+  );
+  assert.throws(
+    () => readRtxBitwigPreviewConfig({
+      BEAT_TWIN_OPERATOR_SECRET: OPERATOR_SECRET,
+      LITERT_BASE_URL: "http://rtx.test:8002/",
+      LITERT_MODEL: "qwen3-8b",
+      LITERT_THINKING_BUDGET_TOKENS: "-1",
+    }),
+    /non-negative integer/,
   );
 });
