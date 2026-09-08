@@ -38,7 +38,7 @@ printing it, then start the runtime:
 read -rsp "Beat Twin operator secret: " BEAT_TWIN_OPERATOR_SECRET
 export BEAT_TWIN_OPERATOR_SECRET
 
-LITERT_BASE_URL=http://192.168.1.141:8002/ \
+LITERT_BASE_URL=http://mue.orbit:8003/ \
 LITERT_MODEL=qwen3-8b \
 pnpm gateway:rtx-bitwig-preview
 ```
@@ -107,7 +107,7 @@ For the same sequence as a single disposable diagnostic command, including
 health, real inspection, Qwen proposal, and preview:
 
 ```bash
-LITERT_BASE_URL=http://192.168.1.141:8002/ \
+LITERT_BASE_URL=http://mue.orbit:8003/ \
 LITERT_MODEL=qwen3-8b \
 pnpm smoke:rtx-bitwig-preview
 ```

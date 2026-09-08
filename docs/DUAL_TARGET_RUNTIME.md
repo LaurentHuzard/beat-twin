@@ -26,7 +26,7 @@ chmod 600 /tmp/beat-twin-operator-secret /tmp/beat-twin-bridge-secret
 
 BEAT_TWIN_OPERATOR_SECRET_FILE=/tmp/beat-twin-operator-secret \
 BITWIG_BRIDGE_SECRET_FILE=/tmp/beat-twin-bridge-secret \
-LITERT_BASE_URL=http://192.168.1.141:8002/ \
+LITERT_BASE_URL=http://mue.orbit:8003/ \
 LITERT_MODEL=qwen3-8b \
 pnpm gateway:rtx-dual-target
 ```
