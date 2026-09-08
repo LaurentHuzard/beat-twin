@@ -9,7 +9,7 @@ the current MCP tool registry instead of carrying a second Bitwig API catalog.
 With the lolOS portfolio running, open:
 
 ```text
-http://beat-twin.localhost/
+http://beat-twin.orbit/
 ```
 
 Choose **Open Bitwig Remote** on first run, or **Bitwig Remote** in the full
