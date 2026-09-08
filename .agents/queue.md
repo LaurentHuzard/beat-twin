@@ -1,7 +1,7 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-08-27
-Publication base for this queue update: `7a72231`
+Updated: 2026-09-08
+Publication base for this queue update: `f7ecaf1`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in

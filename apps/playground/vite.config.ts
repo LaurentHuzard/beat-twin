@@ -32,7 +32,7 @@ function hasTrustedMutationOrigin(request: {
       url.hostname === "127.0.0.1" ||
       url.hostname === "[::1]" ||
       url.hostname === "localhost" ||
-      url.hostname.endsWith(".localhost");
+      url.hostname.endsWith(".orbit");
     return isLoopback && url.host === host;
   } catch {
     return false;
