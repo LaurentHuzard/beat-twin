@@ -4,7 +4,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type RefObject,
   type ReactNode,
 } from "react";
 
@@ -12,7 +11,6 @@ import {
   ArrowDown,
   ArrowUp,
   CircleDot,
-  Clock3,
   Command as CommandIcon,
   Copy,
   Download,
@@ -30,13 +28,10 @@ import {
   Send,
   SlidersHorizontal,
   Sparkles,
-  StepForward,
   Square,
-  TimerReset,
   Trash2,
   Undo2,
   Upload,
-  Volume2,
   Waves,
   X,
 } from "lucide-react";
@@ -55,7 +50,7 @@ import { AgentModePanel } from "./AgentModePanel";
 import { BitwigRemote } from "./BitwigRemote";
 import { LiveLauncher } from "./LiveLauncher";
 import { StepEditor } from "./StepEditor";
-import { buildPreviewAudition, type PreviewState } from "./previewAudio";
+import { buildPreviewAudition } from "./previewAudio";
 import {
   usePlaygroundStore,
   type NoteDraft,
@@ -68,7 +63,7 @@ const shortcutGroups = Object.freeze([
   Object.freeze({ label: "Commands", keys: "Ctrl/Cmd + K" }),
   Object.freeze({ label: "Undo", keys: "Ctrl/Cmd + Z" }),
   Object.freeze({ label: "Redo", keys: "Ctrl/Cmd + Shift + Z" }),
-  Object.freeze({ label: "Play / stop preview", keys: "Space" }),
+  Object.freeze({ label: "Play / stop (JAM); audition (EDIT)", keys: "Space" }),
   Object.freeze({ label: "Add or save note", keys: "N" }),
   Object.freeze({ label: "Duplicate clip", keys: "D" }),
   Object.freeze({ label: "Quantize to 1/4", keys: "Q" }),
@@ -95,7 +90,6 @@ function App() {
   const createDemo = usePlaygroundStore((state) => state.createDemo);
   const addTrack = usePlaygroundStore((state) => state.addTrack);
   const addClipToSelection = usePlaygroundStore((state) => state.addClipToSelection);
-  const setTempo = usePlaygroundStore((state) => state.setTempo);
   const setSelectedTrackInstrument = usePlaygroundStore(
     (state) => state.setSelectedTrackInstrument,
   );
@@ -121,6 +115,12 @@ function App() {
   const [isShortcutGuideOpen, setShortcutGuideOpen] = useState(false);
   const [isLiveRunning, setLiveRunning] = useState(false);
   const [areAdvancedToolsRevealed, setAdvancedToolsRevealed] = useState(false);
+  const [workspaceMode, setWorkspaceMode] = useState<"jam" | "edit">("jam");
+  const [developerMode, setDeveloperMode] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [twinOpen, setTwinOpen] = useState(false);
+  const twinTriggerRef = useRef<HTMLButtonElement>(null);
+  const twinCloseRef = useRef<HTMLButtonElement>(null);
   const [isInspectorCompact, setInspectorCompact] = useState(false);
   const [activeSurface, setActiveSurface] = useState<"nanodaw" | "bitwig">("nanodaw");
   const workspaceRef = useRef<HTMLElement>(null);
@@ -171,7 +171,17 @@ function App() {
     window.requestAnimationFrame(() => shortcutGuideTriggerRef.current?.focus());
   }, []);
 
+  useEffect(() => {
+    if (twinOpen) twinCloseRef.current?.focus();
+  }, [twinOpen]);
+  const closeTwin = useCallback(() => {
+    setTwinOpen(false);
+    twinTriggerRef.current?.focus();
+  }, []);
+
   useKeyboardShortcuts({
+    enabled: activeSurface === "nanodaw" && !isFirstRun && !twinOpen && !settingsOpen && !isCommandPaletteOpen,
+    canEdit: workspaceMode === "edit",
     canPreview: canPreview && activeSurface === "nanodaw",
     canOpenCommandPalette: !isFirstRun && activeSurface === "nanodaw",
     canOpenShortcutGuide: !isFirstRun && activeSurface === "nanodaw",
@@ -203,7 +213,7 @@ function App() {
       {
         id: "add-track",
         label: "Add Track",
-        detail: "Command bus",
+        detail: "New instrument",
         status: song ? "Track" : "Song + track",
         icon: <Plus size={18} />,
         run: addTrackAndRevealTools,
@@ -225,6 +235,7 @@ function App() {
         icon: <Play size={18} />,
         disabled: !canPreview || isPlayingPreview,
         run: () => {
+          setWorkspaceMode("edit");
           void playPreview();
         },
       },
@@ -320,8 +331,9 @@ function App() {
         disabled: !canRedo,
         run: redo,
       },
-    ],
+    ].filter((action) => developerMode || action.id !== "export-song"),
     [
+      developerMode,
       addClipToSelection,
       addTrackAndRevealTools,
       canPreview,
@@ -357,71 +369,142 @@ function App() {
       tabIndex={-1}
       className={`app-shell${isFirstRun ? " first-run" : ""}`}
     >
-      <TransportStrip
-        song={song}
-        preview={preview}
-        isFirstRun={isFirstRun}
-        hasSavedSong={persistence.hasSavedSong}
-        canPreview={canPreview}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        onUndo={undo}
-        onRedo={redo}
-        onCreateDemo={createDemoAndRevealTools}
-        onAddTrack={addTrackAndRevealTools}
-        onLoadSavedSong={loadSavedSongAndRevealTools}
-        onAddClip={addClipToSelection}
-        onTempoChange={setTempo}
-        onPlayPreview={playPreview}
-        onStopPreview={stopPreview}
-        onOpenCommandPalette={openCommandPalette}
-        onOpenShortcutGuide={openShortcutGuide}
-        isShortcutGuideOpen={isShortcutGuideOpen}
-        onRevealAdvancedTools={revealAdvancedTools}
-        onOpenBitwig={() => setActiveSurface("bitwig")}
-        shortcutGuideTriggerRef={shortcutGuideTriggerRef}
-      />
+      <header className="instrument-shell-header">
+        <div className="brand-lockup">
+          <Waves size={25} aria-hidden="true" />
+          <div>
+            <h1>NanoDAW</h1>
+            <p>{song?.title ?? "No song loaded"}</p>
+            {song && !developerMode ? <span className="shell-save-status" role={persistence.phase === "error" ? "alert" : "status"}>{persistence.label}</span> : null}
+          </div>
+        </div>
+        {!isFirstRun ? <nav aria-label="Musical workspace" className="workspace-navigation">
+          <button
+            type="button"
+            aria-pressed={workspaceMode === "jam"}
+            onClick={() => {
+              void stopPreview();
+              setWorkspaceMode("jam");
+            }}
+          >JAM</button>
+          <button type="button" aria-pressed={workspaceMode === "edit"} onClick={() => setWorkspaceMode("edit")}>EDIT</button>
+          <button ref={twinTriggerRef} type="button" aria-expanded={twinOpen} aria-controls="twin-drawer" onClick={() => twinOpen ? closeTwin() : setTwinOpen(true)}>TWIN</button>
+        </nav> : null}
+        <div className="shell-actions">
+          {!isFirstRun ? <>
+            <button type="button" disabled={!song} onClick={saveSong}>Save Jam</button>
+            <button type="button" className="icon-button" aria-label="Undo" disabled={!canUndo} onClick={undo}><Undo2 size={18} /></button>
+            <button type="button" className="icon-button" aria-label="Redo" disabled={!canRedo} onClick={redo}><Redo2 size={18} /></button>
+            <button type="button" className="icon-button" aria-label="Open command palette" onClick={openCommandPalette}><CommandIcon size={18} /></button>
+            <button ref={shortcutGuideTriggerRef} type="button" className="shortcut-guide-trigger" aria-expanded={isShortcutGuideOpen} onClick={openShortcutGuide}>Shortcuts</button>
+          </> : null}
+          <button type="button" aria-expanded={settingsOpen} aria-controls="workspace-settings" onClick={() => setSettingsOpen(!settingsOpen)}>Settings</button>
+        </div>
+      </header>
+      {isFirstRun ? <section className="first-run-welcome" aria-label="Start a NanoDAW session">
+        <h2>Start with one musical move.</h2>
+        <p>Open a sketch, launch a loop, and make it yours.</p>
+        <div className="first-run-actions">
+          <button type="button" className="tool-button primary" onClick={createDemoAndRevealTools}><Play size={20} />Start Jam</button>
+          <button type="button" className="tool-button" onClick={loadSavedSongAndRevealTools} disabled={!persistence.hasSavedSong}><FolderOpen size={20} />Open Jam</button>
+        </div>
+        {!persistence.hasSavedSong ? <p>No local song saved yet.</p> : null}
+      </section> : null}
+      {settingsOpen ? <section id="workspace-settings" className="workspace-settings" aria-label="Settings">
+        <div className="runtime-mode" aria-label="Runtime mode"><strong>Standalone</strong><span>NanoDAW ready</span><small>Bitwig and S25 are optional · not enabled</small></div>
+        <div className="storage-actions">
+          <button type="button" onClick={createDemoAndRevealTools}>Create Demo</button>
+          <button type="button" onClick={addTrackAndRevealTools}>Add Track</button>
+          <button type="button" disabled={!selectedTrack} onClick={addClipToSelection}>Add clip</button>
+          <button type="button" disabled={!song} onClick={saveSong}>Save Jam</button>
+          <button type="button" disabled={!persistence.hasSavedSong} onClick={loadSavedSongAndRevealTools}>Load local song</button>
+          <button type="button" onClick={() => setActiveSurface("bitwig")}>Open Bitwig Remote</button>
+        </div>
+        <label>
+          <input
+            type="checkbox"
+            checked={developerMode}
+            onChange={(event) => {
+              setDeveloperMode(event.currentTarget.checked);
+              revealAdvancedTools();
+            }}
+          />
+          Developer Mode
+        </label>
+      </section> : null}
 
       <ShortcutGuide isOpen={isShortcutGuideOpen} onClose={closeShortcutGuide} />
 
       {!isFirstRun ? (
-        <div id="advanced-workspace" className="advanced-workspace">
-          <LiveLauncher
-            externalAudioActive={isPlayingPreview}
-            onRunningChange={setLiveRunning}
-          />
-
-          <StepEditor />
-
-          <AgentModePanel />
-
-          <section className="workspace-grid" aria-label="Beat Twin workspace">
-            <Timeline
-              song={song}
-              selectedTrackId={selectedTrack?.id ?? null}
-              selectedClipId={selectedClip?.id ?? null}
+        <div id="advanced-workspace" className={`advanced-workspace mode-${workspaceMode}`}>
+          <div className={`launcher-context ${workspaceMode === "edit" ? "compact" : ""}`}>
+            <LiveLauncher
+              externalAudioActive={isPlayingPreview}
+              onRunningChange={setLiveRunning}
+              keyboardTransportEnabled={workspaceMode === "jam" && !twinOpen && !settingsOpen && !isCommandPaletteOpen && !isShortcutGuideOpen}
+              developerMode={developerMode}
+              onEditClip={() => {
+                setWorkspaceMode("edit");
+                window.requestAnimationFrame(() => document.getElementById("edit-surface")?.focus());
+              }}
             />
-            <Inspector
-              song={song}
-              track={selectedTrack}
-              clip={selectedClip}
-              noteDraft={noteDraft}
-              editingNoteId={editingNoteId}
-              onNoteDraftChange={setNoteDraft}
-              onCommitNote={commitNoteDraft}
-              onEditNote={editNoteFromSelection}
-              onRemoveNote={removeNoteFromSelection}
-              onCancelNoteEdit={cancelNoteEdit}
-              onDuplicateClip={duplicateSelectedClip}
-              onQuantizeClip={quantizeSelectedClip}
-              onTransposeClip={transposeSelectedClip}
-              onInstrumentChange={setSelectedTrackInstrument}
-              isCompact={isInspectorCompact}
-              onCompactChange={setInspectorCompact}
-            />
+          </div>
+
+          <section id="edit-surface" tabIndex={-1} className="edit-surface" aria-label="EDIT" hidden={workspaceMode !== "edit"}>
+            <div className="clip-audition" aria-label="Clip audition">
+              <strong>{selectedClip?.name ?? "Select a clip"}</strong>
+              <button type="button" aria-label="Play preview" disabled={!canPreview || isPlayingPreview} onClick={() => { void playPreview(); }}><Play size={16} />Listen</button>
+              <button type="button" aria-label="Stop preview" disabled={!isPlayingPreview} onClick={() => { void stopPreview(); }}><Square size={16} />Stop audition</button>
+              <span role="status"><span>{preview.label}</span>{preview.detail ? <small>{preview.detail}</small> : null}</span>
+            </div>
+            <StepEditor />
+            <section className="workspace-grid" aria-label="Beat Twin workspace">
+              <Inspector
+                song={song}
+                track={selectedTrack}
+                clip={selectedClip}
+                noteDraft={noteDraft}
+                editingNoteId={editingNoteId}
+                onNoteDraftChange={setNoteDraft}
+                onCommitNote={commitNoteDraft}
+                onEditNote={editNoteFromSelection}
+                onRemoveNote={removeNoteFromSelection}
+                onCancelNoteEdit={cancelNoteEdit}
+                onDuplicateClip={duplicateSelectedClip}
+                onQuantizeClip={quantizeSelectedClip}
+                onTransposeClip={transposeSelectedClip}
+                onInstrumentChange={setSelectedTrackInstrument}
+                isCompact={isInspectorCompact}
+                onCompactChange={setInspectorCompact}
+              />
+            </section>
+
+            <details className="edit-timeline"><summary>Timeline</summary>
+              <Timeline
+                song={song}
+                selectedTrackId={selectedTrack?.id ?? null}
+                selectedClipId={selectedClip?.id ?? null}
+              />
+            </details>
           </section>
-
-          <CommandDock
+          <aside
+            id="twin-drawer"
+            className="twin-drawer"
+            role="dialog"
+            aria-label="TWIN"
+            aria-modal="false"
+            hidden={!twinOpen}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                closeTwin();
+              }
+            }}
+          >
+            <div className="twin-drawer-heading"><h2>TWIN</h2><button ref={twinCloseRef} type="button" onClick={closeTwin} aria-label="Close TWIN"><X size={20} /></button></div>
+            <AgentModePanel developerMode={developerMode} />
+          </aside>
+          {developerMode ? <CommandDock
             events={events}
             messages={messages}
             draft={draft}
@@ -436,7 +519,7 @@ function App() {
             onExportSong={exportSong}
             onImportSong={importSong}
             onClearSavedSong={clearSavedSong}
-          />
+          /> : null}
         </div>
       ) : null}
 
@@ -450,6 +533,8 @@ function App() {
 }
 
 type KeyboardShortcutOptions = {
+  readonly enabled: boolean;
+  readonly canEdit: boolean;
   readonly canPreview: boolean;
   readonly canOpenCommandPalette: boolean;
   readonly canOpenShortcutGuide: boolean;
@@ -469,6 +554,8 @@ type KeyboardShortcutOptions = {
 };
 
 function useKeyboardShortcuts({
+  enabled,
+  canEdit,
   canPreview,
   canOpenCommandPalette,
   canOpenShortcutGuide,
@@ -488,7 +575,7 @@ function useKeyboardShortcuts({
 }: KeyboardShortcutOptions): void {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) {
+      if (event.defaultPrevented || !enabled) {
         return;
       }
 
@@ -546,7 +633,7 @@ function useKeyboardShortcuts({
         return;
       }
 
-      if (event.key === " " || event.code === "Space") {
+      if ((event.key === " " || event.code === "Space") && canEdit && !(event.target instanceof HTMLElement && event.target.closest("button, a, summary"))) {
         event.preventDefault();
         if (isPlayingPreview) {
           void onStopPreview();
@@ -558,6 +645,8 @@ function useKeyboardShortcuts({
         }
         return;
       }
+
+      if (!canEdit) return;
 
       if (key === "n") {
         event.preventDefault();
@@ -586,6 +675,8 @@ function useKeyboardShortcuts({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
+    enabled,
+    canEdit,
     canOpenCommandPalette,
     canOpenShortcutGuide,
     canPreview,
@@ -616,256 +707,6 @@ function isEditableTarget(target: EventTarget | null): boolean {
     tagName === "textarea" ||
     tagName === "select" ||
     target.isContentEditable
-  );
-}
-
-type TransportStripProps = {
-  readonly song: Song | null;
-  readonly preview: PreviewState;
-  readonly isFirstRun: boolean;
-  readonly hasSavedSong: boolean;
-  readonly canPreview: boolean;
-  readonly canUndo: boolean;
-  readonly canRedo: boolean;
-  readonly onUndo: () => void;
-  readonly onRedo: () => void;
-  readonly onCreateDemo: () => void;
-  readonly onAddTrack: () => void;
-  readonly onLoadSavedSong: () => void;
-  readonly onAddClip: () => void;
-  readonly onTempoChange: (bpm: number) => void;
-  readonly onPlayPreview: () => Promise<void>;
-  readonly onStopPreview: () => Promise<void>;
-  readonly onOpenCommandPalette: () => void;
-  readonly onOpenShortcutGuide: () => void;
-  readonly isShortcutGuideOpen: boolean;
-  readonly onRevealAdvancedTools: () => void;
-  readonly onOpenBitwig: () => void;
-  readonly shortcutGuideTriggerRef: RefObject<HTMLButtonElement | null>;
-};
-
-function TransportStrip({
-  song,
-  preview,
-  isFirstRun,
-  hasSavedSong,
-  canPreview,
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
-  onCreateDemo,
-  onAddTrack,
-  onLoadSavedSong,
-  onAddClip,
-  onTempoChange,
-  onPlayPreview,
-  onStopPreview,
-  onOpenCommandPalette,
-  onOpenShortcutGuide,
-  isShortcutGuideOpen,
-  onRevealAdvancedTools,
-  onOpenBitwig,
-  shortcutGuideTriggerRef,
-}: TransportStripProps) {
-  const bpm = song?.transport.bpm ?? 120;
-  const isPlayingPreview = preview.phase === "playing";
-
-  return (
-    <header className={`transport-strip${isFirstRun ? " first-run" : ""}`}>
-      <div className="brand-lockup">
-        <div className="brand-mark" aria-hidden="true">
-          <Waves size={24} />
-        </div>
-        <div>
-          <h1>Beat Twin</h1>
-          <p>{song?.title ?? "No song loaded"}</p>
-          <div className="runtime-mode" aria-label="Runtime mode">
-            <strong>Standalone</strong>
-            <span>NanoDAW ready</span>
-            <small>Bitwig and S25 are optional · not enabled</small>
-          </div>
-        </div>
-      </div>
-
-      {isFirstRun ? (
-        <div className="first-run-copy">
-          <p className="eyebrow">Local-first studio</p>
-          <h2>Start with one musical move.</h2>
-          <p>Create a ready-to-play sketch, add an empty track, or resume your local song.</p>
-        </div>
-      ) : (
-        <div className="transport-meters" aria-label="Transport">
-          <div className="meter">
-            <Clock3 size={18} />
-            <span>{bpm} BPM</span>
-          </div>
-          <div className="meter">
-            <StepForward size={18} />
-            <span>{song?.transport.positionBeats ?? 0} beats</span>
-          </div>
-          <label className="tempo-control">
-            <TimerReset size={18} />
-            <input
-              aria-label="Tempo"
-              type="range"
-              min="60"
-              max="180"
-              step="1"
-              value={bpm}
-              onChange={(event) => onTempoChange(Number(event.currentTarget.value))}
-              disabled={!song}
-            />
-          </label>
-          <div
-            className={`preview-status ${preview.phase}`}
-            role="status"
-            aria-live="polite"
-          >
-            <Volume2 size={18} />
-            <span>{preview.label}</span>
-            {preview.detail ? <small>{preview.detail}</small> : null}
-          </div>
-        </div>
-      )}
-
-      {isFirstRun ? (
-        <div
-          className="first-run-actions"
-          role="group"
-          aria-label="Start a NanoDAW session"
-        >
-          <button type="button" className="tool-button primary" onClick={onCreateDemo}>
-            <Sparkles size={19} />
-            <span>Create Demo</span>
-          </button>
-          <button type="button" className="tool-button" onClick={onAddTrack}>
-            <Plus size={19} />
-            <span>Add Track</span>
-          </button>
-          <button
-            type="button"
-            className="tool-button"
-            onClick={onLoadSavedSong}
-            disabled={!hasSavedSong}
-            aria-label="Load local song"
-            aria-describedby={hasSavedSong ? undefined : "first-run-load-hint"}
-            title={hasSavedSong ? "Load local song" : "No local song saved yet"}
-          >
-            <FolderOpen size={19} />
-            <span>Load</span>
-          </button>
-          {!hasSavedSong ? (
-            <p id="first-run-load-hint" className="first-run-load-hint">
-              No local song saved yet.
-            </p>
-          ) : null}
-          <button
-            type="button"
-            className="advanced-tools-trigger"
-            onClick={onRevealAdvancedTools}
-          >
-            <SlidersHorizontal size={17} />
-            <span>Show advanced tools</span>
-          </button>
-          <button type="button" className="advanced-tools-trigger bitwig-entry" onClick={onOpenBitwig}>
-            <Waves size={17} />
-            <span>Open Bitwig Remote</span>
-          </button>
-        </div>
-      ) : (
-        <div className="transport-actions">
-          <button type="button" className="shortcut-guide-trigger" onClick={onOpenBitwig}>
-            <Waves size={17} />
-            <span>Bitwig Remote</span>
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onUndo}
-            disabled={!canUndo}
-            aria-label="Undo"
-            title="Undo (Ctrl/Cmd+Z)"
-          >
-            <Undo2 size={18} />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onRedo}
-            disabled={!canRedo}
-            aria-label="Redo"
-            title="Redo (Ctrl/Cmd+Shift+Z)"
-          >
-            <Redo2 size={18} />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onOpenCommandPalette}
-            aria-label="Open command palette"
-            title="Open command palette (Ctrl/Cmd+K)"
-          >
-            <CommandIcon size={18} />
-          </button>
-          <button
-            ref={shortcutGuideTriggerRef}
-            type="button"
-            className="shortcut-guide-trigger"
-            onClick={onOpenShortcutGuide}
-            aria-haspopup="dialog"
-            aria-expanded={isShortcutGuideOpen}
-            aria-controls="shortcut-guide"
-            aria-keyshortcuts="?"
-            title="Open keyboard shortcuts (?)"
-          >
-            <span aria-hidden="true">?</span>
-            <span>Shortcuts</span>
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={() => {
-              void onPlayPreview();
-            }}
-            disabled={!canPreview || isPlayingPreview}
-            aria-label="Play preview"
-            title="Play preview (Space)"
-          >
-            <Play size={19} />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={() => {
-              void onStopPreview();
-            }}
-            disabled={!isPlayingPreview}
-            aria-label="Stop preview"
-            title="Stop preview (Space)"
-          >
-            <Square size={18} />
-          </button>
-          <button type="button" className="tool-button primary" onClick={onCreateDemo}>
-            <Sparkles size={18} />
-            <span>Create Demo</span>
-          </button>
-          <button type="button" className="tool-button" onClick={onAddTrack}>
-            <Plus size={18} />
-            <span>Add Track</span>
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onAddClip}
-            aria-label="Add clip"
-            title="Add clip"
-          >
-            <ListMusic size={19} />
-          </button>
-        </div>
-      )}
-    </header>
   );
 }
 

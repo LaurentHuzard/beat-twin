@@ -1,19 +1,27 @@
-# Active Beat Twin Orbit
+# Beat Twin Orbit — BT-UX-065 handoff
 
-No implementation Orbit is active.
+The issue #65 initial instrument-first delivery is verified locally.
+No implementation Orbit is active. Issue #65 is not complete.
 
-`BT-213B` completed on `main` from the merged implementation at `7a72231`.
-The follow-up documentation publication is `f7ecaf1`. One live Qwen run
-produced one validated `SongPatchV1` and two
-independent NanoDAW/Bitwig previews. Both readbacks remained unchanged and no
-confirmation or execution was created.
+User activated this bounded Armada delivery on 2026-09-10.
+Base/design: `7c6d6a3c5b8ec59ce906e5b184d962a801a286aa` (fresh origin/main).
+Branch: `codex/issue-65-instrument-first`.
+Worktree: `/home/lolo/Workspace/lolOS/.worktrees/beat-twin-issue-65`.
 
-The durable evidence is recorded in
-`.agents/reports/feature-20260827-bt-213b-dual-target.md`.
+Delivered: JAM / EDIT / persistent contextual TWIN, Developer Mode, dark tokens,
+spatial 2x2 launcher, semantic performance state, safe recorder disclosure and
+explicit empty-slot recording target, visible editor audition and Save Jam.
 
-Commit, push, PR, merge, branch deletion, remote MUE shutdown, and every new
-live DAW write remain separate human gates.
+Validation: 198 general offline tests, 159 NanoDAW tests, 10 browser E2E tests;
+TypeScript, production build and diff check pass. Browser performance, synthetic
+MIDI overdub, save/reload/reopen and desktop/mobile layout exercised.
 
-The documented Qwen route now targets MUE at `http://mue.orbit:8003/` through
-`LITERT_BASE_URL`. The historical live evidence remains recorded against the
-former RTX endpoint.
+Report: `.agents/reports/feature-20260910-bt-ux-065-instrument-shell.md`.
+Preview: http://127.0.0.1:5523/ (local process only).
+
+Remaining: audio-wired mix/macros, Capture Jam, 4x4 runtime, richer musical TWIN
+proposals, immediate first-gesture sound and human listening acceptance.
+
+User authorized commit and merge on 2026-09-10 after reviewing this delivery.
+Publication targets this bounded tranche on main; issue #65 remains open.
+No deployment, provider access, external DAW write or branch deletion is included.

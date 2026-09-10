@@ -10,13 +10,13 @@ test("first run stays focused and reveals the full local workspace on demand", a
 
   await page.goto("/");
 
-  await expect(page).toHaveTitle("Beat Twin Playground");
+  await expect(page).toHaveTitle("NanoDAW");
   await expect(
     page.getByRole("heading", { name: "Start with one musical move." }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create Demo" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add Track" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Load local song" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Start Jam" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open Jam" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Add Track" })).toHaveCount(0);
   await expect(page.getByText("No local song saved yet.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Shortcuts" })).toHaveCount(0);
   await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toHaveCount(0);
@@ -29,11 +29,25 @@ test("first run stays focused and reveals the full local workspace on demand", a
   await page.keyboard.press("Control+K");
   await expect(page.getByRole("dialog", { name: "Command palette" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Show advanced tools" }).click();
+  await page.getByRole("button", { name: "Start Jam" }).click();
 
   await expect(page.getByRole("main")).toBeFocused();
+  await expect(page.getByRole("button", { name: "JAM", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Beat Twin workspace")).toBeHidden();
+  await expect(page.getByLabel("Agent mode")).toBeHidden();
+  await expect(page.getByLabel("Command log")).toHaveCount(0);
+  await page.getByRole("button", { name: "EDIT", exact: true }).click();
   await expect(page.getByLabel("Beat Twin workspace")).toBeVisible();
+  await page.getByRole("button", { name: "TWIN", exact: true }).click();
   await expect(page.getByLabel("Agent mode")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Close TWIN" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByLabel("Agent mode")).toBeHidden();
+  await expect(page.getByRole("button", { name: "TWIN", exact: true })).toBeFocused();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Developer Mode" }).check();
+  await expect(page.getByLabel("Command log")).toBeVisible();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.keyboard.press("Control+K");
   await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
   await page.keyboard.press("Escape");
@@ -51,7 +65,7 @@ test("shortcut help and inspector density stay voluntary during preview", async 
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Show advanced tools" }).click();
+  await page.getByRole("button", { name: "Start Jam" }).click();
 
   const shortcutTrigger = page.getByRole("button", { name: "Shortcuts" });
   const shortcutTriggerBox = await shortcutTrigger.boundingBox();
@@ -70,7 +84,7 @@ test("shortcut help and inspector density stay voluntary during preview", async 
   await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
   await page.keyboard.press("Escape");
 
-  await page.getByRole("button", { name: "Create Demo" }).click();
+  await page.getByRole("button", { name: "EDIT", exact: true }).click();
   await page.getByRole("button", { name: "Play preview" }).click();
   await expect(page.getByText("Auditioning Kick Ladder")).toBeVisible();
 
@@ -100,10 +114,11 @@ test("create demo history stays usable after undo returns to an empty song", asy
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Create Demo" }).click();
+  await page.getByRole("button", { name: "Start Jam" }).click();
 
   await expect(page.getByRole("main")).toBeFocused();
-  await expect(page.getByLabel("Beat Twin workspace")).toBeVisible();
+  await expect(page.getByRole("button", { name: "JAM", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Beat Twin workspace")).toBeHidden();
   await expect(page.getByRole("button", { name: /^Undo$/ })).toBeEnabled();
   await page.getByRole("button", { name: /^Undo$/ }).click();
 
@@ -111,12 +126,12 @@ test("create demo history stays usable after undo returns to an empty song", asy
   await expect(
     page.getByRole("heading", { name: "Start with one musical move." }),
   ).toHaveCount(0);
-  await expect(page.getByLabel("Beat Twin workspace")).toBeVisible();
+  await expect(page.getByLabel("Beat Twin workspace")).toBeHidden();
   await expect(page.getByRole("button", { name: /^Redo$/ })).toBeEnabled();
 
   await page.getByRole("button", { name: /^Redo$/ }).click();
 
   await expect(page.locator(".brand-lockup p").first()).toHaveText("Playground Sketch");
-  await expect(page.getByLabel("Beat Twin workspace")).toBeVisible();
+  await expect(page.getByLabel("Beat Twin workspace")).toBeHidden();
   expect(consoleErrors).toEqual([]);
 });

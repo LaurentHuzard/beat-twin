@@ -19,6 +19,53 @@ afterEach(() => {
 });
 
 describe("MidiRecorder", () => {
+  it("does not retarget an armed overdub when an empty-pad request arrives", () => {
+    activateClip("track-drums", "clip-one");
+    const clock = createClock();
+    const getActiveLoopTiming = () => ({ startedAtBeat: 0, lengthBeats: 4 });
+    const view = render(<MidiRecorder isLive syncClock={clock.sync} getActiveLoopTiming={getActiveLoopTiming} />);
+    fireEvent.click(screen.getByRole("button", { name: "Queue overdub" }));
+    const recording = usePlaygroundStore.getState().performanceState.recording;
+    view.rerender(<MidiRecorder isLive syncClock={clock.sync} getActiveLoopTiming={getActiveLoopTiming} emptySlotRequest={{ trackId: "track-drums", slotIndex: 1, requestId: 1 }} />);
+    expect(screen.getByRole("button", { name: "Selected clip" })).toHaveAttribute("aria-pressed", "true");
+    expect(usePlaygroundStore.getState().performanceState.recording).toBe(recording);
+    expect(recording).toMatchObject({ slotId: "track-drums:slot-1", clipId: "clip-one" });
+  });
+
+  it("releases held keyboard notes when hidden, ignores editor shortcuts, and preserves the take", async () => {
+    const clock = createClock();
+    const view = render(<MidiRecorder isLive syncClock={clock.sync} keyboardInputEnabled />);
+    fireEvent.click(screen.getByRole("button", { name: "Empty slot 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Queue recording" }));
+    clock.advance(4);
+    clock.set(4.1);
+    fireEvent.keyDown(window, { key: "a" });
+
+    clock.set(4.4);
+    view.rerender(<MidiRecorder isLive syncClock={clock.sync} keyboardInputEnabled={false} />);
+    expect(usePlaygroundStore.getState().performanceState.recording.phase).toBe("recording");
+    // EDIT, TWIN, and closed recorder details disable the same keyboard gate.
+    expect(fireEvent.keyDown(window, { key: "d" })).toBe(true);
+    expect(fireEvent.keyDown(window, { key: "n" })).toBe(true);
+    fireEvent.keyUp(window, { key: "a" });
+    clock.set(5);
+    view.rerender(<MidiRecorder isLive syncClock={clock.sync} keyboardInputEnabled />);
+    for (const modifier of ["ctrlKey", "metaKey", "altKey", "shiftKey"]) {
+      expect(fireEvent.keyDown(window, { key: "d", [modifier]: true })).toBe(true);
+      fireEvent.keyUp(window, { key: "d" });
+    }
+    fireEvent.keyDown(window, { key: "a" });
+    clock.set(5.3);
+    fireEvent.keyUp(window, { key: "a" });
+    clock.advance(8);
+
+    await waitFor(() => expect(screen.getByText(/Recording committed: 2 notes/)).toBeInTheDocument());
+    const notes = usePlaygroundStore.getState().commandState.song!.tracks[0]!.clips[1]!.pattern.notes;
+    expect(notes).toHaveLength(2);
+    expect(notes[0]).toMatchObject({ pitch: 36, startBeat: 0, lengthBeats: 0.3 });
+    expect(notes[1]).toMatchObject({ pitch: 36, startBeat: 1, lengthBeats: 0.3 });
+  });
+
   it("commits one quantized empty-slot take as one revision and undoes only that take", async () => {
     const clock = createClock();
     const before = usePlaygroundStore.getState();

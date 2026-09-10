@@ -56,30 +56,76 @@ function mockPreviewAudioEngine(): PreviewAudioEngine {
   return engine;
 }
 
+function openSettings(): void {
+  const button = screen.getByRole("button", { name: /^settings$/i });
+  if (button.getAttribute("aria-expanded") !== "true") fireEvent.click(button);
+}
+
 function revealAdvancedTools(): void {
-  fireEvent.click(screen.getByRole("button", { name: /show advanced tools/i }));
+  openSettings();
+  const checkbox = screen.getByRole("checkbox", { name: "Developer Mode" });
+  if (!(checkbox as HTMLInputElement).checked) fireEvent.click(checkbox);
+  fireEvent.click(screen.getByRole("button", { name: /^edit$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+  const timeline = screen.getByText("Timeline", { selector: "summary" });
+  if (!(timeline.parentElement as HTMLDetailsElement).open) fireEvent.click(timeline);
+}
+
+function startDemoForEditing(): void {
+  const start = screen.queryByRole("button", { name: "Start Jam" });
+  if (start) fireEvent.click(start);
+  else {
+    openSettings();
+    fireEvent.click(screen.getByRole("button", { name: "Create Demo" }));
+  }
+  revealAdvancedTools();
 }
 
 describe("Playground", () => {
-  it("keeps first run focused until the user creates material or reveals advanced tools", () => {
+  it("starts in JAM and progressively reveals editing and developer tools", () => {
     mockPreviewAudioEngine();
     render(<App />);
-
-    expect(screen.getByRole("heading", { name: /start with one musical move/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /create demo/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /add track/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /load local song/i })).toBeDisabled();
-    expect(
-      screen.getByRole("group", { name: /start a nanodaw session/i }),
-    ).toHaveTextContent("No local song saved yet.");
-    expect(screen.queryByLabelText("Beat Twin workspace")).toBeNull();
-    expect(screen.queryByLabelText("Agent mode")).toBeNull();
-
+    expect(screen.getByRole("button", { name: "Start Jam" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Jam" })).toBeDisabled();
+    expect(screen.queryByRole("region", { name: "Command log" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Start Jam" }));
+    expect(screen.getByRole("button", { name: "JAM" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("region", { name: "EDIT" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "TWIN" })).toBeNull();
+    expect(screen.queryByLabelText("Command draft")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "EDIT" }));
+    expect(screen.getByRole("region", { name: "EDIT" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Play preview" })).toBeVisible();
+    expect(screen.queryByLabelText("Song JSON")).toBeNull();
     revealAdvancedTools();
+    expect(screen.getByLabelText("Song JSON")).toBeVisible();
+    openSettings();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Developer Mode" }));
+    expect(screen.queryByLabelText("Song JSON")).toBeNull();
+  });
 
-    expect(screen.getByLabelText("Beat Twin workspace")).toBeInTheDocument();
-    expect(screen.getByLabelText("Agent mode")).toBeInTheDocument();
-    expect(usePlaygroundStore.getState().commandState.song).toBeNull();
+  it("does not apply hidden note editing shortcuts in JAM", () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Start Jam" }));
+    const before = usePlaygroundStore.getState().commandState;
+    for (const key of ["n", "d", "q"]) fireEvent.keyDown(window, { key });
+    expect(usePlaygroundStore.getState().commandState).toBe(before);
+  });
+
+  it("preserves enabled Twin state across drawer close and restores trigger focus", async () => {
+    mockPreviewAudioEngine();
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Start Jam" }));
+    const trigger = screen.getByRole("button", { name: "TWIN" });
+    fireEvent.click(trigger);
+    const drawer = screen.getByRole("dialog", { name: "TWIN" });
+    fireEvent.click(within(drawer).getByRole("button", { name: /enable agent mode/i }));
+    fireEvent.keyDown(within(drawer).getByRole("button", { name: "Close TWIN" }), { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "TWIN" })).toBeNull();
+    expect(trigger).toHaveFocus();
+    fireEvent.click(trigger);
+    expect(within(screen.getByRole("dialog", { name: "TWIN" })).getByRole("button", { name: /disable agent mode/i })).toBeVisible();
   });
 
   it("keeps shortcut help voluntary and returns focus after Escape dismissal", async () => {
@@ -121,7 +167,7 @@ describe("Playground", () => {
     const engine = mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     fireEvent.click(screen.getByRole("button", { name: /play preview/i }));
     await waitFor(() => expect(engine.play).toHaveBeenCalledTimes(1));
 
@@ -144,7 +190,7 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     expect(screen.getByLabelText("Beat Twin workspace")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /^undo$/i }));
@@ -166,6 +212,7 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
+    openSettings();
     const runtimeMode = screen.getByLabelText("Runtime mode");
     expect(runtimeMode).toHaveTextContent("Standalone");
     expect(runtimeMode).toHaveTextContent("NanoDAW ready");
@@ -269,10 +316,11 @@ describe("Playground", () => {
 
     render(<App />);
     revealAdvancedTools();
+    fireEvent.click(screen.getByRole("button", { name: "TWIN" }));
     const agentMode = screen.getByLabelText("Agent mode");
     expect(within(agentMode).getByText("Off")).toBeInTheDocument();
     expect(within(agentMode).queryByLabelText("Gateway URL")).toBeNull();
-    expect(screen.getByLabelText("Runtime mode")).toHaveTextContent("Standalone");
+
 
     fireEvent.click(within(agentMode).getByRole("button", { name: /enable agent mode/i }));
     fireEvent.change(within(agentMode).getByLabelText("Operator secret"), {
@@ -287,6 +335,10 @@ describe("Playground", () => {
     fireEvent.click(within(agentMode).getByRole("button", { name: /load mcp plan/i }));
     await waitFor(() => expect(within(agentMode).getByLabelText("Agent plan preview")).toBeInTheDocument());
     expect(within(agentMode).getByText(/mcp plan loaded for review/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close TWIN" }));
+    expect(screen.queryByRole("dialog", { name: "TWIN" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "TWIN" }));
+    expect(within(agentMode).getByLabelText("Agent plan preview")).toBeVisible();
     expect(within(agentMode).getByText(/plan plan-agent-1/i)).toBeInTheDocument();
     expect(within(agentMode).getAllByText(/bass/i).length).toBeGreaterThan(0);
     expect(usePlaygroundStore.getState().commandState.revision).toBe(0);
@@ -303,6 +355,7 @@ describe("Playground", () => {
     expect(applied.undoStack).toHaveLength(1);
     expect(localStorage.getItem(PLAYGROUND_SONG_STORAGE_KEY)).toContain('"instrumentId": "bass"');
     expect(screen.getByLabelText("Track instrument")).toHaveValue("bass");
+    fireEvent.click(screen.getByRole("button", { name: "Close TWIN" }));
 
     fireEvent.click(screen.getByRole("button", { name: /play preview/i }));
     await waitFor(() => expect(engine.play).toHaveBeenCalledTimes(1));
@@ -356,6 +409,7 @@ describe("Playground", () => {
 
     render(<App />);
     revealAdvancedTools();
+    fireEvent.click(screen.getByRole("button", { name: "TWIN" }));
     const agentMode = screen.getByLabelText("Agent mode");
     fireEvent.click(within(agentMode).getByRole("button", { name: /enable agent mode/i }));
     fireEvent.change(within(agentMode).getByLabelText("Operator secret"), {
@@ -381,7 +435,7 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
 
     expect(screen.getAllByText("Playground Sketch").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Drums").length).toBeGreaterThan(0);
@@ -393,7 +447,7 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     const selector = screen.getByLabelText("Track instrument");
     expect(selector).toHaveValue("drums");
 
@@ -414,7 +468,7 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
 
     const timelineSummary = screen.getByLabelText("Timeline summary");
     expect(timelineSummary).toHaveTextContent("2 tracks");
@@ -434,11 +488,29 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
+    openSettings();
     fireEvent.click(screen.getByRole("button", { name: /add track/i }));
+    openSettings();
     fireEvent.click(screen.getByRole("button", { name: /add track/i }));
 
     expect(screen.getAllByTestId("track-row")).toHaveLength(2);
+    revealAdvancedTools();
     expect(screen.getByLabelText("Command log")).toHaveTextContent("TrackCreated");
+  });
+
+  it("opens EDIT before a palette audition so its stop control stays visible", async () => {
+    const engine = mockPreviewAudioEngine();
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Start Jam" }));
+    fireEvent.click(screen.getByRole("button", { name: /open command palette/i }));
+    fireEvent.click(screen.getByRole("option", { name: /play preview/i }));
+    await waitFor(() => expect(engine.play).toHaveBeenCalledOnce());
+    expect(screen.getByRole("button", { name: "EDIT" })).toHaveAttribute("aria-pressed", "true");
+    const stop = screen.getByRole("button", { name: "Stop preview" });
+    expect(stop).toBeVisible();
+    expect(stop).toBeEnabled();
+    fireEvent.click(stop);
+    await waitFor(() => expect(usePlaygroundStore.getState().preview.phase).toBe("idle"));
   });
 
   it("opens the command palette and runs filtered actions", () => {
@@ -517,7 +589,7 @@ describe("Playground", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /send command/i }));
 
-    expect(screen.getByText("132 BPM")).toBeInTheDocument();
+    expect(usePlaygroundStore.getState().commandState.song?.transport.bpm).toBe(132);
     expect(screen.getByLabelText("Command log")).toHaveTextContent("TempoSet");
     expect(screen.getByLabelText("Command log")).toHaveTextContent(
       "Executed: Set Tempo 132 BPM.",
@@ -528,7 +600,7 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     fireEvent.change(screen.getByLabelText("Command draft"), {
       target: { value: "duplicate clip" },
     });
@@ -561,7 +633,7 @@ describe("Playground", () => {
     const engine = mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     const durableStateBeforePreview = usePlaygroundStore.getState();
     fireEvent.click(screen.getByRole("button", { name: /play preview/i }));
 
@@ -599,7 +671,7 @@ describe("Playground", () => {
     setPreviewAudioEngine(engine);
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     fireEvent.click(screen.getByRole("button", { name: /play preview/i }));
 
     await waitFor(() => expect(engine.play).toHaveBeenCalledTimes(1));
@@ -611,7 +683,7 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
 
     expect(localStorage.getItem(PLAYGROUND_SONG_STORAGE_KEY)).toContain(
       "Playground Sketch",
@@ -633,7 +705,8 @@ describe("Playground", () => {
 
     expect(screen.getByText("No song loaded")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /load local song/i }));
+    openSettings();
+    fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: /load local song/i }));
 
     expect(screen.getAllByText("Playground Sketch").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Inspector")).toHaveTextContent("Kick Ladder");
@@ -644,7 +717,7 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
 
     const applied = usePlaygroundStore.getState();
     expect(applied.commandState.revision).toBe(1);
@@ -677,7 +750,7 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     fireEvent.click(screen.getByRole("button", { name: /export song json/i }));
 
     const songJsonField = screen.getByLabelText("Song JSON") as HTMLTextAreaElement;
@@ -702,7 +775,7 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     fireEvent.change(screen.getByLabelText("Song JSON"), {
       target: { value: "{\"schemaVersion\":999}" },
     });
@@ -716,7 +789,7 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     fireEvent.change(screen.getByLabelText("Note pitch"), { target: { value: "48" } });
     fireEvent.change(screen.getByLabelText("Note beat"), { target: { value: "1" } });
     fireEvent.change(screen.getByLabelText("Note length"), { target: { value: "0.5" } });
@@ -735,7 +808,7 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     fireEvent.click(screen.getByRole("button", { name: /edit note 36 at beat 0/i }));
     fireEvent.change(screen.getByLabelText("Note pitch"), { target: { value: "40" } });
     fireEvent.change(screen.getByLabelText("Note beat"), { target: { value: "1.5" } });
@@ -750,7 +823,7 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     fireEvent.change(screen.getByLabelText("Note pitch"), { target: { value: "50" } });
     fireEvent.change(screen.getByLabelText("Note beat"), { target: { value: "1.37" } });
     fireEvent.change(screen.getByLabelText("Note length"), { target: { value: "0.5" } });
@@ -781,7 +854,7 @@ describe("Playground", () => {
     expect(screen.getByRole("button", { name: /^undo$/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /^redo$/i })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     fireEvent.change(screen.getByLabelText("Note pitch"), { target: { value: "48" } });
     fireEvent.change(screen.getByLabelText("Note beat"), { target: { value: "1" } });
     fireEvent.change(screen.getByLabelText("Note length"), { target: { value: "0.5" } });
@@ -813,7 +886,7 @@ describe("Playground", () => {
     const engine = mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     fireEvent.change(screen.getByLabelText("Note pitch"), { target: { value: "55" } });
     fireEvent.change(screen.getByLabelText("Note beat"), { target: { value: "1.37" } });
     fireEvent.change(screen.getByLabelText("Note length"), { target: { value: "0.5" } });
@@ -854,7 +927,7 @@ describe("Playground", () => {
     mockPreviewAudioEngine();
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     fireEvent.change(screen.getByLabelText("Command draft"), {
       target: { value: "n dq z" },
     });
@@ -870,7 +943,7 @@ describe("Playground", () => {
   it("gives an armed MIDI recorder exclusive ownership of unmodified note keys", () => {
     mockPreviewAudioEngine();
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /create demo/i }));
+    startDemoForEditing();
     const before = usePlaygroundStore.getState();
     const trackId = before.selectedTrackId!;
     const clipId = before.selectedClipId!;

@@ -24,7 +24,8 @@ export function resetAgentGatewaySessionFactory(): void {
 type ConnectionState = "off" | "disconnected" | "connecting" | "connected";
 type OperationState = "idle" | "running" | "preview" | "executing" | "completed" | "failed";
 
-export function AgentModePanel() {
+export function AgentModePanel({ developerMode = false }: { developerMode?: boolean }) {
+  const song = usePlaygroundStore((state) => state.commandState.song);
   const [enabled, setEnabled] = useState(false);
   const [gatewayUrl, setGatewayUrl] = useState("http://127.0.0.1:8787");
   const [operatorSecret, setOperatorSecret] = useState("");
@@ -35,6 +36,17 @@ export function AgentModePanel() {
   const [preview, setPreview] = useState<AgentPlanPreview | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const sessionRef = useRef<AgentGatewaySession | null>(null);
+
+  const musicalNames = new Map<string, string>();
+  for (const track of song?.tracks ?? []) {
+    musicalNames.set(track.id, track.name);
+    for (const clip of track.clips) musicalNames.set(clip.id, clip.name);
+  }
+  for (const value of preview?.plan.commands ?? []) {
+    if (value && typeof value === "object" && "id" in value && typeof value.id === "string" && "name" in value && typeof value.name === "string") {
+      musicalNames.set(value.id, value.name);
+    }
+  }
 
   const gatewayPort = useMemo<BrowserCommandPort>(
     () => ({
@@ -85,7 +97,7 @@ export function AgentModePanel() {
       await session.connect();
       setOperatorSecret("");
       setConnection("connected");
-      setMessage("Gateway paired. NanoDAW remains the song owner.");
+      setMessage(developerMode ? "Gateway paired. NanoDAW remains the song owner." : "Twin is ready. Describe your next musical idea.");
     } catch (error) {
       sessionRef.current?.disconnect();
       sessionRef.current = null;
@@ -107,7 +119,7 @@ export function AgentModePanel() {
       const nextPreview = await session.run(request);
       setPreview(nextPreview);
       setOperation("preview");
-      setMessage("Preview only. No NanoDAW command has executed.");
+      setMessage(developerMode ? "Preview only. No NanoDAW command has executed." : "Review your proposal. Your jam has not changed.");
     } catch (error) {
       setOperation("idle");
       setMessage(error instanceof Error ? error.message : String(error));
@@ -156,7 +168,7 @@ export function AgentModePanel() {
         return;
       }
       setOperation("completed");
-      setMessage("Plan applied as one NanoDAW batch and saved locally.");
+      setMessage(developerMode ? "Plan applied as one NanoDAW batch and saved locally." : "Proposal applied and saved locally.");
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       setOperation("failed");
@@ -170,9 +182,9 @@ export function AgentModePanel() {
     <section className="agent-mode-panel" aria-label="Agent mode">
       <div className="agent-mode-heading">
         <div>
-          <span className="eyebrow">Optional local agent</span>
-          <h2>Agent mode</h2>
-          <p>Standalone editing stays available before, during, and after a connection.</p>
+          <span className="eyebrow">Composition companion</span>
+          <h2>Twin</h2>
+          <p>Describe an idea, review the musical changes, then choose whether to apply them.</p>
         </div>
         <div className={`agent-mode-state ${connection}`} role="status">
           {connection === "connected" ? <Cable size={16} /> : <Unplug size={16} />}
@@ -190,6 +202,8 @@ export function AgentModePanel() {
 
       {enabled ? (
         <div className="agent-mode-body">
+          <details className="twin-connection-settings" open={developerMode || undefined}>
+            <summary>Connection settings</summary>
           <div className="agent-connect-grid">
             <label>
               Gateway URL
@@ -222,9 +236,11 @@ export function AgentModePanel() {
             </button>
           </div>
 
+          </details>
+
           {connection === "connected" ? (
             <>
-              <div className="mcp-plan-grid">
+              {developerMode ? <div className="mcp-plan-grid">
                 <label>
                   MCP plan id
                   <input
@@ -244,6 +260,7 @@ export function AgentModePanel() {
                   {operation === "running" ? "Loading…" : "Load MCP plan"}
                 </button>
               </div>
+              : null}
               <div className="agent-request-grid">
                 <label>
                   Musical request
@@ -271,20 +288,25 @@ export function AgentModePanel() {
           {preview ? (
             <div className="agent-plan-preview" aria-label="Agent plan preview">
               <div>
-                <span className="eyebrow">Human confirmation required</span>
-                <h3>{preview.plan.commands.length} proposed commands</h3>
-                <p>
+                <span className="eyebrow">Ready for your review</span>
+                <h3>Musical proposal</h3>
+                <p>Review every change below before applying. Audio audition is not available for this proposal.</p>
+                {developerMode ? <p>
                   Plan {preview.plan.planId} · revision {preview.plan.baseRevision} · {preview.plan.requiredScopes.join(", ")} · expires {formatExpiry(preview.plan.expiresAt)}
-                </p>
+                </p> : null}
                 <ul className="agent-plan-summary">
                   {preview.preview.summary.map((summary) => <li key={summary}>{summary}</li>)}
                 </ul>
               </div>
               <ol>
                 {preview.plan.commands.map((command, index) => (
-                  <li key={`${commandName(command)}-${index}`}>{commandName(command)}</li>
+                  <li key={index}>{describeMusicalChange(command, musicalNames)}</li>
                 ))}
               </ol>
+              {developerMode ? <details>
+                <summary>Technical plan details</summary>
+                <pre>{JSON.stringify(preview.plan, null, 2)}</pre>
+              </details> : null}
               <button
                 type="button"
                 className="tool-button primary confirm-plan"
@@ -293,6 +315,11 @@ export function AgentModePanel() {
               >
                 {operation === "executing" ? "Applying…" : "Confirm and apply once"}
               </button>
+              <button type="button" className="tool-button" onClick={() => {
+                setPreview(null);
+                setOperation("idle");
+                setMessage("Proposal discarded. Your jam has not changed.");
+              }}>Discard proposal</button>
             </div>
           ) : null}
 
@@ -310,18 +337,29 @@ function connectionLabel(state: ConnectionState): string {
   return "Off";
 }
 
-function commandName(command: unknown): string {
-  if (command && typeof command === "object" && "type" in command && typeof command.type === "string") {
-    if (
-      command.type === "CreateTrack" &&
-      "instrumentId" in command &&
-      typeof command.instrumentId === "string"
-    ) {
-      return `${command.type} · ${command.instrumentId}`;
-    }
-    return command.type;
+function describeMusicalChange(value: unknown, names: ReadonlyMap<string, string>): string {
+  if (!value || typeof value !== "object" || !("type" in value)) return "Unrecognised change — inspect in Developer Mode before applying.";
+  const command = value as Record<string, unknown>;
+  const field = (key: string, fallback = "") => typeof command[key] === "string" || typeof command[key] === "number" ? String(command[key]) : fallback;
+  // Describe the executable plan, not just the provider's freeform summary.
+  const target = [field("trackId"), field("clipId")].filter(Boolean).map((id) => names.get(id) ?? id).join(" / ");
+  switch (command.type) {
+    case "CreateSong": return `Replace the current song with “${field("title", "Untitled Beat Twin Song")}”${field("bpm") ? ` at ${field("bpm")} BPM` : ""}.`;
+    case "CreateTrack": return `Add track “${field("name", "New track")}” · ${field("instrumentId", "default instrument")}`;
+    case "SetTrackInstrument": return `${target}: change instrument to ${field("instrumentId")}`;
+    case "CreateClip": return `${target}: add clip “${field("name", "Untitled Clip")}” · ${field("lengthBeats", "4")} beats, starting at beat ${field("startBeat", "0")}`;
+    case "AddNote": return `${target}: add MIDI note ${field("pitch")} at beat ${field("startBeat")} · ${field("lengthBeats", "1")} beats · velocity ${field("velocity", "100")}`;
+    case "UpdateNote": return `${target}: edit note ${field("noteId")} · ${["pitch", "startBeat", "lengthBeats", "velocity"].filter((key) => field(key)).map((key) => `${key}: ${field(key)}`).join(", ")}`;
+    case "RemoveNote": return `${target}: remove note ${field("noteId")}`;
+    case "DuplicateClip": return `${target}: duplicate as “${field("name", "Copy")}”${field("startBeat") ? ` at beat ${field("startBeat")}` : ""}`;
+    case "QuantizeClip": return `${target}: quantize to ${field("gridBeats")} beats`;
+    case "TransposeClip": return `${target}: transpose ${field("semitones")} semitones`;
+    case "SetTempo": return `Set tempo to ${field("bpm")} BPM`;
+    case "StartPlayback": return `Start playback${field("positionBeats") ? ` at beat ${field("positionBeats")}` : ""}`;
+    case "StopPlayback": return `Stop playback${field("positionBeats") ? ` at beat ${field("positionBeats")}` : ""}`;
+    case "SetPlayhead": return `Move playhead to beat ${field("positionBeats")}`;
+    default: return "Unrecognised change — inspect in Developer Mode before applying.";
   }
-  return "Unknown command";
 }
 
 function formatExpiry(value: string): string {

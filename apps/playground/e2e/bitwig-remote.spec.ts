@@ -29,6 +29,7 @@ test("Bitwig Remote stays honest and inert while the DAW is unavailable", async 
   );
 
   await page.goto("/");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Open Bitwig Remote" }).click();
 
   await expect(page.getByRole("main", { name: "Bitwig Remote" })).toBeVisible();

@@ -9,7 +9,10 @@ import {
   AlertTriangle,
   CirclePlay,
   Clock3,
-  Grid2X2,
+  Pencil,
+  Play,
+  Plus,
+  CircleDot,
   Square,
   StepForward,
 } from "lucide-react";
@@ -31,8 +34,9 @@ import {
   LIVE_LAUNCHER_SLOT_COUNT,
   LIVE_LAUNCHER_TRACK_COUNT,
 } from "./launcherModel";
-import { MidiRecorder } from "./MidiRecorder";
+import { MidiRecorder, type EmptySlotRecordingRequest } from "./MidiRecorder";
 import { usePlaygroundStore } from "./store";
+import "./instrument.css";
 
 const clockRefreshMs = 40;
 
@@ -43,6 +47,9 @@ export type LiveAudioControllerFactory = (
 export type LiveLauncherProps = {
   readonly controllerFactory?: LiveAudioControllerFactory;
   readonly externalAudioActive?: boolean;
+  readonly developerMode?: boolean;
+  readonly onEditClip?: () => void;
+  readonly keyboardTransportEnabled?: boolean;
   readonly onRunningChange?: (isRunning: boolean) => void;
 };
 
@@ -56,10 +63,15 @@ export function LiveLauncher({
   controllerFactory = createBrowserLiveAudioController,
   externalAudioActive = false,
   onRunningChange = noopRunningChange,
+  developerMode = false,
+  onEditClip,
+  keyboardTransportEnabled = false,
 }: LiveLauncherProps) {
   const song = usePlaygroundStore((state) => state.commandState.song);
   const performance = usePlaygroundStore((state) => state.performanceState);
   const dispatchPerformance = usePlaygroundStore((state) => state.dispatchPerformance);
+  const [recorderOpen, setRecorderOpen] = useState(false);
+  const [emptySlotRequest, setEmptySlotRequest] = useState<EmptySlotRecordingRequest>();
   const [isStarting, setStarting] = useState(false);
   const [isSessionActive, setSessionActive] = useState(false);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
@@ -280,6 +292,24 @@ export function LiveLauncher({
     }
   };
 
+  const keyboardTransportRef = useRef<() => void>(() => undefined);
+  keyboardTransportRef.current = () => {
+    if (isSessionActive) queueTransportStop();
+    else void startLive();
+  };
+  useEffect(() => {
+    if (!keyboardTransportEnabled) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (event.target instanceof HTMLElement && event.target.closest("button, input, select, textarea, summary, a, [contenteditable='true'], [role='dialog']")) return;
+      if (usePlaygroundStore.getState().performanceState.recording.phase !== "idle") return;
+      event.preventDefault();
+      keyboardTransportRef.current();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [keyboardTransportEnabled]);
+
   const setQuantization = (quantization: LaunchQuantization) => {
     try {
       dispatchPerformance({ type: "SetLaunchQuantization", quantization });
@@ -316,20 +346,11 @@ export function LiveLauncher({
   return (
     <section className="live-launcher" aria-label="Live launcher">
       <header className="launcher-header">
-        <div className="launcher-title">
-          <Grid2X2 size={20} />
-          <div>
-            <p className="eyebrow">NanoDAW Live</p>
-            <h2>2 × 2 launcher</h2>
-            <p>Browser-owned clips, one shared audio clock.</p>
-          </div>
-        </div>
-
-        <div className="launcher-transport" aria-label="Live transport">
+        <div className="launcher-transport" aria-label="Global transport">
           <div className={`launcher-clock ${isSessionActive ? "running" : "idle"}`} role="status">
             <Clock3 size={17} />
             <span>
-              <strong>{transportLabel}</strong>
+              <strong className="instrument-sr-only">{transportLabel}</strong>
               <small>
                 Bar {performance.currentBar} · Beat {formatBeat(
                   performance.currentBeat,
@@ -338,8 +359,9 @@ export function LiveLauncher({
               </small>
             </span>
           </div>
+          <label className="instrument-tempo"><input aria-label="Tempo" type="number" min={30} max={300} step={1} value={song?.transport.bpm ?? 120} disabled={!song || isSessionActive || isStarting || externalAudioActive} onChange={(event) => { const bpm = Number(event.currentTarget.value); if (Number.isFinite(bpm) && bpm >= 30 && bpm <= 300) usePlaygroundStore.getState().setTempo(bpm); }} /> <small>BPM</small></label>
           <label className="launcher-quantization">
-            Quantize
+            Q:
             <select
               aria-label="Launch quantization"
               value={performance.launchQuantization}
@@ -360,7 +382,7 @@ export function LiveLauncher({
             disabled={transportUnavailable || isStarting || isSessionActive}
           >
             <CirclePlay size={18} />
-            {isStarting ? "Starting…" : "Start live"}
+            {isStarting ? "Starting…" : "Play"}
           </button>
           <button
             type="button"
@@ -369,7 +391,7 @@ export function LiveLauncher({
             disabled={!isSessionActive || performance.phase !== "playing"}
           >
             <Square size={17} />
-            Stop live
+            Stop
           </button>
         </div>
       </header>
@@ -389,14 +411,7 @@ export function LiveLauncher({
         </p>
       ) : null}
 
-      <MidiRecorder
-        isLive={isSessionActive && performance.phase === "playing"}
-        syncClock={syncRecordingClock}
-        getActiveLoopTiming={(trackId) =>
-          controllerRef.current?.getActiveLoopTiming?.(trackId) ?? null
-        }
-      />
-
+      <div className="instrument-matrix" aria-label="Tracks by scenes">
       <div className="launcher-scenes" aria-label="Launcher scenes">
         {Array.from({ length: LIVE_LAUNCHER_SLOT_COUNT }, (_, sceneIndex) => {
           const sceneId = `launcher-scene-${sceneIndex + 1}`;
@@ -432,6 +447,7 @@ export function LiveLauncher({
               key={sceneId}
               type="button"
               className={`launcher-scene ${sceneStatus}`}
+              style={{ gridColumn: LIVE_LAUNCHER_TRACK_COUNT + 1, gridRow: sceneIndex + 2 }}
               data-status={sceneStatus}
               aria-label={`Launch Scene ${sceneIndex + 1}, ${sceneStatus}`}
               onClick={() => queueScene(sceneIndex)}
@@ -445,10 +461,8 @@ export function LiveLauncher({
             >
               <StepForward size={17} />
               <span>
-                <small>Scene {sceneIndex + 1} · {sceneStatus}</small>
-                <strong>
-                  {sceneSlots.map(({ clip }) => clip?.name ?? "Empty").join(" + ")}
-                </strong>
+                <small>SCENE</small>
+                <strong>{String(sceneIndex + 1).padStart(2, "0")}</strong>
               </span>
             </button>
           );
@@ -466,12 +480,46 @@ export function LiveLauncher({
               runtime={runtime}
               isLive={isSessionActive && performance.phase === "playing"}
               beatsPerBar={performance.beatsPerBar}
+              currentBeat={performance.currentBeat}
+              recording={performance.recording}
+              developerMode={developerMode}
+              onEditClip={onEditClip}
+              onRecord={(trackId, slotIndex) => {
+                const state = usePlaygroundStore.getState();
+                if (state.performanceState.recording.phase !== "idle") return;
+                state.selectTrack(trackId);
+                setEmptySlotRequest((previous) => ({ trackId, slotIndex, requestId: (previous?.requestId ?? 0) + 1 }));
+                setRecorderOpen(true);
+              }}
               onLaunch={queueLaunch}
               onStop={queueTrackStop}
             />
           );
         })}
       </div>
+      </div>
+      <div className="instrument-macro-rack" aria-label="Performance macros">
+        {(["tone", "space", "echo", "repeat"] as const).map((macro) => (
+          <label key={macro} className="instrument-macro">
+            <span>{macro}</span>
+            <input type="range" aria-label={`${macro} macro (coming soon)`} min={0} max={1} step={0.01} value={performance.macros[macro]} disabled />
+          </label>
+        ))}
+        <small className="instrument-macro-note">Mixer & performance effects · coming next</small>
+      </div>
+      <details className="instrument-recorder" open={recorderOpen} onToggle={(event) => setRecorderOpen(event.currentTarget.open)}>
+        <summary><CircleDot size={17} /> Record a loop <span>{performance.recording.phase === "idle" ? "Keyboard / MIDI" : performance.recording.phase}</span></summary>
+      <MidiRecorder
+        emptySlotRequest={emptySlotRequest}
+        keyboardInputEnabled={recorderOpen && keyboardTransportEnabled}
+        isLive={isSessionActive && performance.phase === "playing"}
+        syncClock={syncRecordingClock}
+        getActiveLoopTiming={(trackId) =>
+          controllerRef.current?.getActiveLoopTiming?.(trackId) ?? null
+        }
+      />
+
+      </details>
     </section>
   );
 }
@@ -481,6 +529,11 @@ type LauncherTrackProps = {
   readonly runtime: PerformanceTrackState | undefined;
   readonly isLive: boolean;
   readonly beatsPerBar: number;
+  readonly currentBeat: number;
+  readonly recording: import("./performanceRuntime").PerformanceRecordingState;
+  readonly developerMode: boolean;
+  readonly onEditClip?: () => void;
+  readonly onRecord: (trackId: string, slotIndex: number) => void;
   readonly onLaunch: (trackId: string, clipId: string) => void;
   readonly onStop: (trackId: string) => void;
 };
@@ -490,6 +543,11 @@ function LauncherTrack({
   runtime,
   isLive,
   beatsPerBar,
+  currentBeat,
+  recording,
+  developerMode,
+  onEditClip,
+  onRecord,
   onLaunch,
   onStop,
 }: LauncherTrackProps) {
@@ -518,20 +576,25 @@ function LauncherTrack({
       className="launcher-track"
       aria-label={track ? `${track.name} launcher track` : `Unavailable track ${position}`}
       data-status={trackStatus}
-      style={{ "--track-color": track?.color ?? "#aab4ae" } as CSSProperties}
+      style={{ "--track-color": position === 1 ? "#edb965" : "#69d7d4", "--track-column": position } as CSSProperties}
     >
       <div className="launcher-track-heading">
         <span className="launcher-track-swatch" aria-hidden="true" />
         <div>
-          <small>Track {position}</small>
+          <small>{track?.kind === "instrument" ? track.instrumentId ?? "Instrument" : track?.kind ?? "Track"}</small>
           <h3>{track?.name ?? "No track"}</h3>
         </div>
-        <span className={`launcher-state ${trackStatus}`} role="status">
+        <div className="instrument-track-mixer" aria-label={`${track?.name ?? "Track"} mixer coming soon`}>
+          <input type="range" min={0} max={1} step={0.01} value={runtime?.level ?? 1} aria-label={`${track?.name ?? "Track"} level (coming soon)`} disabled />
+          <button type="button" aria-label={`Mute ${track?.name ?? "track"} (coming soon)`} disabled>M</button>
+          <button type="button" aria-label={`Solo ${track?.name ?? "track"} (coming soon)`} disabled>S</button>
+        </div>
+        <span className={`launcher-state instrument-sr-only ${trackStatus}`} role="status">
           {trackStatus}
         </span>
       </div>
 
-      <p className="launcher-track-detail">
+      {developerMode || failure ? <p className="launcher-track-detail">
         {!track
           ? "Add a browser-owned track to use this lane."
           : !materialAvailable
@@ -543,13 +606,16 @@ function LauncherTrack({
                 : activeClip
                   ? `Observed active: ${activeClip.name}`
                   : "No clip is active."}
-      </p>
+      </p> : null}
 
       <div className="launcher-slots">
         {clips.map((clip, index) => {
           const isQueued = pending?.kind === "launch" && pending.clipId === clip?.id;
           const isActive = runtime?.activeClipId === clip?.id;
-          const slotStatus = !clip
+          const isRecording = recording.trackId === track?.id && recording.slotId === `${track?.id}:slot-${index + 1}`;
+          const slotStatus = isRecording
+            ? recording.phase === "armed" ? "record-queued" : recording.phase
+            : !clip
             ? "empty"
             : !materialAvailable
               ? "unavailable"
@@ -561,13 +627,13 @@ function LauncherTrack({
                     ? "playing"
                     : "idle";
           const disabled =
-            !clip ||
             !materialAvailable ||
-            !isLive ||
+            (!clip && (recording.phase !== "idle" || index !== clips.findIndex((slot) => slot === null))) ||
+            (Boolean(clip) && !isLive) ||
             Boolean(pending);
           return (
+            <div key={clip?.id ?? `empty-slot-${index}`} className="instrument-pad-cell" style={{ gridColumn: position, gridRow: index + 2 }}>
             <button
-              key={clip?.id ?? `empty-slot-${index}`}
               type="button"
               className={`launcher-slot ${slotStatus}`}
               data-status={slotStatus}
@@ -578,7 +644,9 @@ function LauncherTrack({
               }
               disabled={disabled}
               onClick={() => {
-                if (!track || !clip) return;
+                if (!track) return;
+                if (!clip) { onRecord(track.id, index); return; }
+                usePlaygroundStore.getState().selectClip(track.id, clip.id);
                 if (isActive) {
                   onStop(track.id);
                 } else {
@@ -586,13 +654,23 @@ function LauncherTrack({
                 }
               }}
             >
-              <StepForward size={18} />
-              <span>
-                <small>Slot {index + 1} · {slotStatus}</small>
-                <strong>{clip?.name ?? "Empty slot"}</strong>
-                <em>{clip ? `${clip.pattern.notes.length} notes` : "No clip"}</em>
+              <span className="instrument-pad-symbol" aria-hidden="true">
+                {slotStatus === "overdubbing" ? <><Play size={17} /><CircleDot size={17} /> REC</>
+                  : slotStatus === "recording" ? <><CircleDot size={17} /> REC</>
+                  : slotStatus === "record-queued" ? <><Clock3 size={17} /><CircleDot size={17} /></>
+                  : slotStatus === "stop-queued" ? <><Play size={17} /><Square size={13} /></>
+                  : isActive ? <Play size={17} />
+                  : isQueued ? <Clock3 size={17} />
+                  : clip ? <StepForward size={17} />
+                  : <Plus size={19} />}
               </span>
+              <strong>{clip?.name ?? "Record a loop"}</strong>
+              {clip ? <PatternSilhouette clip={clip} /> : null}
+              <small>{clip ? `${clip.lengthBeats / beatsPerBar} bars` : "Empty pad"}</small>
+              {isActive && clip ? <span className="instrument-loop-progress" aria-hidden="true" style={{ width: `${loopProgress(runtime, clip, currentBeat) * 100}%` }} /> : null}
             </button>
+            {track && clip && onEditClip ? <button type="button" className="instrument-edit-clip" aria-label={`Edit ${clip.name}`} onClick={() => { usePlaygroundStore.getState().selectClip(track.id, clip.id); onEditClip(); }}><Pencil size={14} /></button> : null}
+            </div>
           );
         })}
       </div>
@@ -610,6 +688,18 @@ function LauncherTrack({
       </button>
     </article>
   );
+}
+
+function PatternSilhouette({ clip }: { readonly clip: Clip }) {
+  return <svg className="instrument-pattern" viewBox="0 0 160 32" preserveAspectRatio="none" aria-hidden="true">
+    {clip.pattern.notes.map((note) => <rect key={note.id} x={(note.startBeat / clip.lengthBeats) * 156} y={26 - (note.pitch % 12) * 1.8} width={Math.max(2, Math.min(24, note.lengthBeats / clip.lengthBeats * 156))} height={4} rx={1} />)}
+  </svg>;
+}
+
+function loopProgress(runtime: PerformanceTrackState | undefined, clip: Clip, currentBeat: number): number {
+  const last = runtime?.lastResolvedTransition;
+  const startBeat = last?.status === "executed" && last.kind === "launch" && last.clipId === clip.id ? last.targetBeat : 0;
+  return Math.max(0, (currentBeat - startBeat) % clip.lengthBeats) / clip.lengthBeats;
 }
 
 function projectLauncher(song: Song | null): readonly LauncherTrackProjection[] {

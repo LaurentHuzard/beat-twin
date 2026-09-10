@@ -51,13 +51,93 @@ afterEach(() => {
 });
 
 describe("LiveLauncher", () => {
+  it("routes an empty pad to a new recording without overdubbing existing material", async () => {
+    const store = usePlaygroundStore.getState();
+    store.dispatch({ type: "CreateSong", id: "empty-pad-song", title: "Empty pad", bpm: 120 });
+    store.dispatch({ type: "CreateTrack", id: "drums", name: "Drums", kind: "instrument", instrumentId: "drums" });
+    store.dispatch({ type: "CreateClip", id: "existing", trackId: "drums", name: "Existing loop", startBeat: 0, lengthBeats: 4 });
+    store.dispatch({ type: "AddNote", trackId: "drums", clipId: "existing", pitch: 38, velocity: 90, startBeat: 0, lengthBeats: 0.25 });
+    const before = usePlaygroundStore.getState().commandState;
+    const existingClip = before.song!.tracks[0]!.clips[0]!;
+    const harness = createControllerHarness();
+    render(<LiveLauncher controllerFactory={harness.factory} keyboardTransportEnabled />);
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    await waitFor(() => expect(screen.getByText("Live audio running")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Track 1 slot 2, empty" }));
+    expect(screen.getByRole("button", { name: "Empty slot 2" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: "Queue overdub" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Queue recording" }));
+    expect(screen.getByRole("button", { name: "Track 1 slot 2, record-queued" })).toBeDisabled();
+    expect(usePlaygroundStore.getState().performanceState.recording).toMatchObject({ trackId: "drums", slotId: "drums:slot-2", clipId: null });
+    expect(usePlaygroundStore.getState().commandState).toBe(before);
+
+    act(() => usePlaygroundStore.getState().dispatchPerformance({ type: "AdvanceClock", beat: 4.1 }));
+    fireEvent.keyDown(window, { key: "a" });
+    act(() => usePlaygroundStore.getState().dispatchPerformance({ type: "AdvanceClock", beat: 4.4 }));
+    fireEvent.keyUp(window, { key: "a" });
+    expect(usePlaygroundStore.getState().commandState).toBe(before);
+    act(() => usePlaygroundStore.getState().dispatchPerformance({ type: "AdvanceClock", beat: 8 }));
+    await waitFor(() => expect(screen.getByText(/Recording committed: 1 note/)).toBeInTheDocument());
+    const after = usePlaygroundStore.getState().commandState;
+    expect(after.revision).toBe(before.revision + 1);
+    expect(after.song!.tracks[0]!.clips[0]).toEqual(existingClip);
+    expect(after.song!.tracks[0]!.clips[1]!.pattern.notes).toHaveLength(1);
+  });
+
+  it("opens the selected clip editor without launching audio", () => {
+    usePlaygroundStore.getState().createDemo();
+    const harness = createControllerHarness();
+    const onEditClip = vi.fn();
+    render(<LiveLauncher controllerFactory={harness.factory} onEditClip={onEditClip} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Hat Current" }));
+    const state = usePlaygroundStore.getState();
+    expect(state.selectedClipId).toBe(state.commandState.song!.tracks[0]!.clips[1]!.id);
+    expect(onEditClip).toHaveBeenCalledOnce();
+    expect(harness.factory).not.toHaveBeenCalled();
+    expect(screen.getByRole("slider", { name: "tone macro (coming soon)" })).toBeDisabled();
+  });
+
+  it("uses Space for the global transport only while JAM owns keyboard focus", async () => {
+    usePlaygroundStore.getState().createDemo();
+    const harness = createControllerHarness();
+    const view = render(<LiveLauncher controllerFactory={harness.factory} keyboardTransportEnabled />);
+    fireEvent.keyDown(screen.getByLabelText("Tempo"), { code: "Space" });
+    expect(harness.factory).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { code: "Space", ctrlKey: true });
+    expect(harness.factory).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { code: "Space" });
+    await waitFor(() => expect(screen.getByText("Live audio running")).toBeInTheDocument());
+    view.rerender(<LiveLauncher controllerFactory={harness.factory} keyboardTransportEnabled={false} />);
+    fireEvent.keyDown(window, { code: "Space" });
+    expect(usePlaygroundStore.getState().performanceState.transportStop).toBeNull();
+    expect(harness.dispose).not.toHaveBeenCalled();
+  });
+
+  it("exposes recording as a distinct pad state and keeps scene controls on their row", async () => {
+    usePlaygroundStore.getState().createDemo();
+    const harness = createControllerHarness();
+    render(<LiveLauncher controllerFactory={harness.factory} />);
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    await waitFor(() => expect(screen.getByText("Live audio running")).toBeInTheDocument());
+    const track = usePlaygroundStore.getState().commandState.song!.tracks[0]!;
+    act(() => {
+      usePlaygroundStore.getState().dispatchPerformance({ type: "ArmRecordSlot", trackId: track.id, slotId: `${track.id}:slot-1`, clipId: track.clips[0]!.id });
+      usePlaygroundStore.getState().dispatchPerformance({ type: "StartRecording", trackId: track.id });
+    });
+    const pad = screen.getByRole("button", { name: "Drums launch Kick Ladder, recording" });
+    expect(pad).toHaveAttribute("data-status", "recording");
+    expect(pad).toHaveTextContent("REC");
+    expect(pad.parentElement).toHaveStyle({ gridColumn: "1", gridRow: "2" });
+    expect(screen.getByRole("button", { name: "Launch Scene 1, idle" })).toHaveStyle({ gridColumn: "3", gridRow: "2" });
+  });
+
   it("projects an honest unavailable 2 x 2 surface without a Song", () => {
     const harness = createControllerHarness();
     render(<LiveLauncher controllerFactory={harness.factory} />);
 
-    expect(screen.getByRole("heading", { name: "2 × 2 launcher" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Tracks by scenes")).toBeInTheDocument();
     expect(screen.getByText("No song available")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Start live" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();
     expect(screen.getAllByRole("button", { name: /track \d slot \d, empty/i })).toHaveLength(4);
     expect(harness.factory).not.toHaveBeenCalled();
   });
@@ -71,7 +151,7 @@ describe("LiveLauncher", () => {
     const harness = createControllerHarness();
     render(<LiveLauncher controllerFactory={harness.factory} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Start live" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(screen.getByText("Live audio running")).toBeInTheDocument());
 
     const drums = within(screen.getByRole("article", { name: "Drums launcher track" }));
@@ -143,7 +223,7 @@ describe("LiveLauncher", () => {
     harness.failNext = true;
     render(<LiveLauncher controllerFactory={harness.factory} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Start live" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(screen.getByText("Live audio running")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Drums launch Kick Ladder, idle" }));
 
@@ -161,7 +241,7 @@ describe("LiveLauncher", () => {
     const harness = createControllerHarness();
     render(<LiveLauncher controllerFactory={harness.factory} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Start live" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(screen.getByText("Live audio running")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Launch Scene 2, idle" }));
 
@@ -205,7 +285,7 @@ describe("LiveLauncher", () => {
     render(<LiveLauncher controllerFactory={harness.factory} externalAudioActive />);
 
     expect(screen.getByText("Preview owns audio")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Start live" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();
     expect(harness.factory).not.toHaveBeenCalled();
   });
 
@@ -218,7 +298,7 @@ describe("LiveLauncher", () => {
       </StrictMode>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Start live" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(screen.getByText("Live audio running")).toBeInTheDocument());
     expect(harness.factory).toHaveBeenCalledTimes(1);
   });
@@ -247,7 +327,7 @@ describe("LiveLauncher", () => {
     );
     const view = render(<LiveLauncher controllerFactory={factory} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Start live" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(factory).toHaveBeenCalledTimes(1));
     view.unmount();
     await act(async () => {
@@ -282,7 +362,7 @@ describe("LiveLauncher", () => {
     }));
     const view = render(<LiveLauncher controllerFactory={factory} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Start live" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(screen.getByText("Live audio running")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Drums launch Kick Ladder, idle" }));
     await waitFor(() => expect(rejectSync).not.toBeNull());
@@ -313,7 +393,7 @@ describe("LiveLauncher", () => {
       dispose: vi.fn(),
     }));
     render(<LiveLauncher controllerFactory={factory} />);
-    fireEvent.click(screen.getByRole("button", { name: "Start live" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(screen.getByText("Live audio running")).toBeInTheDocument());
     await waitFor(() => expect(syncPending).toHaveBeenCalled());
     syncPending.mockClear();
@@ -363,7 +443,7 @@ describe("LiveLauncher", () => {
       dispose: vi.fn(),
     }));
     render(<LiveLauncher controllerFactory={factory} />);
-    fireEvent.click(screen.getByRole("button", { name: "Start live" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(screen.getByText("Live audio running")).toBeInTheDocument());
 
     failSafe = true;
@@ -382,12 +462,12 @@ describe("LiveLauncher", () => {
     const harness = createControllerHarness();
     render(<LiveLauncher controllerFactory={harness.factory} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Start live" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(screen.getByText("Live audio running")).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText("Launch quantization"), {
       target: { value: "beat" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Stop live" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
 
     await waitFor(() => expect(screen.getByText("Stop queued")).toBeInTheDocument());
     expect(harness.dispose).not.toHaveBeenCalled();
