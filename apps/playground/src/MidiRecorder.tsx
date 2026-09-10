@@ -29,8 +29,16 @@ import {
   type WebMidiConnection,
 } from "./webMidiInput";
 
+export type EmptySlotRecordingRequest = Readonly<{
+  trackId: string;
+  slotIndex: number;
+  requestId: number;
+}>;
+
 export type MidiRecorderProps = Readonly<{
   isLive: boolean;
+  keyboardInputEnabled?: boolean;
+  emptySlotRequest?: EmptySlotRecordingRequest;
   syncClock: () => number;
   getActiveLoopTiming?: (trackId: string) => Readonly<{
     startedAtBeat: number;
@@ -56,6 +64,8 @@ let recordingIdSequence = 0;
 
 export function MidiRecorder({
   isLive,
+  keyboardInputEnabled = true,
+  emptySlotRequest,
   syncClock,
   getActiveLoopTiming = noActiveLoopTiming,
 }: MidiRecorderProps) {
@@ -75,6 +85,7 @@ export function MidiRecorder({
   const [webMidiLabel, setWebMidiLabel] = useState("Web MIDI optional");
   const [isConnectingMidi, setConnectingMidi] = useState(false);
   const takeRef = useRef<MidiTakeSession | null>(null);
+  const handledEmptySlotRequestRef = useRef<number | null>(null);
   const identityRef = useRef<TakeIdentity | null>(null);
   const mountedRef = useRef(true);
   const pressedKeysRef = useRef(new Set<string>());
@@ -103,6 +114,17 @@ export function MidiRecorder({
     ),
     [track],
   );
+
+  useEffect(() => {
+    if (
+      !emptySlotRequest ||
+      emptySlotRequest.requestId === handledEmptySlotRequestRef.current ||
+      emptySlotRequest.trackId !== track?.id ||
+      emptySlotRequest.slotIndex !== emptySlotIndex
+    ) return;
+    handledEmptySlotRequestRef.current = emptySlotRequest.requestId;
+    if (!takeRef.current) setTarget("empty");
+  }, [emptySlotRequest, track?.id, emptySlotIndex]);
 
   const setTake = useCallback((next: MidiTakeSession | null) => {
     takeRef.current = next;
@@ -364,8 +386,9 @@ export function MidiRecorder({
   ]);
 
   useEffect(() => {
+    if (!keyboardInputEnabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat || isEditableTarget(event.target)) return;
+      if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || isEditableTarget(event.target)) return;
       const pad = pads.find((candidate) => candidate.key === event.key.toLowerCase());
       if (!pad || !takeRef.current || pressedKeysRef.current.has(pad.key)) return;
       pressedKeysRef.current.add(pad.key);
@@ -394,8 +417,20 @@ export function MidiRecorder({
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      // Hiding the recorder releases keyboard-held notes, while the take and
+      // connected MIDI device retain their independent ownership.
+      for (const pad of pads) {
+        if (!pressedKeysRef.current.delete(pad.key)) continue;
+        captureRef.current({
+          type: "noteoff",
+          sourceId: "computer-keyboard",
+          channel: 0,
+          pitch: pad.pitch,
+          velocity: 0,
+        });
+      }
     };
-  }, [pads]);
+  }, [keyboardInputEnabled, pads]);
 
   useEffect(() => {
     const onBlur = () => cancelRef.current("window focus was lost");

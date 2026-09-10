@@ -1,0 +1,50 @@
+/* Spatial instrument: each track keeps its semantics while its pads align by scene. */
+.instrument-sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
+.live-launcher .launcher-header { align-items: center; }
+.live-launcher .launcher-title { display: block; }
+.live-launcher .launcher-title h2 { font-size: clamp(1.3rem, 2.5vw, 2rem); margin-top: 7px; }
+.live-launcher .launcher-transport { align-items: center; }
+.instrument-tempo { font-variant-numeric: tabular-nums; font-size: 1.3rem; font-weight: 650; }
+.instrument-tempo small { font-size: .65rem; color: var(--muted, #8e9b94); }
+.instrument-matrix { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) 80px; grid-template-rows: auto repeat(2, minmax(136px, 1fr)) auto; gap: 12px; }
+.instrument-matrix .launcher-scenes, .instrument-matrix .launcher-track-grid, .instrument-matrix .launcher-track, .instrument-matrix .launcher-slots { display: contents; }
+.instrument-matrix .launcher-track-heading { grid-column: var(--track-column); grid-row: 1; padding: 14px 8px; border-bottom: 2px solid var(--track-color); }
+.instrument-matrix .launcher-track-heading h3 { font-size: 1.1rem; color: var(--track-color); }
+.instrument-matrix .launcher-track-heading small { text-transform: uppercase; font-size: .65rem; letter-spacing: .12em; }
+.instrument-matrix .launcher-track-detail:not(.instrument-sr-only) { grid-column: var(--track-column); grid-row: 5; }
+.instrument-matrix .launcher-track-stop { grid-column: var(--track-column); grid-row: 4; min-height: 44px; }
+.instrument-pad-cell { position: relative; min-width: 0; color: var(--track-color); }
+.instrument-matrix .launcher-slot { width: 100%; min-height: 150px; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 9px; padding: 20px; border-radius: 9px; overflow: hidden; background: color-mix(in srgb, var(--track-color) 9%, #171c1a); border: 1px solid color-mix(in srgb, var(--track-color) 24%, #202622); color: var(--track-color); text-align: left; }
+.instrument-matrix .launcher-slot:disabled { opacity: .65; }
+.instrument-matrix .launcher-slot strong { font-size: clamp(1rem, 1.7vw, 1.4rem); font-weight: 650; letter-spacing: .02em; text-transform: uppercase; }
+.instrument-matrix .launcher-slot small { font-size: .7rem; opacity: .7; }
+.instrument-pad-symbol { font-size: .9rem; min-height: 1em; }
+.instrument-pattern { display: block; width: 82%; height: 32px; fill: currentColor; opacity: .65; }
+.instrument-matrix .launcher-slot.playing, .instrument-matrix .launcher-slot.stop-queued, .instrument-matrix .launcher-slot.overdubbing { background: color-mix(in srgb, var(--track-color) 27%, #171c1a); border-color: var(--track-color); opacity: 1; }
+.instrument-matrix .launcher-slot.queued { border: 2px solid #edb965; animation: instrument-queued 1.4s ease-in-out infinite; opacity: 1; }
+.instrument-matrix .launcher-slot.recording, .instrument-matrix .launcher-slot.overdubbing, .instrument-matrix .launcher-slot.record-queued { border: 2px solid #ff887a; animation: instrument-queued 1s ease-in-out infinite; opacity: 1; }
+.instrument-matrix .launcher-slot.stop-queued .instrument-pad-symbol { color: #edb965; }
+.instrument-matrix .launcher-slot.empty { border-style: dashed; background: #151a17; color: #8e9b94; }
+.instrument-loop-progress { position: absolute; bottom: 0; left: 0; height: 3px; background: var(--track-color); pointer-events: none; }
+.instrument-edit-clip { position: absolute; right: 4px; top: 4px; min-width: 44px; min-height: 44px; display: grid; place-items: center; border: 0; background: transparent; color: var(--track-color); opacity: .75; }
+.instrument-matrix .launcher-scene { min-width: 0; min-height: 44px; display: flex; flex-direction: column; justify-content: center; text-align: center; padding: 8px; border-radius: 9px; }
+.instrument-matrix .launcher-scene small { font-size: .6rem; letter-spacing: .1em; }
+.instrument-matrix .launcher-scene strong { display: block; font-size: 1.2rem; }
+.instrument-macro-rack { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 24px; padding: 20px 0 8px; }
+.instrument-macro { display: flex; flex-direction: column; gap: 6px; text-transform: uppercase; font-size: .75rem; letter-spacing: .1em; }
+.instrument-macro input { min-width: 0; width: 100%; height: 44px; accent-color: #b5cab4; }
+.instrument-macro-note { grid-column: 1 / -1; color: #8e9b94; font-size: .65rem; }
+.instrument-recorder { border-top: 1px solid #303a32; }
+.instrument-recorder summary { min-height: 48px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+.instrument-recorder summary span { margin-left: auto; font-size: .75rem; color: #8e9b94; }
+.live-launcher :is(button, input, select, summary):focus-visible { outline: 2px solid #f0f4ef; outline-offset: 3px; }
+@keyframes instrument-queued { 50% { box-shadow: inset 0 0 0 3px #edb96533; } }
+@media (prefers-reduced-motion: reduce) { .live-launcher *, .live-launcher *::before, .live-launcher *::after { animation: none !important; transition: none !important; } }
+@media (max-width: 600px) { .instrument-matrix { grid-template-columns: repeat(2, minmax(0, 1fr)) 48px; gap: 6px; } .instrument-matrix .launcher-slot { min-height: 125px; padding: 12px; } .instrument-matrix .launcher-slot strong { font-size: .85rem; } .instrument-macro-rack { gap: 8px; } .live-launcher .launcher-transport { flex-wrap: wrap; } .instrument-pattern { width: 100%; } }
+.instrument-track-mixer { margin-left: auto; display: flex; align-items: center; gap: 5px; }
+.instrument-track-mixer input { width: 90px; height: 44px; accent-color: var(--track-color); }
+.instrument-track-mixer button { width: 44px; height: 44px; border: 1px solid #303a32; border-radius: 5px; background: #202622; color: #8e9b94; }
+@media (max-width: 700px) { .instrument-track-mixer { display: none; } }
+.instrument-tempo input { width: 72px; min-height: 44px; font: inherit; font-variant-numeric: tabular-nums; border: 0; background: transparent; color: inherit; }
+.live-launcher .launcher-header { display: block; }
+.live-launcher .launcher-transport { width: 100%; justify-content: space-between; }

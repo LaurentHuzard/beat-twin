@@ -1,7 +1,7 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-09-08
-Publication base for this queue update: `f7ecaf1`
+Updated: 2026-09-10
+Implementation base for this queue update: `7c6d6a3`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -18,8 +18,10 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-None. `BT-213B` is complete locally; the next implementation item requires an
-explicit activation signal.
+None. `BT-UX-065` initial issue #65 delivery is verified locally in
+`codex/issue-65-instrument-first` (commit/merge authorized 2026-09-10). The complete issue
+remains open for audio-wired macros/mixer, Capture Jam, 4x4 and further TWIN work.
+Report: `.agents/reports/feature-20260910-bt-ux-065-instrument-shell.md`.
 
 ## RTX Bounded Agent Loop
 
