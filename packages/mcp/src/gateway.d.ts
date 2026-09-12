@@ -8,6 +8,7 @@ declare module "@beat-twin/gateway" {
   ) => Promise<void>;
 
   export function createGatewayRequestHandler(options: unknown): GatewayHandler;
+  export function assertAllowedListenHost(host: string): void;
 
   export function createBrowserNanoDawWebSocketProxy(options: {
     readonly pairing: unknown;

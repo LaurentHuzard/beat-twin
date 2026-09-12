@@ -43,8 +43,9 @@ same deterministic command path over a pure song model.
 - This is still a proof of concept, not a hardened creative production tool.
 - Live verification requires Bitwig Studio and a local controller installation.
 - Tool exposure must stay conservative because DAW control can quickly become too broad for agents.
-- The NanoDAW has a tested memory adapter contract, but connected browser mode
-  and the authenticated Bitwig adapter remain gated work.
+- NanoDAW connected browser mode and the authenticated Bitwig adapter are implemented.
+  NanoDAW-only V2 proposals and an automatic TWIN MCP inbox preserve browser ownership
+  and human confirmation. Live provider/DAW evidence remains separately gated.
 
 ## Direction
 

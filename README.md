@@ -17,7 +17,8 @@ Its current repo contains four working musical surfaces:
 
 The DAW/agent contracts, transactional NanoDAW memory adapter, LiteRT-LM
 provider, Gateway security core, and loopback HTTP API are implemented. The
-authenticated browser WebSocket proxy and Bitwig adapter remain gated follow-up work.
+authenticated browser WebSocket proxy and bounded Bitwig adapter are implemented;
+live target access and writes remain explicitly gated.
 
 ## What Works
 
@@ -32,11 +33,13 @@ authenticated browser WebSocket proxy and Bitwig adapter remain gated follow-up 
 - A browser NanoDAW for command-first song sketches, Tone.js audition, note editing, pattern tools, keyboard shortcuts, local undo/redo, JSON save/load, visible timeline feedback, a local command palette, and deterministic command drafts.
 - Atomic `ExecutableBeatTwinCommand[]` batches with monotonic revisions, stable errors, and idempotent request IDs.
 - A versioned `DawAdapter` contract with fake-adapter conformance tests.
-- Strict `SongPatchV1` validation, deterministic compilation, and mutation-free preview.
-- A `NanoDawAdapter` memory port plus an abstract browser-owned proxy boundary.
+- Strict `SongPatchV1`/`SongPatchV2` validation, deterministic compilation, and mutation-free preview.
+- A `NanoDawAdapter` memory port and authenticated browser-owned WebSocket proxy.
+- `pnpm nanodaw:agent`: NanoDAW-only V2 musical proposals, without Bitwig configuration.
+- External MCP proposals discovered in TWIN, with explicit review and human confirmation.
 - A real S25 LiteRT-LM capture of the exact three-tool runtime request, plus a strict provider loop bounded to four steps; G1 passed with `gemma4-e2b` on 2026-07-14.
 - A fail-closed Gateway core for hashed pairing tokens, quotas, immutable plans, short-lived single-use confirmations, and redacted audit events.
-- A loopback-only Gateway HTTP API with strict pairing, target-fixed preview/confirmation/execution, and durable uncertain-outcome readback.
+- A loopback-only Gateway HTTP API with strict pairing, target-fixed preview/confirmation/execution, and process-lifetime uncertain-outcome readback.
 
 ## Architecture
 
@@ -114,14 +117,16 @@ NanoDAW Agent mode
   -> verifiable execution report
 ```
 
-Gemma may only list targets, inspect the selected session, and propose a
-bounded `SongPatchV1`. Confirmation and execution are gateway/UI operations;
+Models may only list targets, inspect the selected session, and propose a
+bounded patch: V2 with explicit built-in instruments in the NanoDAW-only runtime,
+V1 by default in the legacy/dual-target runtime. Confirmation and execution are gateway/UI operations;
 they are never model tools. The existing `TOOL_SPECS` registry remains the
 historical 57-tool Bitwig MCP surface, not the portable agent language. See
 [`docs/LOCAL-LLM-TOOL-ORCHESTRATION.md`](docs/LOCAL-LLM-TOOL-ORCHESTRATION.md).
 
-The provider, security core, and loopback HTTP API are implemented; the
-authenticated WebSocket session proxy and browser connected-mode wiring remain follow-up work.
+The provider, security core, loopback HTTP API, authenticated WebSocket session
+proxy and browser connected-mode wiring are implemented. The NanoDAW-only runtime
+uses the same default port as TWIN (8787); see [setup and limits](docs/NANODAW_MCP.md).
 
 The preview-only RTX-to-Bitwig composition can be started with
 `pnpm gateway:rtx-bitwig-preview`. It performs real controller inspection,
@@ -202,7 +207,7 @@ for local verification commands and troubleshooting.
 
 Beat Twin is read-only by default. At the MCP entry point, write tools are not listed by MCP clients and are blocked without an enabling policy. The Bitwig controller also requires per-connection authentication for every non-read RPC. Configure its `Bridge secret` preference and pass the same value as `BITWIG_BRIDGE_SECRET`; keep the default bridge on loopback and never expose it to untrusted networks.
 
-The future Agent Gateway does not expose these Bitwig MCP write tools to Gemma.
+The Agent Gateway does not expose these Bitwig MCP write tools to the model.
 It validates a constrained SongPatch, materializes executable IDs, previews the
 exact plan without mutation, and requires a short-lived human confirmation.
 The `bitwig-launcher-v1` adapter now authenticates, validates one bounded empty

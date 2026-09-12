@@ -48,9 +48,15 @@ The browser NanoDAW is the native reference target. Bitwig is the first external
 - Gateway security core with hashed/revocable pairing tokens, quotas, immutable two-minute plans, single-use thirty-second confirmations, and awaited redacted audit.
 - Loopback-only Gateway HTTP API with strict adapter validation, fixed-target previews, explicit confirmation, exactly-once dispatch, and uncertain-outcome status readback.
 
-## Next: Connected Mode And Bitwig Adapter
+## Connected Mode And Bitwig Adapter
 
-Gate order:
+Steps 1–5 below are implemented in the current runtime; full dual-target live
+execution evidence remains separate from the existing preview proofs.
+The NanoDAW-only V2 runtime and automatic TWIN MCP inbox are documented in
+[`docs/NANODAW_MCP.md`](docs/NANODAW_MCP.md). Next product slices are bounded
+variation/slot placement, audition, then richer multi-clip/export workflows.
+
+Original gate order (retained for traceability):
 
 1. Implement the authenticated browser WebSocket proxy over the existing `BrowserNanoDawPort` contract.
 2. Add explicit connected Agent mode while keeping the browser as the only NanoDAW state owner.

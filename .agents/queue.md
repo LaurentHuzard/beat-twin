@@ -1,6 +1,6 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-09-10
+Updated: 2026-09-12
 Implementation base for this queue update: `7c6d6a3`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
@@ -18,7 +18,14 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-None. `BT-UX-065` initial issue #65 delivery is verified locally in
+None. `BT-AGENT-001` is implemented locally in `agent/nanodaw-agent-v2` and
+awaits human review, rendered-browser verification and separately authorized
+provider evidence. It is not a completed live product acceptance.
+Report: `.agents/reports/feature-20260912-bt-agent-001.md`.
+Publication, merge, real provider access and live DAW writes are not authorized.
+The historical draft implementation PR #51 remains untouched; no second PR opens.
+
+Previous: `BT-UX-065` initial issue #65 delivery is verified locally in
 `codex/issue-65-instrument-first` (commit/merge authorized 2026-09-10). The complete issue
 remains open for audio-wired macros/mixer, Capture Jam, 4x4 and further TWIN work.
 Report: `.agents/reports/feature-20260910-bt-ux-065-instrument-shell.md`.

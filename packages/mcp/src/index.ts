@@ -51,6 +51,7 @@ export type NanoDawMcpService = {
   readonly inspect: () => Promise<unknown>;
   readonly prepareInstrumentClip: (input: unknown) => Promise<NanoDawMcpReview>;
   readonly getReview: (planId: string) => NanoDawMcpReview | null;
+  readonly listReviews: () => readonly NanoDawMcpReview[];
 };
 
 export async function createNanoDawMcpService(
@@ -64,53 +65,69 @@ export async function createNanoDawMcpService(
     maxRequests: 10_000,
   });
   const reviews = new Map<string, NanoDawMcpReview>();
+  let preparing = 0;
+  const listReviews = () => {
+    for (const [id, review] of reviews) {
+      if (Date.parse(review.plan.expiresAt) <= Date.now() ||
+          options.planStore.getExecutionStatus(id)?.state !== "pending") reviews.delete(id);
+    }
+    return Object.freeze([...reviews.values()]);
+  };
 
   return Object.freeze({
     listInstruments: () => BUILT_IN_INSTRUMENTS,
     inspect: async () => options.adapter.inspect(),
     prepareInstrumentClip: async (input: unknown) => {
+      listReviews();
+      if (reviews.size + preparing >= 32) throw new Error("MCP review inbox is full; wait for pending plans to expire");
       const validation = safeValidateSongPatchV2(input);
       if (!validation.ok) {
         const first = validation.issues[0];
         throw new TypeError(first ? `${first.path}: ${first.message}` : "Invalid SongPatchV2");
       }
 
-      const [capabilities, snapshot] = await Promise.all([
-        options.adapter.capabilities(),
-        options.adapter.inspect(),
-      ]);
-      requireValid(validateDawCapabilities(capabilities, "nanodaw"), "NanoDAW capabilities");
-      requireValid(
-        validateDawSnapshot(snapshot, "nanodaw", capabilities.capabilityVersion),
-        "NanoDAW snapshot",
-      );
+      preparing += 1;
+      try {
+        const [capabilities, snapshot] = await Promise.all([
+          options.adapter.capabilities(),
+          options.adapter.inspect(),
+        ]);
+        requireValid(validateDawCapabilities(capabilities, "nanodaw"), "NanoDAW capabilities");
+        requireValid(
+          validateDawSnapshot(snapshot, "nanodaw", capabilities.capabilityVersion),
+          "NanoDAW snapshot",
+        );
 
-      const requestId = `mcp-${idGenerator()}`;
-      const planId = `plan-${idGenerator()}`;
-      const compileOptions = { idSeed: requestId, snapshot: snapshot.commandSnapshot };
-      const commands = compileSongPatch(validation.value, compileOptions);
-      const preview = previewSongPatch(validation.value, compileOptions);
-      const requiredScopes = deriveRequiredCommandScopes(commands);
-      requireSupported(capabilities.supportedCommands, commands.map((command) => command.type));
-      requireSupported(capabilities.scopes, requiredScopes);
+        const requestId = `mcp-${idGenerator()}`;
+        const planId = `plan-${idGenerator()}`;
+        const compileOptions = { idSeed: requestId, snapshot: snapshot.commandSnapshot };
+        const commands = compileSongPatch(validation.value, compileOptions);
+        const preview = previewSongPatch(validation.value, compileOptions);
+        const requiredScopes = deriveRequiredCommandScopes(commands);
+        requireSupported(capabilities.supportedCommands, commands.map((command) => command.type));
+        requireSupported(capabilities.scopes, requiredScopes);
 
-      const plan = await options.planStore.createPlan({
-        token: grant.token,
-        plan: {
-          planId,
-          requestId,
-          adapterId: "nanodaw",
-          capabilityVersion: capabilities.capabilityVersion,
-          baseRevision: snapshot.commandSnapshot.revision,
-          commands,
-          requiredScopes,
-        },
-      });
-      const review = deepFreeze({ patch: validation.value, preview, plan });
-      reviews.set(plan.planId, review);
-      return review;
+        const plan = await options.planStore.createPlan({
+          token: grant.token,
+          plan: {
+            planId,
+            requestId,
+            adapterId: "nanodaw",
+            capabilityVersion: capabilities.capabilityVersion,
+            baseRevision: snapshot.commandSnapshot.revision,
+            commands,
+            requiredScopes,
+          },
+        });
+        const review = deepFreeze({ patch: validation.value, preview, plan });
+        reviews.set(plan.planId, review);
+        return review;
+      } finally {
+        preparing -= 1;
+      }
     },
     getReview: (planId: string) => reviews.get(planId) ?? null,
+    listReviews,
   });
 }
 

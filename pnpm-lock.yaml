@@ -199,6 +199,9 @@ importers:
       '@beat-twin/gateway-core':
         specifier: workspace:*
         version: link:../gateway-core
+      '@beat-twin/litert-provider':
+        specifier: workspace:*
+        version: link:../litert-provider
       '@beat-twin/nanodaw-adapter':
         specifier: workspace:*
         version: link:../adapters/nanodaw

@@ -116,6 +116,24 @@ test("rejects an unknown built-in instrument before creating a plan", async () =
   assert.equal(context.executions(), 0);
 });
 
+test("bounds concurrent review discovery to 32 plans and releases failed reservations", async () => {
+  const context = fixture();
+  const service = await createNanoDawMcpService(context);
+  await assert.rejects(service.prepareInstrumentClip({}), /schemaVersion/);
+  const outcomes = await Promise.allSettled(Array.from({ length: 33 }, () => service.prepareInstrumentClip(PATCH)));
+  assert.equal(outcomes.filter(({ status }) => status === "fulfilled").length, 32);
+  assert.equal(service.listReviews().length, 32);
+  assert.equal(context.executions(), 0);
+});
+
+test("expired MCP plans leave the discovery inbox", async (t) => {
+  const context = fixture();
+  const service = await createNanoDawMcpService(context);
+  const review = await service.prepareInstrumentClip(PATCH);
+  t.mock.method(Date, "now", () => Date.parse(review.plan.expiresAt) + 1);
+  assert.deepEqual(service.listReviews(), []);
+});
+
 test("uses the runtime UUID generator without losing its Crypto receiver", async () => {
   const context = fixture();
   const service = await createNanoDawMcpService(context);

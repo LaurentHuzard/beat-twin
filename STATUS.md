@@ -17,6 +17,8 @@ git@github.com:LaurentHuzard/beat-twin.git
 - Bitwig controller script: `bitwig-controller/BeatTwin/BeatTwin.control.js`
 - Browser NanoDAW: `apps/playground`
 - Standalone NanoDAW MCP planning server: `packages/mcp`
+- NanoDAW-only model runtime: `pnpm nanodaw:agent` (explicit provider, SongPatchV2)
+- TWIN automatically discovers pending MCP proposals; review and confirmation remain human actions.
 - Pure runtime packages: `packages/core`, `packages/commands`, `packages/audio-tone`, `packages/daw-contract`, `packages/agent-contract`
 - Transactional NanoDAW adapter: `packages/adapters/nanodaw`
 - LiteRT-LM provider and bounded model loop: `packages/litert-provider`
@@ -52,8 +54,9 @@ device audio, or subjective listening evidence.
 
 ## Open Risks
 
-- Runtime behavior depends on Bitwig Studio and local controller-script installation.
+- The Bitwig surfaces depend on Bitwig Studio and local controller installation; NanoDAW does not.
 - Write tools can change DAW state and must remain explicitly policy-gated.
 - This is still an experimental integration, not a mature product.
-- Live Agent runs still depend on S25 network availability; the exact three-tool G1 capture passed with `gemma4-e2b` on 2026-07-14.
-- The authenticated browser WebSocket proxy and Bitwig write bridge are not implemented.
+- Natural-language runs depend on the explicitly configured provider (native llama.cpp/MUE or another compatible server); MCP-only planning does not.
+- The authenticated browser proxy and bounded Bitwig bridge are implemented. This NanoDAW-only slice does not establish new live provider or Bitwig evidence.
+- MCP inbox discovery is bounded and process-local. Global retention, restart recovery, richer variations/slot placement and listening acceptance remain follow-ups.

@@ -7,6 +7,7 @@ import {
   type AgentGatewaySessionOptions,
   type AgentPlanPreview,
   type BrowserCommandPort,
+  type McpPlanInbox,
 } from "./agentGateway";
 import { usePlaygroundStore } from "./store";
 
@@ -36,6 +37,9 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
   const [preview, setPreview] = useState<AgentPlanPreview | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const sessionRef = useRef<AgentGatewaySession | null>(null);
+  const [inbox, setInbox] = useState<McpPlanInbox | null>(null);
+  const [inboxError, setInboxError] = useState<string | null>(null);
+  const handledMcpPlans = useRef(new Map<string, number>());
 
   const musicalNames = new Map<string, string>();
   for (const track of song?.tracks ?? []) {
@@ -57,11 +61,44 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
     [],
   );
 
-  useEffect(() => () => sessionRef.current?.disconnect(), []);
+  useEffect(() => () => {
+    const session = sessionRef.current;
+    sessionRef.current = null;
+    session?.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (connection !== "connected") return;
+    const session = sessionRef.current;
+    if (!session) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = async () => {
+      try {
+        const next = await session.listMcpPlans();
+        if (cancelled || sessionRef.current !== session) return;
+        const now = Date.now();
+        for (const [id, expiry] of handledMcpPlans.current) {
+          if (expiry <= now) handledMcpPlans.current.delete(id);
+        }
+        setInbox(next);
+        setInboxError(null);
+        if (next) timer = setTimeout(() => void refresh(), 10_000);
+      } catch (error) {
+        if (cancelled || sessionRef.current !== session) return;
+        setInbox(null);
+        setInboxError(error instanceof Error ? error.message : "Proposal discovery unavailable.");
+        // Stop on authentication, quota or network failures; no retry storm.
+      }
+    };
+    void refresh();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [connection]);
 
   const disable = () => {
-    sessionRef.current?.disconnect();
+    const session = sessionRef.current;
     sessionRef.current = null;
+    session?.disconnect();
     setEnabled(false);
     setConnection("off");
     setOperation("idle");
@@ -69,6 +106,9 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
     setOperatorSecret("");
     setMcpPlanId("");
     setMessage(null);
+    setInbox(null);
+    setInboxError(null);
+    handledMcpPlans.current.clear();
   };
 
   const toggleEnabled = () => {
@@ -83,22 +123,26 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
   const connect = async () => {
     setConnection("connecting");
     setMessage(null);
+    let session: AgentGatewaySession | null = null;
     try {
-      const session = sessionFactory({
+      session = sessionFactory({
         baseUrl: gatewayUrl,
         operatorSecret,
         actorId: "nanodaw-browser",
         port: gatewayPort,
         onConnectionChange: (connected) => {
+          if (sessionRef.current !== session) return;
           setConnection(connected ? "connected" : "disconnected");
         },
       });
       sessionRef.current = session;
       await session.connect();
+      if (sessionRef.current !== session) { session.disconnect(); return; }
       setOperatorSecret("");
       setConnection("connected");
       setMessage(developerMode ? "Gateway paired. NanoDAW remains the song owner." : "Twin is ready. Describe your next musical idea.");
     } catch (error) {
+      if (session && sessionRef.current !== session) return;
       sessionRef.current?.disconnect();
       sessionRef.current = null;
       setConnection("disconnected");
@@ -117,16 +161,18 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
     setMessage(null);
     try {
       const nextPreview = await session.run(request);
+      if (sessionRef.current !== session) return;
       setPreview(nextPreview);
       setOperation("preview");
       setMessage(developerMode ? "Preview only. No NanoDAW command has executed." : "Review your proposal. Your jam has not changed.");
     } catch (error) {
+      if (sessionRef.current !== session) return;
       setOperation("idle");
       setMessage(error instanceof Error ? error.message : String(error));
     }
   };
 
-  const loadMcpPlan = async () => {
+  const loadMcpPlan = async (planId = mcpPlanId) => {
     const session = sessionRef.current;
     if (!session?.isConnected()) {
       setMessage("Connect Agent mode before loading an MCP plan.");
@@ -136,12 +182,15 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
     setPreview(null);
     setMessage(null);
     try {
-      const nextPreview = await session.loadMcpPlan(mcpPlanId);
+      const nextPreview = await session.loadMcpPlan(planId);
+      if (sessionRef.current !== session) return;
+      handledMcpPlans.current.set(nextPreview.plan.planId, Date.parse(nextPreview.plan.expiresAt));
       setPreview(nextPreview);
       setOperation("preview");
       setMcpPlanId("");
       setMessage("MCP plan loaded for review. No NanoDAW command has executed.");
     } catch (error) {
+      if (sessionRef.current !== session) return;
       setOperation("idle");
       setMessage(error instanceof Error ? error.message : String(error));
     }
@@ -163,7 +212,7 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
       if (!execution.report.ok) {
         setOperation("failed");
         setMessage(
-          `Plan was not applied (${execution.report.status}). Generate a fresh preview before trying again.`,
+          `Execution did not report success (${execution.report.status}). Do not retry this plan; inspect NanoDAW before generating a fresh preview.`,
         );
         return;
       }
@@ -240,6 +289,20 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
 
           {connection === "connected" ? (
             <>
+              {inbox ? <div aria-label="Incoming MCP proposals">
+                <p>External agent proposals arrive here. Choose one to review; your jam stays unchanged.</p>
+                <ul>
+                  {inbox.plans.filter((plan) => Date.parse(plan.expiresAt) > Date.now() &&
+                    !handledMcpPlans.current.has(plan.planId)).map((plan) => <li key={plan.planId}>
+                    <button type="button" className="tool-button" onClick={() => void loadMcpPlan(plan.planId)}
+                      disabled={operation === "running" || operation === "executing" || preview !== null}>
+                      Review {plan.name} · {plan.instrumentId}
+                    </button>
+                  </li>)}
+                </ul>
+                {!inbox.agentAvailable ? <p>This gateway accepts external MCP proposals only. Configure LITERT_BASE_URL and LITERT_MODEL to generate ideas here.</p> : null}
+              </div> : null}
+              {inboxError ? <p role="status">{inboxError}</p> : null}
               {developerMode ? <div className="mcp-plan-grid">
                 <label>
                   MCP plan id
@@ -276,7 +339,7 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
                   type="button"
                   className="tool-button primary"
                   onClick={() => void generatePreview()}
-                  disabled={!request.trim() || operation === "running" || operation === "executing"}
+                  disabled={inbox?.agentAvailable === false || !request.trim() || operation === "running" || operation === "executing"}
                 >
                   <Sparkles size={16} />
                   {operation === "running" ? "Generating…" : "Generate preview"}

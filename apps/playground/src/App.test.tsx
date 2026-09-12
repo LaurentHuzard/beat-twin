@@ -290,6 +290,7 @@ describe("Playground", () => {
         },
         run: async () => preview,
         loadMcpPlan: async () => preview,
+        listMcpPlans: async () => null,
         confirmAndExecute: async (planId) => {
           const batch = options.port.executeCommandBatch({
             requestId: "request-agent-1",
@@ -396,6 +397,7 @@ describe("Playground", () => {
         },
         run: async () => preview,
         loadMcpPlan: async () => preview,
+        listMcpPlans: async () => null,
         confirmAndExecute: async () => {
           throw new Error("adapter outcome is unknown after execution dispatch");
         },

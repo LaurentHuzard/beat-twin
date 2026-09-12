@@ -272,6 +272,23 @@ export const SONG_PATCH_V1_TOOL_SCHEMA = deepFreeze({
   },
 } as const);
 
+/** V2 model hint; strict validation still rejects unknown fields and off-grid notes. */
+export const SONG_PATCH_V2_TOOL_SCHEMA = deepFreeze({
+  ...SONG_PATCH_V1_TOOL_SCHEMA,
+  properties: {
+    ...SONG_PATCH_V1_TOOL_SCHEMA.properties,
+    schemaVersion: { type: "number", enum: [SONG_PATCH_V2_SCHEMA_VERSION] },
+    track: {
+      ...SONG_PATCH_V1_TOOL_SCHEMA.properties.track,
+      required: ["kind", "name", "instrumentId", "clip"],
+      properties: {
+        ...SONG_PATCH_V1_TOOL_SCHEMA.properties.track.properties,
+        instrumentId: { type: "string", enum: BUILT_IN_INSTRUMENTS.map(({ id }) => id) },
+      },
+    },
+  },
+} as const);
+
 /**
  * Parses an untrusted model/tool payload. Unknown fields are rejected at every
  * nesting level and a detached, deeply frozen value is returned on success.

@@ -44,6 +44,16 @@ export type AgentExecution = {
   };
 };
 
+export type McpPlanInbox = {
+  readonly agentAvailable: boolean;
+  readonly plans: readonly {
+    readonly planId: string;
+    readonly name: string;
+    readonly instrumentId: "drums" | "bass" | "chords" | "lead";
+    readonly expiresAt: string;
+  }[];
+};
+
 export type AgentGatewaySessionOptions = {
   readonly baseUrl: string;
   readonly operatorSecret: string;
@@ -58,6 +68,7 @@ export type AgentGatewaySession = {
   readonly connect: () => Promise<void>;
   readonly run: (request: string) => Promise<AgentPlanPreview>;
   readonly loadMcpPlan: (planId: string) => Promise<AgentPlanPreview>;
+  readonly listMcpPlans: () => Promise<McpPlanInbox | null>;
   readonly confirmAndExecute: (planId: string) => Promise<AgentExecution>;
   readonly disconnect: () => void;
   readonly isConnected: () => boolean;
@@ -83,9 +94,11 @@ export function createAgentGatewaySession(
   const WebSocketImpl = ProvidedWebSocket ?? WebSocket;
   let token: string | null = null;
   let socket: WebSocket | null = null;
+  let connectionGeneration = 0;
 
   async function connect(): Promise<void> {
     disconnect();
+    const generation = connectionGeneration;
     if (!operatorSecret) {
       throw new Error("Pairing credentials have already been consumed.");
     }
@@ -98,6 +111,7 @@ export function createAgentGatewaySession(
       }),
     });
     operatorSecret = null;
+    if (generation !== connectionGeneration) throw new Error("Gateway pairing was cancelled.");
     if (!isPlainObject(pairBody) || !isNonBlankString(pairBody.token)) {
       throw new Error("Gateway pairing response is invalid.");
     }
@@ -148,6 +162,26 @@ export function createAgentGatewaySession(
     return validatePlanPreview(body);
   }
 
+  async function listMcpPlans(): Promise<McpPlanInbox | null> {
+    const activeToken = requireConnectedToken();
+    const response = await fetchImpl(new URL("/v1/mcp/plans", baseUrl), {
+      method: "GET", headers: authorizationHeaders(activeToken, false),
+    });
+    // Older/dual-target gateways have no MCP inbox. Preserve their agent flow.
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error("MCP proposal discovery failed. Reconnect to try again.");
+    const body: unknown = await response.json();
+    if (!isPlainObject(body) || typeof body.agentAvailable !== "boolean" ||
+        !Array.isArray(body.plans) || body.plans.length > 32 ||
+        body.plans.some((plan: unknown) => !isPlainObject(plan) ||
+          !isNonBlankString(plan.planId) || !isNonBlankString(plan.name) ||
+          !["drums", "bass", "chords", "lead"].includes(String(plan.instrumentId)) ||
+          typeof plan.expiresAt !== "string" || !Number.isFinite(Date.parse(plan.expiresAt)))) {
+      throw new Error("Gateway MCP proposal inbox is invalid.");
+    }
+    return body as McpPlanInbox;
+  }
+
   async function confirmAndExecute(planId: string): Promise<AgentExecution> {
     const activeToken = requireConnectedToken();
     if (!isNonBlankString(planId)) throw new Error("Plan id is required.");
@@ -172,6 +206,7 @@ export function createAgentGatewaySession(
   }
 
   function disconnect(): void {
+    connectionGeneration += 1;
     const current = socket;
     socket = null;
     token = null;
@@ -192,6 +227,7 @@ export function createAgentGatewaySession(
     connect,
     run,
     loadMcpPlan,
+    listMcpPlans,
     confirmAndExecute,
     disconnect,
     isConnected: () => Boolean(token && socket?.readyState === WebSocketImpl.OPEN),
