@@ -66,8 +66,9 @@ wires the UI client.
 - Disconnect, send failure, or timeout after batch dispatch returns
   `outcome_unknown`; the adapter converts that into a `partial_execution`
   report and never retries the request.
-- Gateway execution status remains the durable recovery read after a consumed
-  confirmation.
+- Gateway execution status remains the terminal recovery read after a consumed
+  confirmation for the current process lifetime. Restart-durable storage is not
+  implemented.
 - Invalid, binary, oversized, late, or unknown RPC responses close the session
   as protocol failures.
 

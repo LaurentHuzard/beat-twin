@@ -16,13 +16,16 @@ git@github.com:LaurentHuzard/beat-twin.git
 - MCP server entrypoint: `index.js`
 - Bitwig controller script: `bitwig-controller/BeatTwin/BeatTwin.control.js`
 - Browser NanoDAW: `apps/playground`
-- Standalone NanoDAW MCP planning server: `packages/mcp`
-- Pure runtime packages: `packages/core`, `packages/commands`, `packages/audio-tone`, `packages/daw-contract`, `packages/agent-contract`
+- Standalone NanoDAW MCP application: `apps/nanodaw-mcp`
+- NanoDAW MCP schemas, service, and transport: `packages/mcp`
+- Pure runtime packages: `packages/core`, `packages/retention`, `packages/commands`, `packages/audio-tone`, `packages/daw-contract`, `packages/agent-contract`
 - Transactional NanoDAW adapter: `packages/adapters/nanodaw`
 - LiteRT-LM provider and bounded model loop: `packages/litert-provider`
 - Pairing, plan, confirmation, quota, policy, and audit core: `packages/gateway-core`
-- Loopback-only paired Agent HTTP API: `apps/gateway`
-- Node 22/24 CI and compiled package smoke: `.github/workflows/ci.yml`
+- Typed loopback-only Agent HTTP/WebSocket delivery: `packages/gateway-http`
+- Gateway compatibility facade: `apps/gateway`
+- CI dependency-direction policy: `architecture-policy.json` and `pnpm check:architecture`
+- Node 26 CI and compiled package smoke: `.github/workflows/ci.yml`
 - Offline tests: `tests/*.test.js`
 - Read-only live smoke: `pnpm smoke:read-only`
 - Manual live checklist: `docs/BITWIG_MANUAL_SMOKE_CHECKLIST.md`
@@ -56,4 +59,13 @@ device audio, or subjective listening evidence.
 - Write tools can change DAW state and must remain explicitly policy-gated.
 - This is still an experimental integration, not a mature product.
 - Live Agent runs still depend on S25 network availability; the exact three-tool G1 capture passed with `gemma4-e2b` on 2026-07-14.
-- The authenticated browser WebSocket proxy and Bitwig write bridge are not implemented.
+- The authenticated browser WebSocket proxy, connected Agent mode, and bounded
+  Bitwig adapter are implemented and covered offline, but the separately
+  confirmed live NanoDAW/Bitwig flow is not yet proven.
+- Gateway security and execution records use bounded process-memory retention.
+  Restart-durable recovery is not implemented; after restart, callers must
+  re-pair, re-inspect, and create a newly confirmed plan without automatic
+  mutation replay.
+- Capacity is fail-closed. Active and uncertain safety evidence stays pinned,
+  so operator inspection or a process restart may be required before accepting
+  more work.

@@ -16,10 +16,16 @@ same deterministic command path over a pure song model.
 - Read-only defaults with explicit write-policy gates.
 - Offline tests for protocol framing, policy behavior, session inspection, and arrangement planning.
 - Short read-only smoke command for live TCP/session diagnostics.
-- Pure packages under `packages/core`, `packages/commands`, `packages/audio-tone`, `packages/daw-contract`, and `packages/agent-contract`.
+- Pure packages under `packages/core`, `packages/retention`, `packages/commands`, `packages/audio-tone`, `packages/daw-contract`, and `packages/agent-contract`.
 - Transactional NanoDAW memory adapter and browser-proxy contract under `packages/adapters/nanodaw`.
 - Strict LiteRT-LM provider under `packages/litert-provider` and fail-closed security core under `packages/gateway-core`.
-- Loopback-only Agent HTTP API under `apps/gateway`, including durable readback for uncertain post-dispatch outcomes.
+- Typed loopback-only Agent HTTP/WebSocket delivery under
+  `packages/gateway-http`, with `apps/gateway` retained as a compatibility
+  facade.
+- Explicit NanoDAW MCP process composition under `apps/nanodaw-mcp`; reusable
+  schemas, service, and MCP transport remain in `packages/mcp`.
+- Executable workspace dependency rules in CI and bounded, clock-injected
+  process-lifetime retention across mutation and Gateway registries.
 - Browser NanoDAW under `apps/playground` for now; the repo path stays stable while the product name shifts.
 - Copyright-safe Bitwig API placeholder note under `bitwig-api-docs/`.
 
@@ -44,7 +50,15 @@ same deterministic command path over a pure song model.
 - Live verification requires Bitwig Studio and a local controller installation.
 - Tool exposure must stay conservative because DAW control can quickly become too broad for agents.
 - The NanoDAW has a tested memory adapter contract, but connected browser mode
-  and the authenticated Bitwig adapter remain gated work.
+  and the authenticated Bitwig adapter still require separately confirmed live
+  dual-target proof and packaging before they are production-ready.
+- Gateway pairings, plans, confirmations, and execution status are currently
+  bounded process-memory state; restart-durable recovery is not implemented and
+  no external mutation is replayed automatically after restart.
+- The first architecture migration slices now enforce dependency direction,
+  expose typed Gateway delivery, and give NanoDAW MCP an explicit application
+  owner. Later hotspot decomposition remains sequenced by the architecture
+  roadmap.
 
 ## Direction
 

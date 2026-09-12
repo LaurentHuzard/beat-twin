@@ -1,4 +1,18 @@
-# Beat Twin Orbit — BT-UX-065 handoff
+# Beat Twin Orbit — finish existing architecture refactor
+
+## Current task — 2026-09-12
+
+User authorized porting PR #50/#51 onto main 86679ab in finish/beat-pending,
+retaining ca9a5a4. Complete BT-ARCH-101 through 104 only: dependency guard,
+Gateway delivery extraction, explicit NanoDAW MCP app, bounded process retention.
+Keep current dual-target, previewOnly, authentication, NanoDAW ownership,
+Bitwig readback retries and shared in-flight observations. Reconcile historical
+audit documentation. Verify offline tests, Gateway routes, typecheck and build.
+Only local commits; parent owns publication, review, merge and archive cleanup.
+No live providers or new issue #65 product work. Implementation and offline
+verification are complete; see reports/architecture-20260912-port.md.
+
+## Historical integration handoff
 
 ## Integration BT-MUE — 2026-09-12
 
