@@ -2,6 +2,10 @@
 
 ## Integration BT-MUE — 2026-09-12
 
+Review/merge authorized on 2026-09-12. Align CI with the declared Node 26 engine
+and check authenticated runtime configuration before exact-head merge. Retain
+historical branches/worktrees and do not deploy or contact live providers.
+
 User authorized consolidating the saved MUE work on main dd61643. Import 935a585
 (authenticated provider, TS entrypoints, Node 26) without reverting NanoDAW #66.
 The functional changes of c257541 are covered by that patch; its historical
