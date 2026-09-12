@@ -20,6 +20,12 @@ import {
   type TrackKind,
   updateNote,
 } from "@beat-twin/core";
+import {
+  BoundedRetentionMap,
+  type RetentionClock,
+  type RetentionPolicy,
+  type RetentionStore,
+} from "@beat-twin/retention";
 
 export type { BuiltInInstrumentId } from "@beat-twin/core";
 
@@ -482,20 +488,50 @@ export type CommandRuntime = {
   readonly inspect: () => CommandSnapshot;
   readonly getState: () => CommandState;
   readonly executeCommandBatch: (request: ExecuteCommandBatchRequest) => CommandBatchResult;
+  readonly retentionStatus: () => Readonly<{ completedRequests: number; capacity: number }>;
+};
+
+export const DEFAULT_COMMAND_REQUEST_RETENTION = Object.freeze({
+  capacity: 4_096,
+  ttlMs: 24 * 60 * 60 * 1_000,
+} satisfies RetentionPolicy);
+
+export type CommandRequestRetentionRecord = {
+  readonly fingerprint: string;
+  state: "pending" | "completed";
+  result?: CommandBatchResult;
+};
+
+export type CommandRuntimeOptions = {
+  readonly clock?: RetentionClock;
+  readonly completedRequestRetention?: Partial<RetentionPolicy>;
+  readonly completedRequestStore?: RetentionStore<string, CommandRequestRetentionRecord>;
 };
 
 export function createCommandRuntime(
   initialState: CommandState = createCommandState(),
+  options: CommandRuntimeOptions = {},
 ): CommandRuntime {
   let state = initialState;
-  const completedRequests = new Map<
-    string,
-    { readonly fingerprint: string; readonly result: CommandBatchResult }
-  >();
+  const retentionPolicy = {
+    ...DEFAULT_COMMAND_REQUEST_RETENTION,
+    ...options.completedRequestRetention,
+  };
+  const completedRequests = new BoundedRetentionMap<string, CommandRequestRetentionRecord>({
+    name: "command requests",
+    policy: retentionPolicy,
+    clock: options.clock,
+    store: options.completedRequestStore,
+    canEvict: (record) => record.state === "completed",
+  });
 
   return Object.freeze({
     inspect: () => snapshotCommandState(state),
     getState: () => state,
+    retentionStatus: () => Object.freeze({
+      completedRequests: completedRequests.size,
+      capacity: completedRequests.capacity,
+    }),
     executeCommandBatch: (request: ExecuteCommandBatchRequest) => {
       const requestId = normalizeRequestId(request?.requestId);
       if (requestId === null) {
@@ -526,17 +562,44 @@ export function createCommandRuntime(
             `requestId ${requestId} was already used with a different payload`,
           );
         }
+        if (cached.state !== "completed" || !cached.result) {
+          return batchError(
+            requestId,
+            state,
+            [],
+            "invalid_command",
+            `requestId ${requestId} is already being processed`,
+          );
+        }
         return cached.result;
       }
 
+      const record: CommandRequestRetentionRecord = { fingerprint, state: "pending" };
+      try {
+        // Persist the idempotency claim before applying any command.
+        completedRequests.set(requestId, record);
+      } catch (error) {
+        return batchError(
+          requestId,
+          state,
+          [],
+          "invalid_command",
+          `command request retention unavailable: ${errorMessage(error)}`,
+        );
+      }
       const result = executeCommandBatch(state, request);
-      completedRequests.set(requestId, Object.freeze({ fingerprint, result }));
+      record.result = result;
+      record.state = "completed";
       if (result.ok) {
         state = result.state;
       }
       return result;
     },
   });
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function materializationError(

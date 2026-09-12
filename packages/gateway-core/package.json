@@ -17,6 +17,7 @@
     "test": "node --test test/*.test.ts"
   },
   "dependencies": {
-    "@beat-twin/daw-contract": "workspace:*"
+    "@beat-twin/daw-contract": "workspace:*",
+    "@beat-twin/retention": "workspace:*"
   }
 }

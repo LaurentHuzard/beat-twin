@@ -22,13 +22,15 @@
     "paths": {
       "@beat-twin/audio-tone": ["../../packages/audio-tone/src/index.ts"],
       "@beat-twin/core": ["../../packages/core/src/index.ts"],
-      "@beat-twin/commands": ["../../packages/commands/src/index.ts"]
+      "@beat-twin/commands": ["../../packages/commands/src/index.ts"],
+      "@beat-twin/retention": ["../../packages/retention/src/index.ts"]
     }
   },
   "include": [
     "src",
     "../../packages/audio-tone/src/**/*.ts",
     "../../packages/core/src/**/*.ts",
-    "../../packages/commands/src/**/*.ts"
+    "../../packages/commands/src/**/*.ts",
+    "../../packages/retention/src/**/*.ts"
   ]
 }

@@ -63,6 +63,7 @@ describe("Agent Gateway browser client", () => {
       .mockResolvedValueOnce(jsonResponse({ agentAvailable: true, plans }))
       .mockResolvedValueOnce(jsonResponse({}, 404))
       .mockResolvedValueOnce(jsonResponse({ agentAvailable: true, plans: [{ ...plans[0], instrumentId: "plugin" }] }))
+      .mockResolvedValueOnce(jsonResponse({ agentAvailable: true, plans: [{ ...plans[0], instrumentId: ["bass"] }] }))
       .mockResolvedValueOnce(jsonResponse({}, 401));
     const session = createAgentGatewaySession({
       baseUrl: "http://127.0.0.1:8787", operatorSecret: "offline-secret", fetchImpl,
@@ -73,6 +74,7 @@ describe("Agent Gateway browser client", () => {
     expect(await session.listMcpPlans()).toEqual({ agentAvailable: true, plans });
     expect(fetchImpl.mock.calls[1][1]).toMatchObject({ method: "GET", headers: { authorization: "Bearer btp_inbox" } });
     expect(await session.listMcpPlans()).toBeNull();
+    await expect(session.listMcpPlans()).rejects.toThrow(/invalid/);
     await expect(session.listMcpPlans()).rejects.toThrow(/invalid/);
     await expect(session.listMcpPlans()).rejects.toThrow(/discovery failed/);
     session.disconnect();

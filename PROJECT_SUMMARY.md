@@ -16,10 +16,16 @@ same deterministic command path over a pure song model.
 - Read-only defaults with explicit write-policy gates.
 - Offline tests for protocol framing, policy behavior, session inspection, and arrangement planning.
 - Short read-only smoke command for live TCP/session diagnostics.
-- Pure packages under `packages/core`, `packages/commands`, `packages/audio-tone`, `packages/daw-contract`, and `packages/agent-contract`.
+- Pure packages under `packages/core`, `packages/retention`, `packages/commands`, `packages/audio-tone`, `packages/daw-contract`, and `packages/agent-contract`.
 - Transactional NanoDAW memory adapter and browser-proxy contract under `packages/adapters/nanodaw`.
 - Strict LiteRT-LM provider under `packages/litert-provider` and fail-closed security core under `packages/gateway-core`.
-- Loopback-only Agent HTTP API under `apps/gateway`, including durable readback for uncertain post-dispatch outcomes.
+- Typed loopback-only Agent HTTP/WebSocket delivery under
+  `packages/gateway-http`, with `apps/gateway` retained as a compatibility
+  facade.
+- Explicit NanoDAW MCP process composition under `apps/nanodaw-mcp`; reusable
+  schemas, service, and MCP transport remain in `packages/mcp`.
+- Executable workspace dependency rules in CI and bounded, clock-injected
+  process-lifetime retention across mutation and Gateway registries.
 - Browser NanoDAW under `apps/playground` for now; the repo path stays stable while the product name shifts.
 - Copyright-safe Bitwig API placeholder note under `bitwig-api-docs/`.
 
@@ -43,12 +49,26 @@ same deterministic command path over a pure song model.
 - This is still a proof of concept, not a hardened creative production tool.
 - Live verification requires Bitwig Studio and a local controller installation.
 - Tool exposure must stay conservative because DAW control can quickly become too broad for agents.
-- NanoDAW connected browser mode and the authenticated Bitwig adapter are implemented.
-  NanoDAW-only V2 proposals and an automatic TWIN MCP inbox preserve browser ownership
-  and human confirmation. Live provider/DAW evidence remains separately gated.
+- The NanoDAW has a tested memory adapter contract, but connected browser mode
+  and the authenticated Bitwig adapter still require separately confirmed live
+  dual-target proof and packaging before they are production-ready.
+- Gateway pairings, plans, confirmations, and execution status are currently
+  bounded process-memory state; restart-durable recovery is not implemented and
+  no external mutation is replayed automatically after restart.
+- The first architecture migration slices now enforce dependency direction,
+  expose typed Gateway delivery, and give NanoDAW MCP an explicit application
+  owner. Later hotspot decomposition remains sequenced by the architecture
+  roadmap.
 
 ## Direction
 
 Keep Beat Twin focused on safe, inspectable Bitwig control and browser-first
 composition primitives. The near-term goal is reliability, clear policy
 boundaries, and one shared command path, not autonomous music production.
+
+## NanoDAW Agent V2 (PR #70)
+
+`pnpm nanodaw:agent` composes an opt-in NanoDAW-only SongPatchV2 provider in
+`apps/nanodaw-mcp`. TWIN discovers pending external MCP proposals for explicit
+review and human confirmation. See `docs/NANODAW_MCP.md`. Rendered-browser,
+real-provider and human listening acceptance remain unverified for this slice.

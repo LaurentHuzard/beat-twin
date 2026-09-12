@@ -16,9 +16,10 @@ Its current repo contains four working musical surfaces:
   plans for explicit review and confirmation in the browser, without Bitwig.
 
 The DAW/agent contracts, transactional NanoDAW memory adapter, LiteRT-LM
-provider, Gateway security core, and loopback HTTP API are implemented. The
-authenticated browser WebSocket proxy and bounded Bitwig adapter are implemented;
-live target access and writes remain explicitly gated.
+provider, Gateway security core, loopback HTTP API, authenticated browser
+WebSocket proxy, connected Agent mode, and bounded Bitwig adapter are
+implemented and covered by deterministic tests. The separately confirmed live
+NanoDAW/Bitwig proof and installable runtime packaging remain gated work.
 
 ## What Works
 
@@ -31,15 +32,27 @@ live target access and writes remain explicitly gated.
   explicitly confirmed restart/play/stop commands when transport writes are enabled.
 - Offline protocol and policy tests that run without launching Bitwig.
 - A browser NanoDAW for command-first song sketches, Tone.js audition, note editing, pattern tools, keyboard shortcuts, local undo/redo, JSON save/load, visible timeline feedback, a local command palette, and deterministic command drafts.
+- A browser-owned live runtime with one persistent clock, quantized launcher,
+  step editor, and atomic MIDI loop recording/overdub.
 - Atomic `ExecutableBeatTwinCommand[]` batches with monotonic revisions, stable errors, and idempotent request IDs.
 - A versioned `DawAdapter` contract with fake-adapter conformance tests.
-- Strict `SongPatchV1`/`SongPatchV2` validation, deterministic compilation, and mutation-free preview.
-- A `NanoDawAdapter` memory port and authenticated browser-owned WebSocket proxy.
-- `pnpm nanodaw:agent`: NanoDAW-only V2 musical proposals, without Bitwig configuration.
-- External MCP proposals discovered in TWIN, with explicit review and human confirmation.
+- Strict `SongPatchV1` validation, deterministic compilation, and mutation-free preview.
+- A `NanoDawAdapter` memory port plus an abstract browser-owned proxy boundary.
 - A real S25 LiteRT-LM capture of the exact three-tool runtime request, plus a strict provider loop bounded to four steps; G1 passed with `gemma4-e2b` on 2026-07-14.
 - A fail-closed Gateway core for hashed pairing tokens, quotas, immutable plans, short-lived single-use confirmations, and redacted audit events.
-- A loopback-only Gateway HTTP API with strict pairing, target-fixed preview/confirmation/execution, and process-lifetime uncertain-outcome readback.
+- A loopback-only Gateway HTTP API with strict pairing,
+  target-fixed preview/confirmation/execution, and process-lifetime terminal
+  uncertain-outcome readback.
+- A typed `@beat-twin/gateway-http` delivery package, an explicit
+  `apps/nanodaw-mcp` composition root, and CI-enforced workspace dependency
+  direction.
+- An authenticated browser WebSocket proxy and explicit connected Agent mode
+  that preserve the browser as the only NanoDAW song owner.
+- A bounded `bitwig-launcher-v1` adapter with authenticated writes, fixed target
+  identity, strict musical bounds, and exact note readback in deterministic tests.
+- Bounded, clock-injected process-lifetime retention for command, adapter,
+  Gateway, MCP review, and browser performance registries. Restart never
+  triggers automatic mutation replay.
 
 ## Architecture
 
@@ -78,7 +91,11 @@ apps/playground
   -> localStorage JSON save/load
 ```
 
-The current Bitwig bridge still lives in `index.js`; adapter extraction is intentionally left for a later compatibility-focused slice. Browser audition is local Web Audio preview, not a Bitwig mutation or MCP write.
+The historical 57-tool Bitwig MCP bridge still lives in `index.js` as a
+compatibility path. The portable `BitwigAdapter` lives separately under
+`packages/adapters/bitwig` and receives the shared authenticated RPC primitive
+through an injected port. Browser audition is local Web Audio preview, not a
+Bitwig mutation or MCP write.
 Browser save/load is also local NanoDAW state, not a Bitwig mutation.
 Browser pattern tools are local document edits for duplicate, quantize, and transpose.
 Browser undo/redo restores local NanoDAW command snapshots only.
@@ -94,7 +111,10 @@ Browser command drafts parse known local phrases only; they are not an AI chat p
 The standalone NanoDAW MCP path is separate from the historical Bitwig MCP:
 
 ```text
-MCP client -> NanoDAW MCP -> immutable plan -> browser review -> human confirm
+MCP client
+  -> apps/nanodaw-mcp
+  -> @beat-twin/nanodaw-mcp + @beat-twin/gateway-http
+  -> immutable plan -> browser review -> human confirm
 ```
 
 It exposes catalog, inspection, and plan-preparation tools only. It never owns
@@ -117,16 +137,17 @@ NanoDAW Agent mode
   -> verifiable execution report
 ```
 
-Models may only list targets, inspect the selected session, and propose a
-bounded patch: V2 with explicit built-in instruments in the NanoDAW-only runtime,
-V1 by default in the legacy/dual-target runtime. Confirmation and execution are gateway/UI operations;
+Gemma may only list targets, inspect the selected session, and propose a
+bounded `SongPatchV1`. Confirmation and execution are gateway/UI operations;
 they are never model tools. The existing `TOOL_SPECS` registry remains the
 historical 57-tool Bitwig MCP surface, not the portable agent language. See
 [`docs/LOCAL-LLM-TOOL-ORCHESTRATION.md`](docs/LOCAL-LLM-TOOL-ORCHESTRATION.md).
 
-The provider, security core, loopback HTTP API, authenticated WebSocket session
-proxy and browser connected-mode wiring are implemented. The NanoDAW-only runtime
-uses the same default port as TWIN (8787); see [setup and limits](docs/NANODAW_MCP.md).
+The provider, security core, typed loopback HTTP/WebSocket delivery, explicit
+NanoDAW MCP application, browser connected-mode wiring, architecture guard, and
+bounded process-lifetime retention are implemented. Live S25 plus Bitwig
+dual-target proof, restart-durable Gateway recovery, and installable packaging
+remain separate follow-up gates.
 
 The preview-only RTX-to-Bitwig composition can be started with
 `pnpm gateway:rtx-bitwig-preview`. It performs real controller inspection,
@@ -138,6 +159,32 @@ The separately gated dual-target runtime uses one Qwen proposal to prepare
 independent NanoDAW and Bitwig plans with target-specific previews and
 confirmation domains. See
 [`docs/DUAL_TARGET_RUNTIME.md`](docs/DUAL_TARGET_RUNTIME.md).
+
+### Run NanoDAW Agent mode with MUE
+
+MUE exposes the loaded model as `qwen` and requires its LAN API key for chat
+completions. Keep the key on the local machine and load it into the Gateway
+process without printing it:
+
+```bash
+export LITERT_API_KEY="$(
+  ssh -F "$HOME/.ssh/config" rtx \
+    'cat ~/.config/mue/llama-api-key'
+)"
+
+BEAT_TWIN_OPERATOR_SECRET_FILE=/tmp/beat-twin-operator-secret \
+BITWIG_BRIDGE_SECRET_FILE=/tmp/beat-twin-bridge-secret \
+BEAT_TWIN_ALLOWED_ORIGINS=http://127.0.0.1:5174 \
+LITERT_BASE_URL=http://mue.orbit:8003/ \
+LITERT_MODEL=qwen \
+pnpm gateway:rtx-dual-target
+```
+
+The local SSH configuration in this setup names MUE `rtx` and uses the
+`taenia` account. Start the Playground at `http://127.0.0.1:5174`, enable
+Agent mode, pair with the operator secret, enter a musical request, and choose
+**Generate preview**. The Gateway creates the immutable plan; NanoDAW remains
+the owner of song state and requires a separate **Confirm and apply once**.
 
 ## Requirements
 
@@ -207,7 +254,7 @@ for local verification commands and troubleshooting.
 
 Beat Twin is read-only by default. At the MCP entry point, write tools are not listed by MCP clients and are blocked without an enabling policy. The Bitwig controller also requires per-connection authentication for every non-read RPC. Configure its `Bridge secret` preference and pass the same value as `BITWIG_BRIDGE_SECRET`; keep the default bridge on loopback and never expose it to untrusted networks.
 
-The Agent Gateway does not expose these Bitwig MCP write tools to the model.
+The Agent Gateway does not expose these Bitwig MCP write tools to Gemma.
 It validates a constrained SongPatch, materializes executable IDs, previews the
 exact plan without mutation, and requires a short-lived human confirmation.
 The `bitwig-launcher-v1` adapter now authenticates, validates one bounded empty
@@ -241,6 +288,7 @@ Run the offline checks:
 
 ```bash
 pnpm test
+pnpm check:architecture
 ```
 
 Run a syntax check:
@@ -279,6 +327,10 @@ Live tests require Bitwig Studio, the controller script, and explicit write perm
 
 ## Useful Docs
 
+- [`docs/ARCHITECTURE_AUDIT_2026-07-20.md`](docs/ARCHITECTURE_AUDIT_2026-07-20.md)
+- [`docs/ADR-002-MODULAR-MONOLITH-BOUNDARIES.md`](docs/ADR-002-MODULAR-MONOLITH-BOUNDARIES.md)
+- [`docs/ADR-003-PROCESS-LIFETIME-RETENTION.md`](docs/ADR-003-PROCESS-LIFETIME-RETENTION.md)
+- [`docs/ARCHITECTURE_REFACTORING_ROADMAP_2026-07-20.md`](docs/ARCHITECTURE_REFACTORING_ROADMAP_2026-07-20.md)
 - [`docs/BT-101-SESSION-INSPECTOR.md`](docs/BT-101-SESSION-INSPECTOR.md)
 - [`docs/BT-102-PROTOCOL-SMOKE.md`](docs/BT-102-PROTOCOL-SMOKE.md)
 - [`docs/BT-103-POLICY-GATE.md`](docs/BT-103-POLICY-GATE.md)
@@ -311,3 +363,20 @@ Beat Twin is an experimental local integration, not a hardened production tool. 
 ## License
 
 MIT
+## Integration verification (2026-09-12)
+
+MUE authentication and TypeScript Gateway entrypoints are integrated on the
+current NanoDAW base. Offline checks do not demonstrate live inference or DAW
+execution. If the bundled Playwright browser is unavailable, use an installed
+Chrome for the existing desktop/mobile suite:
+
+```bash
+CI=1 PLAYWRIGHT_CHANNEL=chrome pnpm --filter @beat-twin/playground exec playwright test --workers=2 --retries=0
+```
+
+## NanoDAW Agent V2 (PR #70)
+
+`pnpm nanodaw:agent` composes an opt-in NanoDAW-only SongPatchV2 provider in
+`apps/nanodaw-mcp`. TWIN discovers pending external MCP proposals for explicit
+review and human confirmation. See `docs/NANODAW_MCP.md`. Rendered-browser,
+real-provider and human listening acceptance remain unverified for this slice.

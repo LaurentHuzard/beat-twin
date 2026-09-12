@@ -27,6 +27,11 @@ import {
   type ExecutionReport,
   type ValidationResult,
 } from "@beat-twin/daw-contract";
+import {
+  BoundedRetentionMap,
+  type RetentionPolicy,
+  type RetentionStore,
+} from "@beat-twin/retention";
 
 export const BITWIG_CAPABILITY_VERSION = "bitwig-launcher-v1";
 export const BITWIG_BRIDGE_PROTOCOL_VERSION = "beat-twin-bitwig-v2";
@@ -136,17 +141,22 @@ export type BitwigAdapterOptions = {
   readonly now?: () => number;
   readonly wait?: (milliseconds: number) => Promise<void>;
   readonly clipReadyAttempts?: number;
+  readonly executionRetention?: Partial<RetentionPolicy>;
+  readonly executionStore?: RetentionStore<string, BitwigRequestExecution>;
+  readonly observationRetention?: Partial<RetentionPolicy>;
+  readonly observationStore?: RetentionStore<string, BitwigObservation>;
 };
 
-type Observation = {
+export type BitwigObservation = {
   readonly fingerprint: string;
   readonly inspection: BitwigTargetInspection;
   readonly snapshot: CommandSnapshot;
 };
 
-type RequestExecution = {
+export type BitwigRequestExecution = {
   readonly planIdentity: string;
-  readonly report: Promise<ExecutionReport>;
+  state: "pending" | "terminal" | "uncertain";
+  report?: Promise<ExecutionReport>;
 };
 
 type ReadbackResult =
@@ -156,6 +166,15 @@ type ReadbackResult =
       readonly inspection?: BitwigTargetInspection;
       readonly message: string;
     };
+export const DEFAULT_BITWIG_EXECUTION_RETENTION = Object.freeze({
+  capacity: 2_048,
+  ttlMs: 24 * 60 * 60 * 1_000,
+} satisfies RetentionPolicy);
+
+export const DEFAULT_BITWIG_OBSERVATION_RETENTION = Object.freeze({
+  capacity: 1_024,
+  ttlMs: 15 * 60 * 1_000,
+} satisfies RetentionPolicy);
 
 const CAPABILITIES: DawCapabilities = Object.freeze({
   adapterId: "bitwig",
@@ -177,9 +196,9 @@ export class BitwigAdapter implements DawAdapter {
   readonly #now: () => number;
   readonly #wait: (milliseconds: number) => Promise<void>;
   readonly #clipReadyAttempts: number;
-  readonly #observationsByFingerprint = new Map<string, Observation>();
-  readonly #requests = new Map<string, RequestExecution>();
-  #observationInFlight: Promise<Observation> | undefined;
+  readonly #observationsByFingerprint: BoundedRetentionMap<string, BitwigObservation>;
+  readonly #requests: BoundedRetentionMap<string, BitwigRequestExecution>;
+  #observationInFlight: Promise<BitwigObservation> | undefined;
   #nextRevision = 0;
 
   constructor(options: BitwigAdapterOptions) {
@@ -192,6 +211,19 @@ export class BitwigAdapter implements DawAdapter {
     if (!Number.isInteger(this.#clipReadyAttempts) || this.#clipReadyAttempts < 1) {
       throw new Error("clipReadyAttempts must be a positive integer");
     }
+    this.#observationsByFingerprint = new BoundedRetentionMap({
+      name: "Bitwig observations",
+      policy: { ...DEFAULT_BITWIG_OBSERVATION_RETENTION, ...options.observationRetention },
+      clock: { now: this.#now },
+      store: options.observationStore,
+    });
+    this.#requests = new BoundedRetentionMap({
+      name: "Bitwig adapter executions",
+      policy: { ...DEFAULT_BITWIG_EXECUTION_RETENTION, ...options.executionRetention },
+      clock: { now: this.#now },
+      store: options.executionStore,
+      canEvict: (record) => record.state === "terminal",
+    });
   }
 
   async health(): Promise<DawHealth> {
@@ -230,7 +262,7 @@ export class BitwigAdapter implements DawAdapter {
     const planIdentity = stableSerialize(plan);
     const existing = this.#requests.get(plan.requestId);
     if (existing) {
-      if (existing.planIdentity === planIdentity) return existing.report;
+      if (existing.planIdentity === planIdentity && existing.report) return existing.report;
       const snapshot = await this.inspect();
       return rejectedReport(
         plan,
@@ -239,14 +271,60 @@ export class BitwigAdapter implements DawAdapter {
         dawError("invalid_command", `requestId ${plan.requestId} is already bound to another plan`),
       );
     }
-    const report = this.#executeOnce(plan);
-    this.#requests.set(plan.requestId, Object.freeze({ planIdentity, report }));
+    const record: BitwigRequestExecution = { planIdentity, state: "pending" };
+    try {
+      // Reserve the request before authentication or any Bitwig mutation.
+      this.#requests.set(plan.requestId, record);
+    } catch (error) {
+      return this.#retentionRejected(plan, errorMessage(error));
+    }
+    const report = this.#executeOnce(plan).then(
+      (result) => {
+        record.state = result.status === "partial" ? "uncertain" : "terminal";
+        return result;
+      },
+      (error) => {
+        record.state = "uncertain";
+        throw error;
+      },
+    );
+    record.report = report;
     return report;
+  }
+
+  retentionStatus(): Readonly<{
+    executions: number;
+    executionCapacity: number;
+    observations: number;
+    observationCapacity: number;
+  }> {
+    return Object.freeze({
+      executions: this.#requests.size,
+      executionCapacity: this.#requests.capacity,
+      observations: this.#observationsByFingerprint.size,
+      observationCapacity: this.#observationsByFingerprint.capacity,
+    });
+  }
+
+  async #retentionRejected(plan: ExecutablePlan, detail: string): Promise<ExecutionReport> {
+    const timestamp = this.#timestamp();
+    return rejectedReport(
+      plan,
+      Object.freeze({ song: null, revision: plan.baseRevision }),
+      timestamp,
+      dawError("policy_blocked", `Bitwig retention unavailable before mutation: ${detail}`),
+      timestamp,
+    );
   }
 
   async #executeOnce(plan: ExecutablePlan): Promise<ExecutionReport> {
     const startedAt = this.#timestamp();
-    const observation = await this.#observe();
+    let observation: BitwigObservation;
+    try {
+      observation = await this.#observe();
+    } catch (error) {
+      return this.#retentionRejected(plan, errorMessage(error));
+    }
     const snapshot = this.#dawSnapshot(observation.snapshot, startedAt);
     const preflight = this.#preflight(plan, snapshot);
     if (!preflight.ok) {
@@ -363,7 +441,18 @@ export class BitwigAdapter implements DawAdapter {
       );
     }
 
-    this.#recordSuccessfulReadback(readback.inspection, projection.snapshot);
+    try {
+      this.#recordSuccessfulReadback(readback.inspection, projection.snapshot);
+    } catch (error) {
+      return partialAfterReadback(
+        plan,
+        projectInspection(readback.inspection, projection.snapshot.revision),
+        startedAt,
+        this.#timestamp(),
+        results,
+        dawError("partial_execution", `Bitwig mutation readback succeeded but retention failed: ${errorMessage(error)}`),
+      );
+    }
     return successReport(plan, projection.snapshot, startedAt, this.#timestamp());
   }
 
@@ -395,7 +484,7 @@ export class BitwigAdapter implements DawAdapter {
     });
   }
 
-  async #observe(): Promise<Observation> {
+  async #observe(): Promise<BitwigObservation> {
     if (this.#observationInFlight) return this.#observationInFlight;
     const observation = this.#readObservation();
     this.#observationInFlight = observation;
@@ -408,7 +497,7 @@ export class BitwigAdapter implements DawAdapter {
     }
   }
 
-  async #readObservation(): Promise<Observation> {
+  async #readObservation(): Promise<BitwigObservation> {
     const inspection = validateBitwigTargetInspection(await this.#port.inspectTarget());
     const fingerprint = inspectionFingerprint(inspection);
     const existing = this.#observationsByFingerprint.get(fingerprint);

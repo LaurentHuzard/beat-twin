@@ -175,7 +175,8 @@ export function createAgentGatewaySession(
         !Array.isArray(body.plans) || body.plans.length > 32 ||
         body.plans.some((plan: unknown) => !isPlainObject(plan) ||
           !isNonBlankString(plan.planId) || !isNonBlankString(plan.name) ||
-          !["drums", "bass", "chords", "lead"].includes(String(plan.instrumentId)) ||
+          typeof plan.instrumentId !== "string" ||
+          !["drums", "bass", "chords", "lead"].includes(plan.instrumentId) ||
           typeof plan.expiresAt !== "string" || !Number.isFinite(Date.parse(plan.expiresAt)))) {
       throw new Error("Gateway MCP proposal inbox is invalid.");
     }

@@ -49,7 +49,7 @@ the browser pairing form must receive the same value. Example MCP configuration:
 codex mcp add nanodaw \
   --env NANODAW_MCP_OPERATOR_SECRET=replace-with-a-long-local-secret \
   -- node --experimental-strip-types \
-  /absolute/path/to/beat-twin/packages/mcp/src/cli.ts
+  /absolute/path/to/beat-twin/apps/nanodaw-mcp/src/cli.ts
 ```
 
 The process starts its browser Gateway on `http://127.0.0.1:8787`. The default
@@ -86,8 +86,12 @@ running MUE model server:
 NANODAW_MCP_OPERATOR_SECRET=replace-with-a-long-local-secret \
 LITERT_BASE_URL=http://mue.orbit:8003/ \
 LITERT_MODEL=qwen3-8b \
+LITERT_API_KEY=replace-with-your-provider-key \
 pnpm nanodaw:agent
 ```
+
+Omit `LITERT_API_KEY` only when the chosen provider does not require authentication.
+The key is sent to the configured provider for model listing and chat requests.
 
 Start `pnpm nanodaw:dev` separately and pair TWIN with
 `http://127.0.0.1:8787`. Select **Generate preview**, inspect the exact changes,
@@ -119,8 +123,8 @@ fails before storing another plan. Expired and consumed reviews leave the inbox.
 Discovery does not grant confirmation or execution authority to the model.
 
 All plans remain process-memory only and expire after two minutes. Restarting
-loses them. Inbox pruning is not global plan-store retention or restart recovery;
-those remain architecture follow-ups. Reconnect and create a fresh proposal
+loses them. Inbox pruning uses the bounded retention infrastructure from main;
+restart-durable recovery remains a follow-up. Reconnect and create a fresh proposal
 after expiry/restart, and inspect the song before acting after an uncertain
 execution result. Never blindly retry an uncertain plan.
 

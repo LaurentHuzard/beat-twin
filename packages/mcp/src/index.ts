@@ -19,6 +19,12 @@ import {
   MAX_PAIRING_TTL_MS,
   PairingAuthority,
 } from "@beat-twin/gateway-core";
+import {
+  BoundedRetentionMap,
+  type RetentionClock,
+  type RetentionPolicy,
+  type RetentionStore,
+} from "@beat-twin/retention";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
@@ -44,6 +50,9 @@ export type NanoDawMcpServiceOptions = {
   readonly pairing: PairingAuthority;
   readonly planStore: GatewayPlanStore;
   readonly idGenerator?: () => string;
+  readonly clock?: RetentionClock;
+  readonly reviewRetention?: Partial<RetentionPolicy>;
+  readonly reviewStore?: RetentionStore<string, NanoDawMcpReview>;
 };
 
 export type NanoDawMcpService = {
@@ -52,7 +61,13 @@ export type NanoDawMcpService = {
   readonly prepareInstrumentClip: (input: unknown) => Promise<NanoDawMcpReview>;
   readonly getReview: (planId: string) => NanoDawMcpReview | null;
   readonly listReviews: () => readonly NanoDawMcpReview[];
+  readonly retentionStatus: () => Readonly<{ reviews: number; capacity: number }>;
 };
+
+export const DEFAULT_MCP_REVIEW_RETENTION = Object.freeze({
+  capacity: 2_048,
+  ttlMs: 2 * 60 * 1_000,
+} satisfies RetentionPolicy);
 
 export async function createNanoDawMcpService(
   options: NanoDawMcpServiceOptions,
@@ -64,42 +79,56 @@ export async function createNanoDawMcpService(
     ttlMs: MAX_PAIRING_TTL_MS,
     maxRequests: 10_000,
   });
-  const reviews = new Map<string, NanoDawMcpReview>();
-  let preparing = 0;
+  const reviews = new BoundedRetentionMap<string, NanoDawMcpReview>({
+    name: "NanoDAW MCP reviews",
+    policy: { ...DEFAULT_MCP_REVIEW_RETENTION, ...options.reviewRetention },
+    clock: options.clock,
+    store: options.reviewStore,
+    expiresAt: (review) => Date.parse(review.plan.expiresAt),
+  });
+  const pendingReviewPlanIds = new Set<string>();
   const listReviews = () => {
-    for (const [id, review] of reviews) {
-      if (Date.parse(review.plan.expiresAt) <= Date.now() ||
+    const now = options.clock?.now() ?? Date.now();
+    for (const [id, review] of reviews.entries()) {
+      if (Date.parse(review.plan.expiresAt) <= now ||
           options.planStore.getExecutionStatus(id)?.state !== "pending") reviews.delete(id);
     }
-    return Object.freeze([...reviews.values()]);
+    return Object.freeze(reviews.entries().map(([, review]) => review));
   };
 
   return Object.freeze({
     listInstruments: () => BUILT_IN_INSTRUMENTS,
     inspect: async () => options.adapter.inspect(),
     prepareInstrumentClip: async (input: unknown) => {
-      listReviews();
-      if (reviews.size + preparing >= 32) throw new Error("MCP review inbox is full; wait for pending plans to expire");
       const validation = safeValidateSongPatchV2(input);
       if (!validation.ok) {
         const first = validation.issues[0];
         throw new TypeError(first ? `${first.path}: ${first.message}` : "Invalid SongPatchV2");
       }
 
-      preparing += 1;
-      try {
-        const [capabilities, snapshot] = await Promise.all([
-          options.adapter.capabilities(),
-          options.adapter.inspect(),
-        ]);
-        requireValid(validateDawCapabilities(capabilities, "nanodaw"), "NanoDAW capabilities");
-        requireValid(
-          validateDawSnapshot(snapshot, "nanodaw", capabilities.capabilityVersion),
-          "NanoDAW snapshot",
-        );
+      const [capabilities, snapshot] = await Promise.all([
+        options.adapter.capabilities(),
+        options.adapter.inspect(),
+      ]);
+      requireValid(validateDawCapabilities(capabilities, "nanodaw"), "NanoDAW capabilities");
+      requireValid(
+        validateDawSnapshot(snapshot, "nanodaw", capabilities.capabilityVersion),
+        "NanoDAW snapshot",
+      );
 
-        const requestId = `mcp-${idGenerator()}`;
-        const planId = `plan-${idGenerator()}`;
+      const requestId = `mcp-${idGenerator()}`;
+      const planId = `plan-${idGenerator()}`;
+      listReviews();
+      if (reviews.size + pendingReviewPlanIds.size >= 32) {
+        throw new Error("MCP review inbox is full; wait for pending plans to expire");
+      }
+      try {
+        reviews.assertCanAdd(planId, pendingReviewPlanIds.size);
+      } catch (error) {
+        throw new Error(`MCP review retention unavailable: ${errorMessage(error)}`);
+      }
+      pendingReviewPlanIds.add(planId);
+      try {
         const compileOptions = { idSeed: requestId, snapshot: snapshot.commandSnapshot };
         const commands = compileSongPatch(validation.value, compileOptions);
         const preview = previewSongPatch(validation.value, compileOptions);
@@ -120,14 +149,19 @@ export async function createNanoDawMcpService(
           },
         });
         const review = deepFreeze({ patch: validation.value, preview, plan });
-        reviews.set(plan.planId, review);
+        try {
+          reviews.set(plan.planId, review);
+        } catch (error) {
+          throw new Error(`MCP review retention unavailable: ${errorMessage(error)}`);
+        }
         return review;
       } finally {
-        preparing -= 1;
+        pendingReviewPlanIds.delete(planId);
       }
     },
     getReview: (planId: string) => reviews.get(planId) ?? null,
     listReviews,
+    retentionStatus: () => Object.freeze({ reviews: reviews.size, capacity: reviews.capacity }),
   });
 }
 
@@ -248,6 +282,10 @@ function toolError(error: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function deepFreeze<T>(value: T): T {

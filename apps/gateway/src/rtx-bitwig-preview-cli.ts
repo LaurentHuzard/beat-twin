@@ -5,7 +5,7 @@ import { BitwigProtocolClient } from "../../../index.js";
 import {
   readRtxBitwigPreviewConfig,
   startRtxBitwigPreviewRuntime,
-} from "./rtx-bitwig-preview-runtime.js";
+} from "./rtx-bitwig-preview-runtime.ts";
 
 const config = readRtxBitwigPreviewConfig();
 const client = new BitwigProtocolClient({

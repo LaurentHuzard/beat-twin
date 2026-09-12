@@ -8,7 +8,7 @@ import {
   BROWSER_NANODAW_PROTOCOL,
   encodeBrowserPairingProtocol,
 } from "../src/index.js";
-import { startRtxDualTargetRuntime } from "../src/rtx-dual-target-runtime.js";
+import { startRtxDualTargetRuntime } from "../src/rtx-dual-target-runtime.ts";
 
 const ORIGIN = "http://127.0.0.1:5173";
 const OPERATOR_SECRET = "dual target operator secret";

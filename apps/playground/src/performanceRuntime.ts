@@ -91,7 +91,11 @@ export type PerformanceState = {
   readonly macros: Readonly<Record<PerformanceMacroId, number>>;
   /** Claimed IDs remain reserved until ResetPerformance. */
   readonly transitionIds: Readonly<Record<string, true>>;
+  /** Capacity pressure fails closed; reset is the only cleanup boundary. */
+  readonly transitionIdCapacity: number;
 };
+
+export const MAX_RETAINED_PERFORMANCE_TRANSITION_IDS = 4_096;
 
 export type PerformanceMaterialSnapshot = {
   readonly version: number;
@@ -251,6 +255,7 @@ export function createPerformanceState(input: {
   readonly beatsPerBar?: number;
   readonly launchQuantization?: LaunchQuantization;
   readonly materialVersion?: number;
+  readonly transitionIdCapacity?: number;
 } = {}): PerformanceState {
   const beatsPerBar = positiveFinite(input.beatsPerBar ?? 4, "beatsPerBar");
   const launchQuantization = input.launchQuantization ?? "bar";
@@ -267,6 +272,10 @@ export function createPerformanceState(input: {
     recording: idleRecording(),
     macros: defaultMacros,
     transitionIds: {},
+    transitionIdCapacity: positiveInteger(
+      input.transitionIdCapacity ?? MAX_RETAINED_PERFORMANCE_TRANSITION_IDS,
+      "transitionIdCapacity",
+    ),
   });
 }
 
@@ -279,6 +288,7 @@ export function resetPerformanceForMaterial(
     beatsPerBar: state.beatsPerBar,
     launchQuantization: state.launchQuantization,
     materialVersion: material.version,
+    transitionIdCapacity: state.transitionIdCapacity,
   });
 }
 
@@ -830,6 +840,7 @@ export function reducePerformanceState(
         beatsPerBar: state.beatsPerBar,
         launchQuantization: state.launchQuantization,
         materialVersion: state.materialVersion,
+        transitionIdCapacity: state.transitionIdCapacity,
       });
   }
 }
@@ -1339,6 +1350,11 @@ function reserveTransitionId(
   transitionId: string,
 ): PerformanceState {
   assertTransitionIdAvailable(state, transitionId);
+  if (Object.keys(state.transitionIds).length >= state.transitionIdCapacity) {
+    throw new Error(
+      `performance transition ID capacity ${state.transitionIdCapacity} is exhausted; reset performance before continuing`,
+    );
+  }
   return freezeState({
     ...state,
     transitionIds: { ...state.transitionIds, [transitionId]: true },
@@ -1429,6 +1445,14 @@ function booleanValue(value: boolean, label: string): boolean {
 
 function nonNegativeInteger(value: number, label: string): number {
   const number = nonNegativeFinite(value, label);
+  if (!Number.isInteger(number)) {
+    throw new Error(`${label} must be an integer`);
+  }
+  return number;
+}
+
+function positiveInteger(value: number, label: string): number {
+  const number = positiveFinite(value, label);
   if (!Number.isInteger(number)) {
     throw new Error(`${label} must be an integer`);
   }

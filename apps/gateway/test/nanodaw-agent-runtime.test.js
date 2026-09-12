@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createCommandRuntime, createCommandState } from "@beat-twin/commands";
 import { WebSocket } from "ws";
-import { createNanoDawMcpRuntime } from "../../../packages/mcp/src/runtime.ts";
-import { nanoDawProviderOptions, runNanoDawMcp } from "../../../packages/mcp/src/cli.ts";
+import { createNanoDawMcpRuntime } from "../../nanodaw-mcp/src/runtime.ts";
+import { nanoDawProviderOptions, runNanoDawMcp } from "../../nanodaw-mcp/src/cli.ts";
 import { BROWSER_NANODAW_PROTOCOL, encodeBrowserPairingProtocol } from "../src/index.js";
 
 const ORIGIN = "http://127.0.0.1:5173";
@@ -19,8 +19,9 @@ async function fixture(t, { agent = false, loseReply = false } = {}) {
   const runtime = await createNanoDawMcpRuntime({
     operatorSecret: SECRET, allowedOrigins: [ORIGIN], port: 0,
     ...(agent ? { provider: {
-      baseUrl: "http://offline.invalid/", model: "offline-model",
+      ...nanoDawProviderOptions({ LITERT_BASE_URL: "http://offline.invalid/", LITERT_MODEL: "offline-model", LITERT_API_KEY: "offline-provider-key" }),
       fetch: async (url, init) => {
+        assert.equal(new Headers(init.headers).get("authorization"), "Bearer offline-provider-key");
         requests.push({ url: String(url), init });
         return Response.json(String(url).endsWith("/models")
           ? { object: "list", data: [{ id: "offline-model" }] }

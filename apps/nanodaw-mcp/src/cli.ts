@@ -9,7 +9,7 @@ export function nanoDawProviderOptions(env: NodeJS.ProcessEnv): LiteRtProviderOp
     return undefined;
   }
   if (!env.LITERT_MODEL?.trim()) throw new Error("LITERT_MODEL is required for NanoDAW Agent mode");
-  return { baseUrl: env.LITERT_BASE_URL, model: env.LITERT_MODEL, timeoutMs: 60_000, thinkingBudgetTokens: 512, songPatchVersion: 2 };
+  return { baseUrl: env.LITERT_BASE_URL, model: env.LITERT_MODEL, apiKey: env.LITERT_API_KEY, timeoutMs: 60_000, thinkingBudgetTokens: 512, songPatchVersion: 2 };
 }
 
 export async function runNanoDawMcp(env: NodeJS.ProcessEnv = process.env, mode: "mcp" | "agent" = "mcp"): Promise<void> {
