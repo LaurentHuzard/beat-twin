@@ -1,5 +1,9 @@
 # Agent Setup Guide
 
+Optional catalog search and generic dispatch are documented in
+[MCP_TOOL_DISCOVERY.md](MCP_TOOL_DISCOVERY.md). Enable them with
+`BITWIG_MCP_TOOL_DISCOVERY=1`; this does not enable write policies.
+
 This guide is for coding agents setting up Beat Twin on a user's workstation.
 
 The agent may install files, configure the MCP client, and run read-only

@@ -58,6 +58,7 @@
     "bitwig-controller/BeatTwin/BeatTwin.control.js",
     "llm-mcp/mcp.example.json",
     "README.md",
+    "docs/MCP_TOOL_DISCOVERY.md",
     "LICENSE",
     "SECURITY.md"
   ],

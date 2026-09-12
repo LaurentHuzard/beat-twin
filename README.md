@@ -4,6 +4,10 @@
 
 # Beat Twin
 
+Optional Bitwig MCP `search_tools` / `call_tool`:
+see [tool discovery](docs/MCP_TOOL_DISCOVERY.md). Activate with
+`BITWIG_MCP_TOOL_DISCOVERY=1`; write policies remain separately controlled.
+
 Beat Twin is an experimental, local-first orchestration layer between musical agents and DAWs.
 
 Its current repo contains four working musical surfaces:

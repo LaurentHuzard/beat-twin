@@ -1364,6 +1364,106 @@ export const TOOL_SPECS = Object.freeze([
 
 const TOOL_SPEC_MAP = new Map(TOOL_SPECS.map((tool) => [tool.name, tool]));
 
+// Additive opt-in surface; never insert these dispatchers into TOOL_SPECS.
+const DISCOVERY_ENV = "BITWIG_MCP_TOOL_DISCOVERY";
+const DISCOVERY_NAMES = new Set(["search_tools", "call_tool"]);
+const DISCOVERY_DEFINITIONS = [
+  {
+    name: "search_tools",
+    description: "Search the currently policy-enabled Bitwig tool catalog without contacting the DAW. Literal terms match name, description or policy. Availability means policy-enabled, not a live connection.",
+    inputSchema: {
+      type: "object", additionalProperties: false,
+      properties: {
+        query: { type: "string", maxLength: 200 },
+        limit: { type: "integer", minimum: 1, maximum: 20 },
+        offset: { type: "integer", minimum: 0, maximum: 10000 },
+      },
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    name: "call_tool",
+    description: "Call one named Bitwig tool with its documented arguments. Rechecks write policy and preserves bridge authentication. Can mutate if the target write policy is enabled; never grants human approval. Cannot call generic dispatchers.",
+    inputSchema: {
+      type: "object", additionalProperties: false, required: ["name"],
+      properties: {
+        name: { type: "string", minLength: 1, maxLength: 128 },
+        arguments: { type: "object" },
+      },
+    },
+    // Conservative even when the current policy enables only reads.
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+  },
+];
+let discoveryValidator;
+const discoveryValidators = new WeakMap();
+
+function discoveryEnabled(env) {
+  return env[DISCOVERY_ENV] === "1";
+}
+
+async function validateDiscoveryInput(schema, value) {
+  // SDK dependency already belongs to this package; load only on opt-in use.
+  discoveryValidator ??= import("@modelcontextprotocol/sdk/validation/ajv")
+    .then(({ AjvJsonSchemaValidator }) => new AjvJsonSchemaValidator());
+  const provider = await discoveryValidator;
+  let validate = discoveryValidators.get(schema);
+  if (!validate) {
+    validate = provider.getValidator(schema);
+    discoveryValidators.set(schema, validate);
+  }
+  return validate(value).valid;
+}
+
+async function handleDiscoveryCall(name, input, { call, env }) {
+  const fail = (error, message) => serializeToolError({ error, message });
+  if (!discoveryEnabled(env)) return fail("tool_unavailable", "Tool discovery is not enabled.");
+  // MCP arguments are JSON. Bound and detach them before asynchronous validation.
+  const encoded = JSON.stringify(input);
+  if (encoded === undefined || Buffer.byteLength(encoded, "utf8") > 65536) {
+    return fail("invalid_arguments", "Tool arguments must fit within 65536 JSON bytes.");
+  }
+  const args = JSON.parse(encoded);
+  const definition = DISCOVERY_DEFINITIONS.find((tool) => tool.name === name);
+  if (!(await validateDiscoveryInput(definition.inputSchema, args))) {
+    return fail("invalid_arguments", "Arguments do not match the dispatcher input schema.");
+  }
+  if (!discoveryEnabled(env)) return fail("tool_unavailable", "Tool discovery is not enabled.");
+
+  if (name === "search_tools") {
+    const terms = (args.query ?? "").toLowerCase().trim().split(/\s+/).filter(Boolean);
+    const matches = TOOL_SPECS.filter((tool) => isPolicyEnabled(tool.policy, env))
+      .filter((tool) => {
+        const text = `${tool.name} ${tool.description} ${tool.policy}`.toLowerCase();
+        return terms.every((term) => text.includes(term));
+      });
+    const offset = args.offset ?? 0;
+    const limit = args.limit ?? 10;
+    const tools = matches.slice(offset, offset + limit).map((tool) => ({
+      ...buildToolDefinition(tool), policy: tool.policy,
+    }));
+    return serializeToolResult({
+      tools, total: matches.length,
+      nextOffset: offset + tools.length < matches.length ? offset + tools.length : null,
+    });
+  }
+
+  if (DISCOVERY_NAMES.has(args.name)) {
+    return fail("recursive_tool_call", "Generic tools cannot dispatch generic tools.");
+  }
+  const target = TOOL_SPEC_MAP.get(args.name);
+  if (!target) return fail("unknown_tool", "Requested tool is not in the Bitwig registry.");
+  if (!isPolicyEnabled(target.policy, env)) return serializeToolError(buildPolicyBlockedError(target));
+  const targetArgs = args.arguments ?? {};
+  if (!(await validateDiscoveryInput(target.inputSchema, targetArgs))) {
+    return fail("invalid_arguments", "Arguments do not match the target tool input schema.");
+  }
+  if (!discoveryEnabled(env)) return fail("tool_unavailable", "Tool discovery is not enabled.");
+  // The canonical dispatcher rechecks current policy after every await above.
+  // It also supplies requiresAuthentication and preserves target result/errors.
+  return handleToolCall({ params: { name: target.name, arguments: targetArgs } }, { call, env });
+}
+
 function parseEnabledWritePolicies(env = process.env) {
   const allowAllWrites = String(env[ENABLE_WRITES_ENV] ?? "")
     .trim()
@@ -1438,9 +1538,12 @@ function buildToolDefinition(tool) {
 }
 
 export function getToolDefinitions({ env = process.env } = {}) {
-  return TOOL_SPECS.filter((tool) => isPolicyEnabled(tool.policy, env)).map(
+  const definitions = TOOL_SPECS.filter((tool) => isPolicyEnabled(tool.policy, env)).map(
     buildToolDefinition,
   );
+  return discoveryEnabled(env)
+    ? [...definitions, ...structuredClone(DISCOVERY_DEFINITIONS)]
+    : definitions;
 }
 
 export async function handleToolCall(
@@ -1449,6 +1552,7 @@ export async function handleToolCall(
 ) {
   try {
     const { name, arguments: args = {} } = request.params;
+    if (DISCOVERY_NAMES.has(name)) return await handleDiscoveryCall(name, args, { call, env });
     const tool = TOOL_SPEC_MAP.get(name);
 
     if (!tool) {

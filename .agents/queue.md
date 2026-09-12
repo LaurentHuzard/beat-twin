@@ -1,7 +1,7 @@
 # Beat Twin Execution Queue
 
 Updated: 2026-09-12
-Implementation base for this queue update: `86679ab`
+Implementation base for this queue update: `083f949`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -18,9 +18,12 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-None. `BT-AGENT-001` review corrections are complete locally in review/pr-70-fixes.
-Report: .agents/reports/review-20260912-pr70.md.
-PR #70 stays draft; publication and live acceptance are separate gates.
+None. `BT-MCP-069` is implemented and verified locally on
+`agent/mcp-tool-discovery`; awaiting human review/publication approval.
+Report: `.agents/reports/feature-20260912-mcp-069.md`.
+Opt-in Bitwig MCP search_tools/call_tool retain existing policy/authentication.
+No live DAW/provider, runtime activation, push/PR or merge performed for #69.
+Previous: PR #70 merged at 083f949; live acceptance remains separate.
 BT-ARCH-101 through 104 are merged through PR #68; BT-MUE through PR #67.
 
 `BT-UX-065` initial issue #65 delivery is merged through PR #66 at dd61643.
