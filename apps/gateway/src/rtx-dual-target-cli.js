@@ -32,6 +32,7 @@ const runtime = await startRtxDualTargetRuntime({
   bridgeSecret,
   providerBaseUrl: config.providerBaseUrl,
   model: config.model,
+  apiKey: config.apiKey,
   providerTimeoutMs: config.providerTimeoutMs,
   thinkingBudgetTokens: config.thinkingBudgetTokens,
   gatewayHost: config.gatewayHost,

@@ -18,6 +18,14 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
+None. `BT-DEMO-MAIN-001` completed locally on freshly fetched main (`dd61643`),
+with existing MUE work preserved and a new real preview. No DAW application.
+Report: `.agents/reports/BT-DEMO-MAIN-001.md`.
+Candidate follow-up: `BT-UX-TWIN-OVERFLOW`, narrow drawer layout with a real
+musical proposal. Not activated by this sync request.
+
+Previous handoff:
+
 None. `BT-UX-065` initial issue #65 delivery is verified locally in
 `codex/issue-65-instrument-first` (commit/merge authorized 2026-09-10). The complete issue
 remains open for audio-wired macros/mixer, Capture Jam, 4x4 and further TWIN work.

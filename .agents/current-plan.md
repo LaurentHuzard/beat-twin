@@ -1,4 +1,24 @@
-# Beat Twin Orbit — BT-UX-065 handoff
+# Beat Twin Orbit — BT-DEMO-MAIN-001
+
+Completed locally. No implementation Orbit remains active. See
+`.agents/reports/BT-DEMO-MAIN-001.md` for the preserved Git state, 189 + 159 offline
+checks, 10 browser checks, real MUE preview, and TWIN overflow follow-up.
+
+User authorized on 2026-09-10: move the existing MUE demonstration onto current
+main with the new NanoDAW design, preserving the previous dirty checkout.
+Fresh fetched base: `dd6164352da3916045c28563015114e1b7273d28` (`origin/main`).
+Worktree: `/home/lolo/Workspace/lolOS/.worktrees/beat-twin-demo-main`.
+Branch: `demo/main-nanodaw-mue`.
+
+Scope: transplant the existing MUE authentication changes and README, run the
+new JAM / EDIT / TWIN UI, check a real MUE preview without applying it, and move
+the existing local demo service to this checkout. No redesign implementation,
+external DAW write, benchmark, commit or publication in this slice.
+
+Validation: frozen dependencies, focused gateway checks and available offline
+suites, browser interaction and screenshot, exact service checkout, diff check.
+
+## Previous BT-UX-065 handoff
 
 The issue #65 initial instrument-first delivery is verified locally.
 No implementation Orbit is active. Issue #65 is not complete.
