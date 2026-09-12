@@ -280,6 +280,42 @@ test("completed plans clean up after terminal retention without replaying mutati
   assert.equal(context.store.retentionStatus().plans, 1);
 });
 
+test("partial reports remain readable and block capacity after TTL cleanup", async () => {
+  const context = await fixture({ planRetention: { capacity: 1, ttlMs: 10 } });
+  const plan = await context.store.createPlan({ token: context.grant.token, plan: unsignedPlan() });
+  const confirmation = await context.store.confirm({ token: context.grant.token, planId: plan.planId });
+  await context.store.consumeExecution({
+    token: context.grant.token,
+    planId: plan.planId,
+    confirmationToken: confirmation.confirmationToken,
+  });
+  const error = { code: "partial_execution" as const, message: "mutation outcome unknown" };
+  const report: ExecutionReport = {
+    ...successReport(plan),
+    ok: false,
+    status: "partial",
+    error,
+    results: plan.commands.map((command, index) => ({ index, command, status: "unknown", error })),
+  };
+  await context.store.recordExecution({ planId: plan.planId, report });
+  context.clock.advance(MAX_PLAN_TTL_MS + 1_010);
+  // retentionStatus invokes lazy cleanup; partial evidence must survive it.
+  assert.equal(context.store.retentionStatus().plans, 1);
+  assert.deepEqual(context.store.getExecutionStatus(plan.planId)?.report, report);
+  const freshGrant = await context.pairing.issue({
+    actorId: "operator", scopes: ["plan.create", "song.write"], ttlMs: 60_000, maxRequests: 20,
+  });
+  await assert.rejects(
+    context.store.createPlan({
+      token: freshGrant.token,
+      plan: unsignedPlan({ planId: "capacity-probe", requestId: "capacity-probe" }),
+    }),
+    (error: unknown) => error instanceof GatewayCoreError && error.code === "capacity_exceeded",
+  );
+  assert.deepEqual(await context.store.recordExecution({ planId: plan.planId, report }), report);
+  assert.deepEqual(context.store.getExecutionStatus(plan.planId)?.report, report);
+});
+
 test("uncertain plans stay pinned and block capacity even after every TTL", async () => {
   const context = await fixture({ planRetention: { capacity: 1, ttlMs: 10 } });
   const first = await context.store.createPlan({ token: context.grant.token, plan: unsignedPlan() });

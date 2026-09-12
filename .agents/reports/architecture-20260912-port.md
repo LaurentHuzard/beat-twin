@@ -49,6 +49,20 @@ browser and live results in historical reports are not new evidence here.
 
 ## Remaining decisions
 
+### Independent review P1 correction
+
+Review of 065df240 found that a recorded `partial` report was classified as
+completed and evicted after TTL, losing unknown-mutation evidence. The separate
+fix explicitly permits terminal eviction only for `succeeded` or `failed`
+reports. Partial reports remain available and pinned regardless of TTL.
+The regression advances the clock beyond plan/report expiry, triggers cleanup,
+checks capacity rejection for a new plan and re-records the same report without
+losing its evidence. Existing successful-report cleanup remains covered.
+
+Validation: 24 Gateway Core tests passed; Gateway Core build passed; full
+`pnpm test` rebuilt packages/app and passed 226/226 tests. `git diff --check`
+passed. No live provider or DAW calls. Parent publishes the new head to PR #68.
+
 Parent reviews and publishes the replacement before merging or closing #50/#51.
 BT-ARCH-105 through 109, protocol-client extraction, restart-durable storage,
 and the remaining issue #65 product roadmap remain deferred and unimplemented.

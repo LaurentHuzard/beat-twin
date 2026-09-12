@@ -2,6 +2,11 @@
 
 ## Current task — 2026-09-12
 
+Independent review follow-up: preserve recorded partial reports through TTL
+cleanup, explicitly restrict eviction to resolved terminal outcomes, add a
+clock/capacity regression and validate Gateway tests/build. Separate local fix
+commit; parent owns publication of the updated PR #68 head.
+
 User authorized porting PR #50/#51 onto main 86679ab in finish/beat-pending,
 retaining ca9a5a4. Complete BT-ARCH-101 through 104 only: dependency guard,
 Gateway delivery extraction, explicit NanoDAW MCP app, bounded process retention.

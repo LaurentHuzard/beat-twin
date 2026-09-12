@@ -403,7 +403,11 @@ export class GatewayPlanStore {
         return Number.POSITIVE_INFINITY;
       },
       canEvict: (stored) =>
-        (stored.executionState === "completed" || stored.executionState === "pending") &&
+        // A recorded report is not necessarily a resolved mutation outcome.
+        // Partial reports must remain pinned just like explicit uncertainty.
+        (stored.executionState === "pending" ||
+          (stored.executionState === "completed" &&
+            (stored.report?.status === "succeeded" || stored.report?.status === "failed"))) &&
         !this.#pendingPlanIds.has(stored.plan.planId) &&
         !this.#pendingConfirmationPlanIds.has(stored.plan.planId) &&
         !this.#pendingExecutionPlanIds.has(stored.plan.planId) &&

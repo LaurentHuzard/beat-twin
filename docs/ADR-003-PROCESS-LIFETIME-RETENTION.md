@@ -73,6 +73,11 @@ Gateway plans, confirmations, pairings, and MCP reviews reserve capacity before
 creating their retained state. If retention is full or storage rejects the
 claim, the operation fails before mutation.
 
+Gateway reports with status `partial` remain pinned even though the report has
+been recorded and its execution state is `completed`. Only `succeeded` or
+`failed` reports qualify for terminal eviction; report availability alone does
+not resolve an uncertain mutation outcome.
+
 If retention or readback fails after an external mutation may have been sent,
 the result is reported as partial or uncertain. It is pinned for the remainder
 of the process and is never retried automatically.
