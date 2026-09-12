@@ -134,6 +134,32 @@ independent NanoDAW and Bitwig plans with target-specific previews and
 confirmation domains. See
 [`docs/DUAL_TARGET_RUNTIME.md`](docs/DUAL_TARGET_RUNTIME.md).
 
+### Run NanoDAW Agent mode with MUE
+
+MUE exposes the loaded model as `qwen` and requires its LAN API key for chat
+completions. Keep the key on the local machine and load it into the Gateway
+process without printing it:
+
+```bash
+export LITERT_API_KEY="$(
+  ssh -F "$HOME/.ssh/config" rtx \
+    'cat ~/.config/mue/llama-api-key'
+)"
+
+BEAT_TWIN_OPERATOR_SECRET_FILE=/tmp/beat-twin-operator-secret \
+BITWIG_BRIDGE_SECRET_FILE=/tmp/beat-twin-bridge-secret \
+BEAT_TWIN_ALLOWED_ORIGINS=http://127.0.0.1:5174 \
+LITERT_BASE_URL=http://mue.orbit:8003/ \
+LITERT_MODEL=qwen \
+pnpm gateway:rtx-dual-target
+```
+
+The local SSH configuration in this setup names MUE `rtx` and uses the
+`taenia` account. Start the Playground at `http://127.0.0.1:5174`, enable
+Agent mode, pair with the operator secret, enter a musical request, and choose
+**Generate preview**. The Gateway creates the immutable plan; NanoDAW remains
+the owner of song state and requires a separate **Confirm and apply once**.
+
 ## Requirements
 
 - Node.js 24 for local development; Node.js 22 and 24 are covered by CI
@@ -306,3 +332,13 @@ Beat Twin is an experimental local integration, not a hardened production tool. 
 ## License
 
 MIT
+## Integration verification (2026-09-12)
+
+MUE authentication and TypeScript Gateway entrypoints are integrated on the
+current NanoDAW base. Offline checks do not demonstrate live inference or DAW
+execution. If the bundled Playwright browser is unavailable, use an installed
+Chrome for the existing desktop/mobile suite:
+
+```bash
+CI=1 PLAYWRIGHT_CHANNEL=chrome pnpm --filter @beat-twin/playground exec playwright test --workers=2 --retries=0
+```

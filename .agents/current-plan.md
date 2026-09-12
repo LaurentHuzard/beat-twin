@@ -1,5 +1,22 @@
 # Beat Twin Orbit — BT-UX-065 handoff
 
+## Integration BT-MUE — 2026-09-12
+
+User authorized consolidating the saved MUE work on main dd61643. Import 935a585
+(authenticated provider, TS entrypoints, Node 26) without reverting NanoDAW #66.
+The functional changes of c257541 are covered by that patch; its historical
+report remains on the archive branch. Build and offline gateway/NanoDAW tests
+are required. No live provider, Bitwig write, main merge or branch deletion.
+
+Verification: package and NanoDAW production builds passed; 17 Gateway tests and
+159 NanoDAW tests passed. Socket-based checks required execution outside the
+restricted sandbox. No provider or DAW was contacted.
+All 10 desktop/mobile E2E tests passed with installed Chrome:
+`CI=1 PLAYWRIGHT_CHANNEL=chrome pnpm --filter @beat-twin/playground exec playwright test --workers=2 --retries=0`.
+Default Playwright Chromium was absent; channel selection avoids a download.
+
+## Historical issue #65 handoff (2026-09-10)
+
 The issue #65 initial instrument-first delivery is verified locally.
 No implementation Orbit is active. Issue #65 is not complete.
 
