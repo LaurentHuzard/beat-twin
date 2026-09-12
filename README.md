@@ -373,3 +373,10 @@ Chrome for the existing desktop/mobile suite:
 ```bash
 CI=1 PLAYWRIGHT_CHANNEL=chrome pnpm --filter @beat-twin/playground exec playwright test --workers=2 --retries=0
 ```
+
+## NanoDAW Agent V2 (PR #70)
+
+`pnpm nanodaw:agent` composes an opt-in NanoDAW-only SongPatchV2 provider in
+`apps/nanodaw-mcp`. TWIN discovers pending external MCP proposals for explicit
+review and human confirmation. See `docs/NANODAW_MCP.md`. Rendered-browser,
+real-provider and human listening acceptance remain unverified for this slice.

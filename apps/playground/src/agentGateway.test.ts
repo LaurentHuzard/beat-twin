@@ -56,6 +56,48 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("Agent Gateway browser client", () => {
+  it("validates the authenticated discovery inbox and preserves old gateways", async () => {
+    const plans = [{ planId: "plan-inbox", name: "Bass", instrumentId: "bass", expiresAt: "2099-01-01T00:00:00Z" }];
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ token: "btp_inbox" }, 201))
+      .mockResolvedValueOnce(jsonResponse({ agentAvailable: true, plans }))
+      .mockResolvedValueOnce(jsonResponse({}, 404))
+      .mockResolvedValueOnce(jsonResponse({ agentAvailable: true, plans: [{ ...plans[0], instrumentId: "plugin" }] }))
+      .mockResolvedValueOnce(jsonResponse({ agentAvailable: true, plans: [{ ...plans[0], instrumentId: ["bass"] }] }))
+      .mockResolvedValueOnce(jsonResponse({}, 401));
+    const session = createAgentGatewaySession({
+      baseUrl: "http://127.0.0.1:8787", operatorSecret: "offline-secret", fetchImpl,
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+      port: { inspect: () => ({ song: null, revision: 0 }), executeCommandBatch: vi.fn() },
+    });
+    await session.connect();
+    expect(await session.listMcpPlans()).toEqual({ agentAvailable: true, plans });
+    expect(fetchImpl.mock.calls[1][1]).toMatchObject({ method: "GET", headers: { authorization: "Bearer btp_inbox" } });
+    expect(await session.listMcpPlans()).toBeNull();
+    await expect(session.listMcpPlans()).rejects.toThrow(/invalid/);
+    await expect(session.listMcpPlans()).rejects.toThrow(/invalid/);
+    await expect(session.listMcpPlans()).rejects.toThrow(/discovery failed/);
+    session.disconnect();
+    await expect(session.listMcpPlans()).rejects.toThrow(/not connected/);
+  });
+
+  it("does not open a browser socket after pairing is cancelled", async () => {
+    FakeWebSocket.instances = [];
+    let resolvePair!: (response: Response) => void;
+    const session = createAgentGatewaySession({
+      baseUrl: "http://127.0.0.1:8787", operatorSecret: "offline-secret",
+      fetchImpl: () => new Promise((resolve) => { resolvePair = resolve; }),
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+      port: { inspect: () => ({ song: null, revision: 0 }), executeCommandBatch: vi.fn() },
+    });
+    const pending = session.connect();
+    session.disconnect();
+    resolvePair(jsonResponse({ token: "btp_cancelled" }));
+    await expect(pending).rejects.toThrow(/cancelled/);
+    expect(FakeWebSocket.instances).toHaveLength(0);
+    expect(session.isConnected()).toBe(false);
+  });
+
   it("pairs explicitly, previews before confirmation, and serves the browser port", async () => {
     FakeWebSocket.instances = [];
     const fetchImpl = vi.fn()

@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentModePanel, resetAgentGatewaySessionFactory, setAgentGatewaySessionFactory } from "./AgentModePanel";
-import type { AgentPlanPreview } from "./agentGateway";
+import type { AgentPlanPreview, McpPlanInbox } from "./agentGateway";
 
 const proposal: AgentPlanPreview = {
   runId: "run-test", dawId: "nanodaw", model: "offline-test", steps: 1, patch: {},
@@ -23,6 +23,7 @@ function mockSession() {
     isConnected: () => true,
     run: async () => proposal,
     loadMcpPlan: async () => proposal,
+    listMcpPlans: async () => null,
     confirmAndExecute: confirm,
   }));
   return { confirm, disconnect };
@@ -43,6 +44,81 @@ async function propose() {
 }
 
 describe("Twin progressive disclosure", () => {
+  it("keeps the exact preview when a different external proposal arrives", async () => {
+    let deliverInbox!: (value: McpPlanInbox) => void;
+    const pendingInbox = new Promise<McpPlanInbox>((resolve) => { deliverInbox = resolve; });
+    const load = vi.fn();
+    setAgentGatewaySessionFactory(() => ({
+      connect: async () => {}, disconnect: vi.fn(), isConnected: () => true,
+      run: async () => proposal, loadMcpPlan: load, confirmAndExecute: vi.fn(), listMcpPlans: () => pendingInbox,
+    }));
+    render(<AgentModePanel />);
+    await connect();
+    await propose();
+    await act(async () => deliverInbox({ agentAvailable: true, plans: [
+      { planId: "another-plan", name: "New drums", instrumentId: "drums", expiresAt: proposal.plan.expiresAt },
+    ] }));
+    expect(screen.getByRole("button", { name: "Review New drums · drums" })).toBeDisabled();
+    expect(screen.getByText(/Add track/)).toHaveTextContent("Night Bass");
+    expect(load).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Discard proposal" }));
+    expect(screen.getByRole("button", { name: "Review New drums · drums" })).toBeEnabled();
+  });
+
+  it("discovers external proposals without developer mode and never auto-confirms", async () => {
+    const confirm = vi.fn();
+    const load = vi.fn().mockResolvedValue(proposal);
+    setAgentGatewaySessionFactory(() => ({
+      connect: async () => {}, disconnect: vi.fn(), isConnected: () => true,
+      run: async () => proposal, loadMcpPlan: load, confirmAndExecute: confirm,
+      listMcpPlans: async () => ({ agentAvailable: false, plans: [
+        { planId: proposal.plan.planId, name: "Night Bass", instrumentId: "bass", expiresAt: proposal.plan.expiresAt },
+      ] }),
+    }));
+    render(<AgentModePanel />);
+    await connect();
+    const incoming = await screen.findByRole("button", { name: "Review Night Bass · bass" });
+    expect(load).not.toHaveBeenCalled();
+    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Agent plan preview")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Agent musical request"), { target: { value: "bass" } });
+    expect(screen.getByRole("button", { name: "Generate preview" })).toBeDisabled();
+    fireEvent.click(incoming);
+    await waitFor(() => expect(load).toHaveBeenCalledExactlyOnceWith(proposal.plan.planId));
+    expect(await screen.findByLabelText("Agent plan preview")).toBeInTheDocument();
+    expect(confirm).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Discard proposal" }));
+    expect(screen.queryByRole("button", { name: "Review Night Bass · bass" })).toBeNull();
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it("ignores an in-flight model result after Agent mode is disabled", async () => {
+    let resolveRun!: (value: AgentPlanPreview) => void;
+    const run = new Promise<AgentPlanPreview>((resolve) => { resolveRun = resolve; });
+    setAgentGatewaySessionFactory(() => ({
+      connect: async () => {}, disconnect: vi.fn(), isConnected: () => true,
+      run: () => run, loadMcpPlan: async () => proposal, confirmAndExecute: vi.fn(), listMcpPlans: async () => null,
+    }));
+    render(<AgentModePanel />);
+    await connect();
+    fireEvent.change(screen.getByLabelText("Agent musical request"), { target: { value: "bass" } });
+    fireEvent.click(screen.getByRole("button", { name: "Generate preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Disable Agent mode" }));
+    await act(async () => resolveRun(proposal));
+    fireEvent.click(screen.getByRole("button", { name: "Enable Agent mode" }));
+    expect(screen.queryByLabelText("Agent plan preview")).toBeNull();
+  });
+
+  it("does not leave Pairing stuck when the session factory rejects invalid settings", async () => {
+    setAgentGatewaySessionFactory(() => { throw new Error("Gateway URL must be loopback"); });
+    render(<AgentModePanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Enable Agent mode" }));
+    fireEvent.change(screen.getByLabelText("Operator secret"), { target: { value: "test-only" } });
+    fireEvent.click(screen.getByRole("button", { name: "Pair Gateway" }));
+    expect(await screen.findByText("Gateway URL must be loopback")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pair Gateway" })).toBeEnabled();
+  });
+
   it("keeps infrastructure behind settings and shows actual musical effects before confirmation", async () => {
     const { confirm } = mockSession();
     render(<AgentModePanel />);

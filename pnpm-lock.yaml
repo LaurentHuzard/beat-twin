@@ -59,6 +59,9 @@ importers:
       '@beat-twin/gateway-http':
         specifier: workspace:*
         version: link:../../packages/gateway-http
+      '@beat-twin/litert-provider':
+        specifier: workspace:*
+        version: link:../../packages/litert-provider
       '@beat-twin/nanodaw-adapter':
         specifier: workspace:*
         version: link:../../packages/adapters/nanodaw

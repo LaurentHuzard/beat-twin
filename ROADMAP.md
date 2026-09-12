@@ -101,3 +101,10 @@ Guardrails:
 - Build an optional native Android app as an independent client, without bundling Gemma or another LLM.
 - Explore a small Go daemon for external-DAW protocol bridging where it materially improves reliability.
 - Package the gateway, adapters, controller, and NanoDAW for easier local installation.
+
+## NanoDAW Agent V2 (PR #70)
+
+`pnpm nanodaw:agent` composes an opt-in NanoDAW-only SongPatchV2 provider in
+`apps/nanodaw-mcp`. TWIN discovers pending external MCP proposals for explicit
+review and human confirmation. See `docs/NANODAW_MCP.md`. Rendered-browser,
+real-provider and human listening acceptance remain unverified for this slice.

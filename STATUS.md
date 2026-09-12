@@ -69,3 +69,10 @@ device audio, or subjective listening evidence.
 - Capacity is fail-closed. Active and uncertain safety evidence stays pinned,
   so operator inspection or a process restart may be required before accepting
   more work.
+
+## NanoDAW Agent V2 (PR #70)
+
+`pnpm nanodaw:agent` composes an opt-in NanoDAW-only SongPatchV2 provider in
+`apps/nanodaw-mcp`. TWIN discovers pending external MCP proposals for explicit
+review and human confirmation. See `docs/NANODAW_MCP.md`. Rendered-browser,
+real-provider and human listening acceptance remain unverified for this slice.

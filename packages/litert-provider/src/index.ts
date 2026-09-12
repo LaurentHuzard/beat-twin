@@ -1,7 +1,9 @@
 import {
   SONG_PATCH_V1_TOOL_SCHEMA,
+  SONG_PATCH_V2_TOOL_SCHEMA,
   validateSongPatchV1,
-  type SongPatchV1,
+  validateSongPatchV2,
+  type SongPatch,
 } from "@beat-twin/agent-contract";
 
 export const LITERT_AGENT_TOOL_NAMES = Object.freeze([
@@ -52,6 +54,30 @@ export const LITERT_AGENT_TOOL_SPECS = deepFreeze([
   },
 ] as const);
 
+export const LITERT_AGENT_V2_TOOL_SPECS = deepFreeze([
+  LITERT_AGENT_TOOL_SPECS[0],
+  {
+    ...LITERT_AGENT_TOOL_SPECS[1],
+    function: {
+      ...LITERT_AGENT_TOOL_SPECS[1].function,
+      parameters: {
+        ...LITERT_AGENT_TOOL_SPECS[1].function.parameters,
+        properties: { dawId: { type: "string", enum: ["nanodaw"] } },
+      },
+    },
+  },
+  {
+    ...LITERT_AGENT_TOOL_SPECS[2],
+    function: {
+      ...LITERT_AGENT_TOOL_SPECS[2].function,
+      description: "Propose a strict SongPatchV2 for NanoDAW: choose instrumentId drums, bass, chords or lead. Creates one new track and clip, never edits an existing clip. Preserve explicit tempoBpm. Never confirm or execute.",
+      parameters: SONG_PATCH_V2_TOOL_SCHEMA,
+    },
+  },
+] as const);
+
+type LiteRtToolSpecs = typeof LITERT_AGENT_TOOL_SPECS | typeof LITERT_AGENT_V2_TOOL_SPECS;
+
 export type LiteRtModel = {
   readonly id: string;
   readonly object?: "model";
@@ -96,7 +122,7 @@ export type InspectSessionArguments = {
 export type LiteRtAgentToolHandlers = {
   readonly list_daw_targets: () => unknown | Promise<unknown>;
   readonly inspect_session: (args: InspectSessionArguments) => unknown | Promise<unknown>;
-  readonly propose_song_patch: (patch: SongPatchV1) => unknown | Promise<unknown>;
+  readonly propose_song_patch: (patch: SongPatch) => unknown | Promise<unknown>;
 };
 
 export type LiteRtProviderOptions = {
@@ -109,6 +135,8 @@ export type LiteRtProviderOptions = {
   /** Must remain between one and four. The default and absolute maximum are four. */
   readonly maxSteps?: number;
   readonly apiKey?: string;
+  /** Opt-in NanoDAW V2. Legacy and dual-target callers retain V1 by default. */
+  readonly songPatchVersion?: 1 | 2;
 };
 
 export type RunLiteRtAgentInput = {
@@ -119,7 +147,7 @@ export type RunLiteRtAgentInput = {
 
 export type LiteRtAgentRunResult = {
   readonly model: string;
-  readonly patch: SongPatchV1;
+  readonly patch: SongPatch;
   readonly proposalResult: unknown;
   readonly steps: number;
   readonly toolCalls: readonly {
@@ -154,13 +182,14 @@ export class LiteRtProviderError extends Error {
 }
 
 export interface LiteRtProvider {
-  readonly toolSpecs: typeof LITERT_AGENT_TOOL_SPECS;
+  readonly toolSpecs: LiteRtToolSpecs;
   listModels(): Promise<readonly LiteRtModel[]>;
   runAgent(input: RunLiteRtAgentInput): Promise<LiteRtAgentRunResult>;
 }
 
 export function createLiteRtProvider(options: LiteRtProviderOptions): LiteRtProvider {
   const config = validateOptions(options);
+  const baseToolSpecs = config.songPatchVersion === 2 ? LITERT_AGENT_V2_TOOL_SPECS : LITERT_AGENT_TOOL_SPECS;
 
   async function listModels(): Promise<readonly LiteRtModel[]> {
     const payload = await requestJson(config, "v1/models", { method: "GET" });
@@ -184,7 +213,7 @@ export function createLiteRtProvider(options: LiteRtProviderOptions): LiteRtProv
     }
 
     const explicitTempoBpm = parseExplicitTempoBpm(input.request);
-    const toolSpecs = toolSpecsForExplicitTempo(explicitTempoBpm);
+    const toolSpecs = toolSpecsForExplicitTempo(explicitTempoBpm, baseToolSpecs);
     const models = await listModels();
     const model = resolveModel(config.model, models);
     const messages: ChatRequestMessage[] = [
@@ -226,7 +255,7 @@ export function createLiteRtProvider(options: LiteRtProviderOptions): LiteRtProv
       if (!calls) {
         throw new LiteRtProviderError(
           "missing_proposal",
-          `model finished with ${completion.choice.finishReason ?? "null"} before proposing a SongPatchV1`,
+          `model finished with ${completion.choice.finishReason ?? "null"} before proposing a SongPatchV${config.songPatchVersion}`,
         );
       }
 
@@ -254,13 +283,15 @@ export function createLiteRtProvider(options: LiteRtProviderOptions): LiteRtProv
           );
         }
         const proposal = proposalCalls[0]!;
-        let patch: SongPatchV1;
+        let patch: SongPatch;
         try {
-          patch = validateSongPatchV1(proposal.args);
+          patch = config.songPatchVersion === 2
+            ? validateSongPatchV2(proposal.args)
+            : validateSongPatchV1(proposal.args);
         } catch (error) {
           throw new LiteRtProviderError(
             "invalid_tool_arguments",
-            "propose_song_patch arguments are not a valid SongPatchV1",
+            `propose_song_patch arguments are not a valid SongPatchV${config.songPatchVersion}`,
             { cause: error },
           );
         }
@@ -285,6 +316,10 @@ export function createLiteRtProvider(options: LiteRtProviderOptions): LiteRtProv
       });
 
       for (const parsed of parsedCalls) {
+        if (config.songPatchVersion === 2 && parsed.name === "inspect_session" &&
+            (parsed.args as InspectSessionArguments).dawId !== "nanodaw") {
+          throw new LiteRtProviderError("invalid_tool_arguments", "NanoDAW V2 can inspect only nanodaw");
+        }
         callLog.push({ step, id: parsed.call.id, name: parsed.name });
         const result =
           parsed.name === "list_daw_targets"
@@ -302,11 +337,11 @@ export function createLiteRtProvider(options: LiteRtProviderOptions): LiteRtProv
 
     throw new LiteRtProviderError(
       "step_limit",
-      `model did not propose a SongPatchV1 within ${config.maxSteps} steps`,
+      `model did not propose a SongPatchV${config.songPatchVersion} within ${config.maxSteps} steps`,
     );
   }
 
-  return Object.freeze({ toolSpecs: LITERT_AGENT_TOOL_SPECS, listModels, runAgent });
+  return Object.freeze({ toolSpecs: baseToolSpecs, listModels, runAgent });
 }
 
 export function parseModelsResponse(value: unknown): readonly LiteRtModel[] {
@@ -438,6 +473,7 @@ export function parseChatCompletionResponse(value: unknown): LiteRtChatCompletio
 }
 
 type ValidatedConfig = {
+  readonly songPatchVersion: 1 | 2;
   readonly baseUrl: URL;
   readonly model?: string;
   readonly fetch: typeof globalThis.fetch;
@@ -508,12 +544,17 @@ function validateOptions(options: LiteRtProviderOptions): ValidatedConfig {
     throw new LiteRtProviderError("configuration_error", "apiKey must be a non-empty string");
   }
   const configuredFetch = options.fetch ?? globalThis.fetch;
+  const songPatchVersion = options.songPatchVersion ?? 1;
+  if (songPatchVersion !== 1 && songPatchVersion !== 2) {
+    throw new LiteRtProviderError("configuration_error", "songPatchVersion must be 1 or 2");
+  }
   if (typeof configuredFetch !== "function") {
     throw new LiteRtProviderError("configuration_error", "no fetch implementation is available");
   }
 
   return Object.freeze({
     baseUrl,
+    songPatchVersion,
     ...(options.model === undefined ? {} : { model: options.model }),
     fetch: configuredFetch,
     timeoutMs,
@@ -632,12 +673,12 @@ function parseExplicitTempoBpm(request: string): number | undefined {
   return distinctValues[0];
 }
 
-function toolSpecsForExplicitTempo(explicitTempoBpm: number | undefined): readonly unknown[] {
+function toolSpecsForExplicitTempo(explicitTempoBpm: number | undefined, specs: LiteRtToolSpecs): readonly unknown[] {
   if (explicitTempoBpm === undefined) {
-    return LITERT_AGENT_TOOL_SPECS;
+    return specs;
   }
   return deepFreeze(
-    LITERT_AGENT_TOOL_SPECS.map((tool) =>
+    specs.map((tool) =>
       tool.function.name !== "propose_song_patch"
         ? tool
         : {

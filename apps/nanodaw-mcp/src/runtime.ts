@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 import {
+  assertAllowedListenHost,
   createBrowserNanoDawWebSocketProxy,
   createGatewayRequestHandler,
   type GatewayHandler,
@@ -12,6 +13,7 @@ import {
   type AuditSink,
 } from "@beat-twin/gateway-core";
 import { NanoDawAdapter } from "@beat-twin/nanodaw-adapter";
+import { createLiteRtProvider, type LiteRtProviderOptions } from "@beat-twin/litert-provider";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
 import {
@@ -27,6 +29,8 @@ export type NanoDawMcpRuntimeOptions = {
   readonly host?: "127.0.0.1" | "::1";
   readonly port?: number;
   readonly audit?: AuditSink;
+  /** Explicit opt-in; never contacts a model until the paired browser requests it. */
+  readonly provider?: LiteRtProviderOptions;
 };
 
 export type NanoDawMcpRuntime = {
@@ -39,6 +43,13 @@ export type NanoDawMcpRuntime = {
 export async function createNanoDawMcpRuntime(
   options: NanoDawMcpRuntimeOptions,
 ): Promise<NanoDawMcpRuntime> {
+  const host = options.host ?? "127.0.0.1";
+  const port = options.port ?? 8787;
+  assertAllowedListenHost(host);
+  if (!Number.isInteger(port) || port < 0 || port > 65_535) throw new Error("Invalid NanoDAW gateway port");
+  const provider = options.provider
+    ? createLiteRtProvider({ ...options.provider, songPatchVersion: 2 })
+    : undefined;
   const audit = options.audit ?? (() => undefined);
   const pairing = new PairingAuthority({ audit });
   const planStore = new GatewayPlanStore({
@@ -64,7 +75,7 @@ export async function createNanoDawMcpRuntime(
     operatorSecret: options.operatorSecret,
     pairing,
     planStore,
-    provider: {
+    provider: provider ?? {
       listModels: async () => [],
       runAgent: async () => {
         throw new Error("This runtime exposes structured NanoDAW MCP planning only");
@@ -78,15 +89,19 @@ export async function createNanoDawMcpRuntime(
     fallback,
     pairing,
     service,
+    agentAvailable: provider !== undefined,
   });
   const httpServer = createServer((request, response) => {
     void handler(request, response);
   });
   browserProxy.attach(httpServer);
 
-  const host = options.host ?? "127.0.0.1";
-  const port = options.port ?? 8787;
-  await listen(httpServer, host, port);
+  try {
+    await listen(httpServer, host, port);
+  } catch (error) {
+    await browserProxy.close();
+    throw error;
+  }
   const address = httpServer.address();
   if (!address || typeof address === "string") {
     throw new Error("NanoDAW MCP gateway did not expose a TCP address");
@@ -95,26 +110,21 @@ export async function createNanoDawMcpRuntime(
   const baseUrl = `http://${hostname}:${address.port}`;
   const mcpServer = createNanoDawMcpServer(service);
   let stdioStarted = false;
-  let closed = false;
+  let closing: Promise<void> | undefined;
 
   return Object.freeze({
     baseUrl,
     service,
     startStdio: async () => {
-      if (closed) throw new Error("NanoDAW MCP runtime is closed");
+      if (closing) throw new Error("NanoDAW MCP runtime is closed");
       if (stdioStarted) throw new Error("NanoDAW MCP stdio transport is already connected");
       stdioStarted = true;
       await mcpServer.connect(new StdioServerTransport());
     },
-    close: async () => {
-      if (closed) return;
-      closed = true;
-      await Promise.allSettled([
-        mcpServer.close(),
-        browserProxy.close(),
-        closeServer(httpServer),
-      ]);
-    },
+    close: () => closing ??= (async () => {
+      await Promise.allSettled([mcpServer.close(), browserProxy.close()]);
+      await closeServer(httpServer);
+    })(),
   });
 }
 
@@ -123,13 +133,15 @@ export function createNanoDawMcpReviewHandler(options: {
   readonly fallback: GatewayHandler;
   readonly pairing: PairingAuthority;
   readonly service: NanoDawMcpService;
+  readonly agentAvailable?: boolean;
 }): GatewayHandler {
   const origins = new Set(options.allowedOrigins);
 
   return async (request, response) => {
     const url = requestUrl(request);
     const match = /^\/v1\/mcp\/plans\/([^/]+)$/.exec(url.pathname);
-    if (request.method !== "GET" || !match) {
+    const inbox = url.pathname === "/v1/mcp/plans";
+    if (request.method !== "GET" || (!match && !inbox)) {
       await options.fallback(request, response);
       return;
     }
@@ -142,7 +154,19 @@ export function createNanoDawMcpReviewHandler(options: {
         throw new ReviewHttpError(403, "cors_forbidden", "request Origin is not allowed");
       }
       await options.pairing.authorize(bearerToken(request), "plan.confirm");
-      const planId = decodePathSegment(match[1]!);
+      if (inbox) {
+        sendJson(response, 200, {
+          agentAvailable: options.agentAvailable ?? false,
+          plans: options.service.listReviews().map(({ patch, plan }) => ({
+            planId: plan.planId,
+            name: patch.track.name,
+            instrumentId: patch.track.instrumentId,
+            expiresAt: plan.expiresAt,
+          })),
+        }, corsHeaders(origin, origins));
+        return;
+      }
+      const planId = decodePathSegment(match![1]!);
       const review = options.service.getReview(planId);
       if (!review) throw new ReviewHttpError(404, "route_not_found", "MCP plan not found");
       if (Date.parse(review.plan.expiresAt) <= Date.now()) {

@@ -60,6 +60,7 @@ export type NanoDawMcpService = {
   readonly inspect: () => Promise<unknown>;
   readonly prepareInstrumentClip: (input: unknown) => Promise<NanoDawMcpReview>;
   readonly getReview: (planId: string) => NanoDawMcpReview | null;
+  readonly listReviews: () => readonly NanoDawMcpReview[];
   readonly retentionStatus: () => Readonly<{ reviews: number; capacity: number }>;
 };
 
@@ -86,6 +87,14 @@ export async function createNanoDawMcpService(
     expiresAt: (review) => Date.parse(review.plan.expiresAt),
   });
   const pendingReviewPlanIds = new Set<string>();
+  const listReviews = () => {
+    const now = options.clock?.now() ?? Date.now();
+    for (const [id, review] of reviews.entries()) {
+      if (Date.parse(review.plan.expiresAt) <= now ||
+          options.planStore.getExecutionStatus(id)?.state !== "pending") reviews.delete(id);
+    }
+    return Object.freeze(reviews.entries().map(([, review]) => review));
+  };
 
   return Object.freeze({
     listInstruments: () => BUILT_IN_INSTRUMENTS,
@@ -109,6 +118,10 @@ export async function createNanoDawMcpService(
 
       const requestId = `mcp-${idGenerator()}`;
       const planId = `plan-${idGenerator()}`;
+      listReviews();
+      if (reviews.size + pendingReviewPlanIds.size >= 32) {
+        throw new Error("MCP review inbox is full; wait for pending plans to expire");
+      }
       try {
         reviews.assertCanAdd(planId, pendingReviewPlanIds.size);
       } catch (error) {
@@ -147,6 +160,7 @@ export async function createNanoDawMcpService(
       }
     },
     getReview: (planId: string) => reviews.get(planId) ?? null,
+    listReviews,
     retentionStatus: () => Object.freeze({ reviews: reviews.size, capacity: reviews.capacity }),
   });
 }

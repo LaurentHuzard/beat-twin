@@ -65,3 +65,10 @@ same deterministic command path over a pure song model.
 Keep Beat Twin focused on safe, inspectable Bitwig control and browser-first
 composition primitives. The near-term goal is reliability, clear policy
 boundaries, and one shared command path, not autonomous music production.
+
+## NanoDAW Agent V2 (PR #70)
+
+`pnpm nanodaw:agent` composes an opt-in NanoDAW-only SongPatchV2 provider in
+`apps/nanodaw-mcp`. TWIN discovers pending external MCP proposals for explicit
+review and human confirmation. See `docs/NANODAW_MCP.md`. Rendered-browser,
+real-provider and human listening acceptance remain unverified for this slice.

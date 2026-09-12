@@ -24,6 +24,7 @@
     "node": ">=26.0.0"
   },
   "dependencies": {
+    "@beat-twin/litert-provider": "workspace:*",
     "@beat-twin/gateway-core": "workspace:*",
     "@beat-twin/gateway-http": "workspace:*",
     "@beat-twin/nanodaw-adapter": "workspace:*",

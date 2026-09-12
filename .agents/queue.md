@@ -18,10 +18,10 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-None. BT-ARCH-101 through 104 are ported and verified locally in
-finish/beat-pending; parent review, publication and merge are pending.
-Report: `.agents/reports/architecture-20260912-port.md`.
-BT-MUE is merged through PR #67 at 86679ab. Previous product handoff follows.
+None. `BT-AGENT-001` review corrections are complete locally in review/pr-70-fixes.
+Report: .agents/reports/review-20260912-pr70.md.
+PR #70 stays draft; publication and live acceptance are separate gates.
+BT-ARCH-101 through 104 are merged through PR #68; BT-MUE through PR #67.
 
 `BT-UX-065` initial issue #65 delivery is merged through PR #66 at dd61643.
 The complete issue

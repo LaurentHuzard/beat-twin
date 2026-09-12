@@ -99,6 +99,60 @@ function handlers(overrides: Partial<LiteRtAgentToolHandlers> = {}): LiteRtAgent
   };
 }
 
+test("NanoDAW V2 selects each built-in instrument with the exact tempo and a read/propose-only schema", async () => {
+  for (const instrumentId of ["drums", "bass", "chords", "lead"]) {
+    const patch = { ...validPatch(), schemaVersion: 2, track: { ...validPatch().track, instrumentId } };
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const provider = createLiteRtProvider({
+      baseUrl: "http://offline.invalid/", songPatchVersion: 2,
+      fetch: queueFetch([modelsResponse("gemma4-e2b"), completion([
+        { id: "v2", name: "propose_song_patch", arguments: JSON.stringify(patch) },
+      ])], requests),
+    });
+    const run = await provider.runAgent({ request: `Create ${instrumentId} at 120 BPM`, handlers: handlers() });
+    assert.equal(run.patch.schemaVersion, 2);
+    assert.equal(run.patch.track.instrumentId, instrumentId);
+    const payload = JSON.parse(String(requests[1]!.init!.body));
+    const schema = payload.tools[2].function.parameters;
+    assert.deepEqual(schema.properties.schemaVersion.enum, [2]);
+    assert.deepEqual(schema.properties.tempoBpm.enum, [120]);
+    assert.ok(schema.properties.track.required.includes("instrumentId"));
+    assert.deepEqual(payload.tools.map((tool: any) => tool.function.name), LITERT_AGENT_TOOL_NAMES);
+    assert.deepEqual(payload.tools[1].function.parameters.properties.dawId.enum, ["nanodaw"]);
+  }
+});
+
+test("NanoDAW V2 fails closed for V1, unknown instruments, unknown fields and off-grid notes", async () => {
+  const patch = { ...validPatch(), schemaVersion: 2, track: { ...validPatch().track, instrumentId: "bass" } };
+  for (const invalid of [validPatch(), { ...patch, execute: true },
+    { ...patch, track: { ...patch.track, instrumentId: "plugin" } },
+    { ...patch, track: { ...patch.track, clip: { ...patch.track.clip, notes: [{ pitch: 36, velocity: 100, startBeat: 0.1, lengthBeats: 0.5 }] } } },
+  ]) {
+    let proposed = false;
+    const provider = createLiteRtProvider({
+      baseUrl: "http://offline.invalid/", songPatchVersion: 2,
+      fetch: queueFetch([modelsResponse("gemma4-e2b"), completion([
+        { id: "invalid-v2", name: "propose_song_patch", arguments: JSON.stringify(invalid) },
+      ])]),
+    });
+    await assert.rejects(provider.runAgent({ request: "Create bass", handlers: handlers({ propose_song_patch: () => { proposed = true; } }) }),
+      (error: unknown) => error instanceof LiteRtProviderError && error.code === "invalid_tool_arguments");
+    assert.equal(proposed, false);
+  }
+});
+
+test("NanoDAW V2 refuses Bitwig inspection before invoking a handler", async () => {
+  let inspected = false;
+  const provider = createLiteRtProvider({
+    baseUrl: "http://offline.invalid/", songPatchVersion: 2,
+    fetch: queueFetch([modelsResponse("gemma4-e2b"), completion([
+      { id: "wrong-target", name: "inspect_session", arguments: JSON.stringify({ dawId: "bitwig" }) },
+    ])]),
+  });
+  await assert.rejects(provider.runAgent({ request: "Create bass", handlers: handlers({ inspect_session: () => { inspected = true; } }) }), /only nanodaw/);
+  assert.equal(inspected, false);
+});
+
 function assertProviderError(code: LiteRtProviderError["code"]): (error: unknown) => boolean {
   return (error: unknown) => error instanceof LiteRtProviderError && error.code === code;
 }
