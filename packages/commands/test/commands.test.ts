@@ -479,6 +479,44 @@ test("binds idempotency to the normalized request ID and exact payload", () => {
   assert.equal(runtime.inspect().song?.id, "song-1");
 });
 
+test("bounds command idempotency and fails before mutation until cleanup", () => {
+  let now = 0;
+  const runtime = createCommandRuntime(createCommandState(), {
+    clock: { now: () => now },
+    completedRequestRetention: { capacity: 1, ttlMs: 10 },
+  });
+  const firstRequest = {
+    requestId: "retained-create",
+    expectedRevision: 0,
+    commands: [{ type: "CreateSong", id: "song-retained", title: "Retained" }],
+  } as const;
+  assert.equal(runtime.executeCommandBatch(firstRequest).ok, true);
+  const blocked = runtime.executeCommandBatch({
+    requestId: "blocked-tempo",
+    expectedRevision: 1,
+    commands: [{ type: "SetTempo", bpm: 130 }],
+  });
+  assert.equal(blocked.ok, false);
+  assert.match(blocked.ok ? "" : blocked.error, /retention capacity/);
+  assert.equal(runtime.inspect().revision, 1);
+  assert.deepEqual(runtime.retentionStatus(), { completedRequests: 1, capacity: 1 });
+
+  now = 10;
+  assert.equal(runtime.executeCommandBatch({
+    requestId: "retained-tempo",
+    expectedRevision: 1,
+    commands: [{ type: "SetTempo", bpm: 130 }],
+  }).ok, true);
+  assert.equal(runtime.inspect().revision, 2);
+
+  now = 20;
+  const replayAfterBoundary = runtime.executeCommandBatch(firstRequest);
+  assert.equal(replayAfterBoundary.ok, false);
+  assert.equal(replayAfterBoundary.ok ? null : replayAfterBoundary.errorCode, "stale_revision");
+  assert.equal(runtime.inspect().revision, 2);
+  assert.equal(runtime.retentionStatus().completedRequests, 1);
+});
+
 test("returns a stable error for a malformed runtime request", () => {
   const runtime = createCommandRuntime();
   const result = runtime.executeCommandBatch(null as never);

@@ -534,6 +534,36 @@ describe("performance clip transitions", () => {
     state = reducePerformanceState(state, { type: "ResetPerformance" });
     expect(state.transitionIds).toEqual({});
   });
+
+  it("bounds session transition IDs and only cleans them on explicit reset", () => {
+    let state = reducePerformanceState(
+      createPerformanceState({ transitionIdCapacity: 2 }),
+      { type: "StartTransport", atBeat: 0 },
+    );
+    for (const transitionId of ["bounded-stop-1", "bounded-stop-2"]) {
+      state = reducePerformanceState(state, {
+        type: "StopTransport",
+        transitionId,
+        requestedAtBeat: 0,
+      });
+      state = reducePerformanceState(state, {
+        type: "CancelPendingTransportStop",
+        transitionId,
+        cancelledAtBeat: 0,
+      });
+    }
+    expect(Object.keys(state.transitionIds)).toHaveLength(2);
+    expect(() => reducePerformanceState(state, {
+      type: "StopTransport",
+      transitionId: "bounded-stop-3",
+      requestedAtBeat: 0,
+    })).toThrow(/capacity 2 is exhausted/);
+    expect(Object.keys(state.transitionIds)).toHaveLength(2);
+
+    state = reducePerformanceState(state, { type: "ResetPerformance" });
+    expect(state.transitionIds).toEqual({});
+    expect(state.transitionIdCapacity).toBe(2);
+  });
 });
 
 describe("performance scenes, recording, and mix", () => {

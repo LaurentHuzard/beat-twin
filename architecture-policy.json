@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "layers": [
+    {
+      "name": "app",
+      "paths": [".", "apps/*"]
+    },
+    {
+      "name": "domain",
+      "paths": [
+        "packages/core",
+        "packages/commands",
+        "packages/agent-contract",
+        "packages/daw-contract",
+        "packages/retention"
+      ]
+    },
+    {
+      "name": "application",
+      "paths": ["packages/gateway-core"]
+    },
+    {
+      "name": "adapter",
+      "paths": ["packages/adapters/*"]
+    },
+    {
+      "name": "delivery",
+      "paths": ["packages/gateway-http", "packages/mcp"]
+    },
+    {
+      "name": "infrastructure",
+      "paths": ["packages/audio-tone", "packages/litert-provider"]
+    }
+  ],
+  "protectedLayerRules": [
+    {
+      "from": "domain",
+      "forbid": ["app", "adapter", "delivery"]
+    }
+  ],
+  "exceptions": [],
+  "relativeAppImports": [
+    {
+      "from": "apps/gateway/src/rtx-bitwig-preview-cli.ts",
+      "to": "index.js",
+      "reason": "Existing RTX composition reuses the root BitwigProtocolClient; protocol extraction belongs to deferred BT-ARCH-107."
+    },
+    {
+      "from": "apps/gateway/src/rtx-dual-target-cli.ts",
+      "to": "index.js",
+      "reason": "Existing dual-target composition reuses the authenticated root BitwigProtocolClient; preserve its protocol behavior."
+    }
+  ]
+}

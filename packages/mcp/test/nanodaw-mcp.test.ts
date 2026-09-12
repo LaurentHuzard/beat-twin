@@ -125,6 +125,29 @@ test("uses the runtime UUID generator without losing its Crypto receiver", async
   assert.equal(context.executions(), 0);
 });
 
+test("bounds MCP reviews and only frees them after the plan expiry boundary", async () => {
+  const context = fixture();
+  const ids = ["first-request", "first-plan", "blocked-request", "blocked-plan", "next-request", "next-plan"];
+  let now = Date.now();
+  const service = await createNanoDawMcpService({
+    ...context,
+    idGenerator: () => ids.shift() ?? "extra",
+    clock: { now: () => now },
+    reviewRetention: { capacity: 1, ttlMs: 120_000 },
+  });
+  const first = await service.prepareInstrumentClip(PATCH);
+  await assert.rejects(service.prepareInstrumentClip(PATCH), /review retention.*capacity/i);
+  assert.deepEqual(service.retentionStatus(), { reviews: 1, capacity: 1 });
+  assert.equal(context.planStore.retentionStatus().plans, 1);
+
+  now = Date.parse(first.plan.expiresAt);
+  const next = await service.prepareInstrumentClip(PATCH);
+  assert.equal(next.plan.planId, "plan-next-plan");
+  assert.equal(service.getReview(first.plan.planId), null);
+  assert.equal(service.retentionStatus().reviews, 1);
+  assert.equal(context.executions(), 0);
+});
+
 test("serves the bounded tool surface over the MCP protocol", async () => {
   const context = fixture();
   const ids = ["protocol-request", "protocol-plan"];

@@ -35,18 +35,49 @@ importers:
       '@beat-twin/commands':
         specifier: workspace:*
         version: link:../../packages/commands
-      '@beat-twin/daw-contract':
-        specifier: workspace:*
-        version: link:../../packages/daw-contract
       '@beat-twin/gateway-core':
         specifier: workspace:*
         version: link:../../packages/gateway-core
+      '@beat-twin/gateway-http':
+        specifier: workspace:*
+        version: link:../../packages/gateway-http
       '@beat-twin/litert-provider':
         specifier: workspace:*
         version: link:../../packages/litert-provider
       '@beat-twin/nanodaw-adapter':
         specifier: workspace:*
         version: link:../../packages/adapters/nanodaw
+      ws:
+        specifier: ^8.21.0
+        version: 8.21.0
+
+  apps/nanodaw-mcp:
+    dependencies:
+      '@beat-twin/gateway-core':
+        specifier: workspace:*
+        version: link:../../packages/gateway-core
+      '@beat-twin/gateway-http':
+        specifier: workspace:*
+        version: link:../../packages/gateway-http
+      '@beat-twin/nanodaw-adapter':
+        specifier: workspace:*
+        version: link:../../packages/adapters/nanodaw
+      '@beat-twin/nanodaw-mcp':
+        specifier: workspace:*
+        version: link:../../packages/mcp
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.29.0
+        version: 1.29.0(zod@4.3.5)
+    devDependencies:
+      '@beat-twin/commands':
+        specifier: workspace:*
+        version: link:../../packages/commands
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
       ws:
         specifier: ^8.21.0
         version: 8.21.0
@@ -62,6 +93,9 @@ importers:
       '@beat-twin/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@beat-twin/retention':
+        specifier: workspace:*
+        version: link:../../packages/retention
       lucide-react:
         specifier: ^0.468.0
         version: 0.468.0(react@19.2.7)
@@ -120,6 +154,9 @@ importers:
       '@beat-twin/daw-contract':
         specifier: workspace:*
         version: link:../../daw-contract
+      '@beat-twin/retention':
+        specifier: workspace:*
+        version: link:../../retention
 
   packages/adapters/nanodaw:
     dependencies:
@@ -129,6 +166,9 @@ importers:
       '@beat-twin/daw-contract':
         specifier: workspace:*
         version: link:../../daw-contract
+      '@beat-twin/retention':
+        specifier: workspace:*
+        version: link:../../retention
 
   packages/agent-contract:
     dependencies:
@@ -157,6 +197,9 @@ importers:
       '@beat-twin/core':
         specifier: workspace:*
         version: link:../core
+      '@beat-twin/retention':
+        specifier: workspace:*
+        version: link:../retention
 
   packages/core: {}
 
@@ -171,6 +214,33 @@ importers:
       '@beat-twin/daw-contract':
         specifier: workspace:*
         version: link:../daw-contract
+      '@beat-twin/retention':
+        specifier: workspace:*
+        version: link:../retention
+
+  packages/gateway-http:
+    dependencies:
+      '@beat-twin/agent-contract':
+        specifier: workspace:*
+        version: link:../agent-contract
+      '@beat-twin/commands':
+        specifier: workspace:*
+        version: link:../commands
+      '@beat-twin/daw-contract':
+        specifier: workspace:*
+        version: link:../daw-contract
+      '@beat-twin/gateway-core':
+        specifier: workspace:*
+        version: link:../gateway-core
+      '@beat-twin/litert-provider':
+        specifier: workspace:*
+        version: link:../litert-provider
+      '@beat-twin/nanodaw-adapter':
+        specifier: workspace:*
+        version: link:../adapters/nanodaw
+      ws:
+        specifier: ^8.21.0
+        version: 8.21.0
 
   packages/litert-provider:
     dependencies:
@@ -193,18 +263,24 @@ importers:
       '@beat-twin/daw-contract':
         specifier: workspace:*
         version: link:../daw-contract
-      '@beat-twin/gateway':
-        specifier: workspace:*
-        version: link:../../apps/gateway
       '@beat-twin/gateway-core':
         specifier: workspace:*
         version: link:../gateway-core
-      '@beat-twin/nanodaw-adapter':
+      '@beat-twin/retention':
         specifier: workspace:*
-        version: link:../adapters/nanodaw
+        version: link:../retention
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.3.5)
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+
+  packages/retention:
     devDependencies:
       '@types/node':
         specifier: ^24.0.0

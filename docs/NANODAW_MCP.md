@@ -49,7 +49,7 @@ the browser pairing form must receive the same value. Example MCP configuration:
 codex mcp add nanodaw \
   --env NANODAW_MCP_OPERATOR_SECRET=replace-with-a-long-local-secret \
   -- node --experimental-strip-types \
-  /absolute/path/to/beat-twin/packages/mcp/src/cli.ts
+  /absolute/path/to/beat-twin/apps/nanodaw-mcp/src/cli.ts
 ```
 
 The process starts its browser Gateway on `http://127.0.0.1:8787`. The default

@@ -9,6 +9,7 @@ dist/
 .env.*
 .idea/
 coverage/
+/output/
 playwright-report/
 test-results/
 *.log

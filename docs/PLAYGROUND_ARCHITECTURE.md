@@ -33,7 +33,12 @@ per-track audio graph live in
 - `apps/playground` is a Vite React TypeScript app that dispatches commands and renders the resulting song state.
 - `packages/audio-tone` owns the pure live scheduler and persistent browser
   audio engine. Tone.js is still loaded lazily only when playback is requested.
-- `packages/adapters`, `packages/mcp`, `packages/ui`, and `packages/utils` are reserved extension points, not active implementations.
+- `packages/adapters/nanodaw` and `packages/adapters/bitwig` implement the two
+  current DAW targets.
+- `packages/mcp` implements the reusable NanoDAW MCP schemas, service, and
+  transport; `apps/nanodaw-mcp` owns its process composition and lifecycle.
+- `packages/ui` and `packages/utils` remain reserved until real cross-feature or
+  cross-package reuse justifies them.
 
 ## Browser-First Flow
 
@@ -94,13 +99,20 @@ and execution rejects stale revisions before mutation.
 - `packages/daw-contract`: versioned adapter, capability, plan, report, and conformance contracts.
 - `packages/agent-contract`: strict `SongPatchV1` validation, compilation, and preview.
 - `packages/adapters/nanodaw`: transactional memory adapter and abstract browser-owned port.
-- `apps/gateway/src/browser-nanodaw-websocket.js`: authenticated loopback proxy
-  for that browser-owned port; it keeps no song snapshot. See
+- `packages/gateway-http`: typed loopback HTTP delivery and authenticated
+  browser WebSocket proxy for that browser-owned port; it keeps no song
+  snapshot. `apps/gateway` remains a compatibility facade. See
   [`BROWSER_NANODAW_WEBSOCKET.md`](BROWSER_NANODAW_WEBSOCKET.md).
 - `packages/adapters/bitwig`: authenticated, target-bound launcher-slot
   translation with strict musical bounds, stop-first-failure semantics, and
   exact note readback.
-- `packages/mcp`: future extracted MCP server wiring, if the root CLI grows too large.
+- `packages/mcp`: standalone NanoDAW catalog, inspection, and plan-preparation
+  MCP surface. `apps/nanodaw-mcp` composes Gateway delivery, browser proxy,
+  pairing, plans, adapter, stdio, and shutdown without changing the tool
+  contract.
+- `packages/retention`: bounded, injected process-lifetime storage primitives
+  used by idempotency and safety registries. See
+  [`ADR-003-PROCESS-LIFETIME-RETENTION.md`](ADR-003-PROCESS-LIFETIME-RETENTION.md).
 - `packages/ui`: shared UI primitives once the playground repeats enough component patterns.
 - `packages/utils`: small shared helpers only when duplication appears.
 
@@ -113,7 +125,10 @@ Sprint 0+1 must not break:
 - existing policy gate behavior;
 - existing Bitwig controller setup docs.
 
-Any future Bitwig adapter extraction should be a separate tested migration with `node --check index.js` and the current offline MCP tests passing before and after.
+The portable Bitwig adapter now lives in `packages/adapters/bitwig`, while the
+historical root MCP path remains the compatibility anchor. Any further root
+modularization must keep `node --check index.js`, the 57-tool snapshot, policy
+tests, and protocol tests passing before and after.
 
 Browser audition follows the same compatibility rule. It must not import
 `index.js`, call the local Bitwig TCP bridge, or treat browser preview controls
