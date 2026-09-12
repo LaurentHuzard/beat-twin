@@ -57,6 +57,7 @@ export async function startRtxDualTargetRuntime(options) {
   const provider = config.provider ?? createLiteRtProvider({
     baseUrl: config.providerBaseUrl,
     model: config.model,
+    apiKey: config.apiKey,
     timeoutMs: config.providerTimeoutMs,
     thinkingBudgetTokens: config.thinkingBudgetTokens,
     fetch: config.fetch,

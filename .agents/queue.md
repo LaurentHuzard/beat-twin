@@ -18,6 +18,9 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
+None. Integration BT-MUE authorized on 2026-09-12 is locally verified;
+see current-plan.md. Review/merge remain separate. Previous handoff follows.
+
 None. `BT-UX-065` initial issue #65 delivery is verified locally in
 `codex/issue-65-instrument-first` (commit/merge authorized 2026-09-10). The complete issue
 remains open for audio-wired macros/mixer, Capture Jam, 4x4 and further TWIN work.

@@ -4,8 +4,8 @@ import { readFileSync } from "node:fs";
 
 import { BitwigProtocolClient } from "../../../index.js";
 
-import { startRtxDualTargetRuntime } from "./rtx-dual-target-runtime.js";
-import { readRtxBitwigPreviewConfig } from "./rtx-bitwig-preview-runtime.js";
+import { startRtxDualTargetRuntime } from "./rtx-dual-target-runtime.ts";
+import { readRtxBitwigPreviewConfig } from "./rtx-bitwig-preview-runtime.ts";
 
 const operatorSecret = readSecret(
   process.env.BEAT_TWIN_OPERATOR_SECRET_FILE,
@@ -32,6 +32,7 @@ const runtime = await startRtxDualTargetRuntime({
   bridgeSecret,
   providerBaseUrl: config.providerBaseUrl,
   model: config.model,
+  apiKey: config.apiKey,
   providerTimeoutMs: config.providerTimeoutMs,
   thinkingBudgetTokens: config.thinkingBudgetTokens,
   gatewayHost: config.gatewayHost,

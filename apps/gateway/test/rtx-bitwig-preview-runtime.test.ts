@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   readRtxBitwigPreviewConfig,
   startRtxBitwigPreviewRuntime,
-} from "../src/rtx-bitwig-preview-runtime.js";
+} from "../src/rtx-bitwig-preview-runtime.ts";
 
 const OPERATOR_SECRET = "local preview operator secret";
 const PATCH = Object.freeze({
@@ -73,6 +73,7 @@ test("RTX Bitwig runtime composes a real preview-only bounded agent loop", async
   const requests = [];
   let chatStep = 0;
   const fakeFetch = async (input, init = {}) => {
+    assert.equal(new Headers(init.headers).get("authorization"), "Bearer synthetic-mue-key");
     const url = String(input);
     if (url.endsWith("/v1/models")) {
       return Response.json({ object: "list", data: [{ id: "qwen3-8b", object: "model" }] });
@@ -100,6 +101,7 @@ test("RTX Bitwig runtime composes a real preview-only bounded agent loop", async
     providerBaseUrl: "http://rtx.test:8002/",
     model: "qwen3-8b",
     fetch: fakeFetch,
+    apiKey: "synthetic-mue-key",
     gatewayPort: 0,
     bitwigCall: async (method, params) => {
       bitwigCalls.push({ method, params });
@@ -177,6 +179,13 @@ test("RTX Bitwig preview config fails closed and accepts loopback defaults", asy
   assert.equal(config.providerTimeoutMs, 60_000);
   assert.equal(config.thinkingBudgetTokens, 512);
   assert.equal(config.providerBaseUrl.href, "http://192.168.1.141:8002/");
+  assert.equal(config.apiKey, undefined);
+  assert.equal(readRtxBitwigPreviewConfig({
+    BEAT_TWIN_OPERATOR_SECRET: OPERATOR_SECRET,
+    LITERT_BASE_URL: "http://rtx.test:8002/",
+    LITERT_MODEL: "qwen3-8b",
+    LITERT_API_KEY: "  synthetic-mue-key  ",
+  }).apiKey, "synthetic-mue-key");
   const runtime = await startRtxBitwigPreviewRuntime({
     operatorSecret: OPERATOR_SECRET,
     providerBaseUrl: config.providerBaseUrl,
