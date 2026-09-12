@@ -28,6 +28,7 @@ export function readRtxBitwigPreviewConfig(env = process.env) {
   const operatorSecret = requireSecret(env.BEAT_TWIN_OPERATOR_SECRET);
   const providerBaseUrl = requireHttpUrl(env.LITERT_BASE_URL, "LITERT_BASE_URL");
   const model = requireNonBlank(env.LITERT_MODEL, "LITERT_MODEL");
+  const apiKey = env.LITERT_API_KEY?.trim() || undefined;
   const providerTimeoutMs = parsePositiveInteger(
     env.LITERT_TIMEOUT_MS,
     60_000,
@@ -49,6 +50,7 @@ export function readRtxBitwigPreviewConfig(env = process.env) {
     operatorSecret,
     providerBaseUrl,
     model,
+    apiKey,
     providerTimeoutMs,
     thinkingBudgetTokens,
     gatewayHost,
@@ -73,6 +75,7 @@ export async function startRtxBitwigPreviewRuntime(options) {
   const provider = config.provider ?? createLiteRtProvider({
     baseUrl: config.providerBaseUrl,
     model: config.model,
+    apiKey: config.apiKey,
     timeoutMs: config.providerTimeoutMs,
     thinkingBudgetTokens: config.thinkingBudgetTokens,
     fetch: config.fetch,

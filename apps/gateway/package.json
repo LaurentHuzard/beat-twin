@@ -9,12 +9,12 @@
     ".": "./src/index.js"
   },
   "scripts": {
-    "start:rtx-dual-target": "node src/rtx-dual-target-cli.js",
-    "start:rtx-bitwig-preview": "node src/rtx-bitwig-preview-cli.js",
-    "test": "node --test test/*.test.js"
+    "start:rtx-dual-target": "node --experimental-strip-types src/rtx-dual-target-cli.ts",
+    "start:rtx-bitwig-preview": "node --experimental-strip-types src/rtx-bitwig-preview-cli.ts",
+    "test": "node --experimental-strip-types --test test/*.test.js test/*.test.ts"
   },
   "engines": {
-    "node": "^22.0.0 || ^24.0.0"
+    "node": ">=26.0.0"
   },
   "dependencies": {
     "@beat-twin/agent-contract": "workspace:*",

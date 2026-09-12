@@ -4,7 +4,7 @@ import { BitwigProtocolClient } from "../index.js";
 import {
   readRtxBitwigPreviewConfig,
   startRtxBitwigPreviewRuntime,
-} from "../apps/gateway/src/rtx-bitwig-preview-runtime.js";
+} from "../apps/gateway/src/rtx-bitwig-preview-runtime.ts";
 
 const operatorSecret = randomBytes(32).toString("hex");
 const config = readRtxBitwigPreviewConfig({

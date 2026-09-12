@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   readRtxBitwigPreviewConfig,
   startRtxBitwigPreviewRuntime,
-} from "../src/rtx-bitwig-preview-runtime.js";
+} from "../src/rtx-bitwig-preview-runtime.ts";
 
 const OPERATOR_SECRET = "local preview operator secret";
 const PATCH = Object.freeze({
