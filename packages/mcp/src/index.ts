@@ -19,6 +19,12 @@ import {
   MAX_PAIRING_TTL_MS,
   PairingAuthority,
 } from "@beat-twin/gateway-core";
+import {
+  BoundedRetentionMap,
+  type RetentionClock,
+  type RetentionPolicy,
+  type RetentionStore,
+} from "@beat-twin/retention";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
@@ -44,6 +50,9 @@ export type NanoDawMcpServiceOptions = {
   readonly pairing: PairingAuthority;
   readonly planStore: GatewayPlanStore;
   readonly idGenerator?: () => string;
+  readonly clock?: RetentionClock;
+  readonly reviewRetention?: Partial<RetentionPolicy>;
+  readonly reviewStore?: RetentionStore<string, NanoDawMcpReview>;
 };
 
 export type NanoDawMcpService = {
@@ -51,7 +60,13 @@ export type NanoDawMcpService = {
   readonly inspect: () => Promise<unknown>;
   readonly prepareInstrumentClip: (input: unknown) => Promise<NanoDawMcpReview>;
   readonly getReview: (planId: string) => NanoDawMcpReview | null;
+  readonly retentionStatus: () => Readonly<{ reviews: number; capacity: number }>;
 };
+
+export const DEFAULT_MCP_REVIEW_RETENTION = Object.freeze({
+  capacity: 2_048,
+  ttlMs: 2 * 60 * 1_000,
+} satisfies RetentionPolicy);
 
 export async function createNanoDawMcpService(
   options: NanoDawMcpServiceOptions,
@@ -63,7 +78,14 @@ export async function createNanoDawMcpService(
     ttlMs: MAX_PAIRING_TTL_MS,
     maxRequests: 10_000,
   });
-  const reviews = new Map<string, NanoDawMcpReview>();
+  const reviews = new BoundedRetentionMap<string, NanoDawMcpReview>({
+    name: "NanoDAW MCP reviews",
+    policy: { ...DEFAULT_MCP_REVIEW_RETENTION, ...options.reviewRetention },
+    clock: options.clock,
+    store: options.reviewStore,
+    expiresAt: (review) => Date.parse(review.plan.expiresAt),
+  });
+  const pendingReviewPlanIds = new Set<string>();
 
   return Object.freeze({
     listInstruments: () => BUILT_IN_INSTRUMENTS,
@@ -87,30 +109,45 @@ export async function createNanoDawMcpService(
 
       const requestId = `mcp-${idGenerator()}`;
       const planId = `plan-${idGenerator()}`;
-      const compileOptions = { idSeed: requestId, snapshot: snapshot.commandSnapshot };
-      const commands = compileSongPatch(validation.value, compileOptions);
-      const preview = previewSongPatch(validation.value, compileOptions);
-      const requiredScopes = deriveRequiredCommandScopes(commands);
-      requireSupported(capabilities.supportedCommands, commands.map((command) => command.type));
-      requireSupported(capabilities.scopes, requiredScopes);
+      try {
+        reviews.assertCanAdd(planId, pendingReviewPlanIds.size);
+      } catch (error) {
+        throw new Error(`MCP review retention unavailable: ${errorMessage(error)}`);
+      }
+      pendingReviewPlanIds.add(planId);
+      try {
+        const compileOptions = { idSeed: requestId, snapshot: snapshot.commandSnapshot };
+        const commands = compileSongPatch(validation.value, compileOptions);
+        const preview = previewSongPatch(validation.value, compileOptions);
+        const requiredScopes = deriveRequiredCommandScopes(commands);
+        requireSupported(capabilities.supportedCommands, commands.map((command) => command.type));
+        requireSupported(capabilities.scopes, requiredScopes);
 
-      const plan = await options.planStore.createPlan({
-        token: grant.token,
-        plan: {
-          planId,
-          requestId,
-          adapterId: "nanodaw",
-          capabilityVersion: capabilities.capabilityVersion,
-          baseRevision: snapshot.commandSnapshot.revision,
-          commands,
-          requiredScopes,
-        },
-      });
-      const review = deepFreeze({ patch: validation.value, preview, plan });
-      reviews.set(plan.planId, review);
-      return review;
+        const plan = await options.planStore.createPlan({
+          token: grant.token,
+          plan: {
+            planId,
+            requestId,
+            adapterId: "nanodaw",
+            capabilityVersion: capabilities.capabilityVersion,
+            baseRevision: snapshot.commandSnapshot.revision,
+            commands,
+            requiredScopes,
+          },
+        });
+        const review = deepFreeze({ patch: validation.value, preview, plan });
+        try {
+          reviews.set(plan.planId, review);
+        } catch (error) {
+          throw new Error(`MCP review retention unavailable: ${errorMessage(error)}`);
+        }
+        return review;
+      } finally {
+        pendingReviewPlanIds.delete(planId);
+      }
     },
     getReview: (planId: string) => reviews.get(planId) ?? null,
+    retentionStatus: () => Object.freeze({ reviews: reviews.size, capacity: reviews.capacity }),
   });
 }
 
@@ -231,6 +268,10 @@ function toolError(error: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function deepFreeze<T>(value: T): T {

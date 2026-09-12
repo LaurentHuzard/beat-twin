@@ -233,6 +233,71 @@ test("concurrent idempotent replays are coalesced before the mutating port call"
   assert.equal(runtime.inspect().revision, 1);
 });
 
+test("bounds terminal executions and frees capacity only after retention expiry", async () => {
+  let now = NOW;
+  const runtime = createCommandRuntime(createCommandState());
+  const port = new MemoryNanoDawPort(runtime);
+  const adapter = new NanoDawAdapter({
+    port,
+    now: () => now,
+    verifyDigest: (candidate) => candidate.digest === `digest:${candidate.planId}`,
+    executionRetention: { capacity: 1, ttlMs: 10 },
+  });
+  const firstSnapshot = await adapter.inspect();
+  assert.equal((await adapter.execute(planFor(firstSnapshot, {
+    planId: "retention-first",
+    requestId: "retention-first",
+  }))).ok, true);
+  const secondSnapshot = await adapter.inspect();
+  const secondPlan = planFor(secondSnapshot, {
+    planId: "retention-second",
+    requestId: "retention-second",
+  });
+  const blocked = await adapter.execute(secondPlan);
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.ok ? null : blocked.error.code, "policy_blocked");
+  assert.equal(port.batchExecutionCount, 1);
+  assert.deepEqual(adapter.retentionStatus(), { executions: 1, capacity: 1 });
+
+  now += 10;
+  assert.equal((await adapter.execute(secondPlan)).ok, true);
+  assert.equal(port.batchExecutionCount, 2);
+  assert.equal(adapter.retentionStatus().executions, 1);
+});
+
+test("never evicts an uncertain execution or retries it under capacity pressure", async () => {
+  let now = NOW;
+  const runtime = createCommandRuntime(createCommandState());
+  let dispatches = 0;
+  const adapter = new NanoDawAdapter({
+    port: {
+      inspect: () => runtime.inspect(),
+      executeCommandBatch: () => {
+        dispatches += 1;
+        throw new Error("connection lost after dispatch");
+      },
+    },
+    now: () => now,
+    verifyDigest: (candidate) => candidate.digest === `digest:${candidate.planId}`,
+    executionRetention: { capacity: 1, ttlMs: 10 },
+  });
+  const snapshot = await adapter.inspect();
+  const uncertain = await adapter.execute(planFor(snapshot, {
+    planId: "uncertain-retained",
+    requestId: "uncertain-retained",
+  }));
+  assert.equal(uncertain.status, "partial");
+  now += 1_000;
+  const blocked = await adapter.execute(planFor(snapshot, {
+    planId: "must-not-dispatch",
+    requestId: "must-not-dispatch",
+  }));
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.ok ? null : blocked.error.code, "policy_blocked");
+  assert.equal(dispatches, 1);
+  assert.equal(adapter.retentionStatus().executions, 1);
+});
+
 test("an invalid command inside a batch commits none of its earlier commands", async () => {
   const { adapter, port, runtime } = fixture();
   const snapshot = await adapter.inspect();

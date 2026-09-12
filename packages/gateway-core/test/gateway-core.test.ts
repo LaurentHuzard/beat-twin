@@ -49,7 +49,12 @@ function unsignedPlan(overrides: Partial<UnsignedExecutablePlan> = {}): Unsigned
   };
 }
 
-async function fixture(options: { maxRequests?: number; policy?: () => boolean } = {}) {
+async function fixture(options: {
+  maxRequests?: number;
+  policy?: () => boolean;
+  planRetention?: { readonly capacity: number; readonly ttlMs: number };
+  confirmationRetention?: { readonly capacity: number; readonly ttlMs: number };
+} = {}) {
   const clock = fakeClock();
   const audit: GatewayAuditEvent[] = [];
   const pairing = new PairingAuthority({
@@ -69,6 +74,8 @@ async function fixture(options: { maxRequests?: number; policy?: () => boolean }
     audit: (event) => audit.push(event),
     tokenGenerator: tokenSequence("confirm"),
     policy: options.policy ?? (() => true),
+    planRetention: options.planRetention,
+    confirmationRetention: options.confirmationRetention,
   });
   return { clock, audit, pairing, grant, store };
 }
@@ -185,6 +192,137 @@ test("expired plans and confirmations fail closed", async () => {
     planId: secondPlan.planId,
   });
   assert.notEqual(replacement.confirmationToken, confirmation.confirmationToken);
+});
+
+test("confirmation capacity cleans expired records without stranding their plans", async () => {
+  const context = await fixture({
+    confirmationRetention: { capacity: 1, ttlMs: MAX_CONFIRMATION_TTL_MS },
+  });
+  const firstPlan = await context.store.createPlan({
+    token: context.grant.token,
+    plan: unsignedPlan(),
+  });
+  await context.store.confirm({
+    token: context.grant.token,
+    planId: firstPlan.planId,
+    ttlMs: 100,
+  });
+  const secondPlan = await context.store.createPlan({
+    token: context.grant.token,
+    plan: unsignedPlan({ planId: "plan-2", requestId: "request-2" }),
+  });
+  await assert.rejects(
+    context.store.confirm({ token: context.grant.token, planId: secondPlan.planId }),
+    (error: unknown) => error instanceof GatewayCoreError && error.code === "capacity_exceeded",
+  );
+
+  context.clock.advance(100);
+  await context.store.confirm({
+    token: context.grant.token,
+    planId: secondPlan.planId,
+    ttlMs: 100,
+  });
+  assert.equal(context.store.retentionStatus().confirmations, 1);
+
+  context.clock.advance(100);
+  const replacement = await context.store.confirm({
+    token: context.grant.token,
+    planId: firstPlan.planId,
+    ttlMs: 100,
+  });
+  assert.match(replacement.confirmationToken, /^btc_/);
+  assert.equal(context.store.retentionStatus().confirmations, 1);
+});
+
+test("pairing capacity fails closed until token expiry cleanup", async () => {
+  const clock = fakeClock();
+  const pairing = new PairingAuthority({
+    clock,
+    audit: () => undefined,
+    tokenGenerator: tokenSequence("bounded-pair"),
+    retention: { capacity: 1, ttlMs: 1_000 },
+  });
+  await pairing.issue({ actorId: "one", scopes: ["gateway.read"], ttlMs: 100, maxRequests: 1 });
+  await assert.rejects(
+    pairing.issue({ actorId: "two", scopes: ["gateway.read"], ttlMs: 100, maxRequests: 1 }),
+    (error: unknown) => error instanceof GatewayCoreError && error.code === "capacity_exceeded",
+  );
+  assert.deepEqual(pairing.retentionStatus(), { records: 1, capacity: 1, activeOperations: 0 });
+  clock.advance(100);
+  await pairing.issue({ actorId: "two", scopes: ["gateway.read"], ttlMs: 100, maxRequests: 1 });
+  assert.equal(pairing.retentionStatus().records, 1);
+});
+
+test("completed plans clean up after terminal retention without replaying mutations", async () => {
+  const context = await fixture({ planRetention: { capacity: 1, ttlMs: 10 } });
+  const first = await context.store.createPlan({ token: context.grant.token, plan: unsignedPlan() });
+  const confirmation = await context.store.confirm({ token: context.grant.token, planId: first.planId });
+  await context.store.consumeExecution({
+    token: context.grant.token,
+    planId: first.planId,
+    confirmationToken: confirmation.confirmationToken,
+  });
+  await context.store.recordExecution({ planId: first.planId, report: successReport(first) });
+  await assert.rejects(
+    context.store.createPlan({
+      token: context.grant.token,
+      plan: unsignedPlan({ planId: "plan-before-cleanup", requestId: "before-cleanup" }),
+    }),
+    (error: unknown) => error instanceof GatewayCoreError && error.code === "capacity_exceeded",
+  );
+  context.clock.advance(1_010);
+  const second = await context.store.createPlan({
+    token: context.grant.token,
+    plan: unsignedPlan({ planId: "plan-after-cleanup", requestId: "after-cleanup" }),
+  });
+  assert.equal(second.planId, "plan-after-cleanup");
+  assert.equal(context.store.getExecutionStatus(first.planId), null);
+  assert.equal(context.store.retentionStatus().plans, 1);
+});
+
+test("uncertain plans stay pinned and block capacity even after every TTL", async () => {
+  const context = await fixture({ planRetention: { capacity: 1, ttlMs: 10 } });
+  const first = await context.store.createPlan({ token: context.grant.token, plan: unsignedPlan() });
+  const confirmation = await context.store.confirm({ token: context.grant.token, planId: first.planId });
+  await context.store.consumeExecution({
+    token: context.grant.token,
+    planId: first.planId,
+    confirmationToken: confirmation.confirmationToken,
+  });
+  await context.store.recordExecutionUncertainty({
+    planId: first.planId,
+    message: "outcome unknown after dispatch",
+  });
+  context.clock.advance(1_000);
+  await assert.rejects(
+    context.store.createPlan({
+      token: context.grant.token,
+      plan: unsignedPlan({ planId: "unsafe-retry", requestId: "unsafe-retry" }),
+    }),
+    (error: unknown) => error instanceof GatewayCoreError && error.code === "capacity_exceeded",
+  );
+  assert.equal(context.store.getExecutionStatus(first.planId)?.state, "uncertain");
+  assert.equal(context.store.retentionStatus().plans, 1);
+});
+
+test("a fresh process-lifetime store restores no terminal state and performs no replay", async () => {
+  const context = await fixture();
+  const plan = await context.store.createPlan({ token: context.grant.token, plan: unsignedPlan() });
+  const restarted = new GatewayPlanStore({
+    pairing: context.pairing,
+    clock: context.clock,
+    audit: () => undefined,
+    policy: () => true,
+  });
+  assert.equal(restarted.getPlan(plan.planId), null);
+  assert.equal(restarted.getExecutionStatus(plan.planId), null);
+  assert.deepEqual(restarted.retentionStatus(), {
+    plans: 0,
+    planCapacity: 2_048,
+    confirmations: 0,
+    confirmationCapacity: 2_048,
+    activeOperations: 0,
+  });
 });
 
 test("pairing revocation, scopes, and quotas are enforced", async () => {

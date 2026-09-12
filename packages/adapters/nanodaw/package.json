@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@beat-twin/commands": "workspace:*",
-    "@beat-twin/daw-contract": "workspace:*"
+    "@beat-twin/daw-contract": "workspace:*",
+    "@beat-twin/retention": "workspace:*"
   }
 }

@@ -20,10 +20,10 @@
     "@beat-twin/agent-contract": "workspace:*",
     "@beat-twin/bitwig-adapter": "workspace:*",
     "@beat-twin/commands": "workspace:*",
-    "@beat-twin/daw-contract": "workspace:*",
     "@beat-twin/gateway-core": "workspace:*",
     "@beat-twin/litert-provider": "workspace:*",
     "@beat-twin/nanodaw-adapter": "workspace:*",
-    "ws": "^8.21.0"
+    "ws": "^8.21.0",
+    "@beat-twin/gateway-http": "workspace:*"
   }
 }
