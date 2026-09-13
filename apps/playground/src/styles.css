@@ -3258,3 +3258,12 @@ input, select, textarea { color: var(--text-primary); }
   .instrument-matrix .launcher-scene small { display: none; }
 }
 .shell-actions > button { white-space: nowrap; }
+
+/* MCP musical plans are reviewed in the narrow TWIN drawer at every viewport. */
+.twin-drawer .agent-connect-grid,
+.twin-drawer .agent-request-grid,
+.twin-drawer .mcp-plan-grid,
+.twin-drawer .agent-plan-preview { grid-template-columns: minmax(0, 1fr); }
+.twin-drawer .agent-mode-body, .twin-drawer .agent-plan-preview > * { min-width: 0; }
+.twin-drawer .agent-plan-preview li { overflow-wrap: anywhere; }
+.mcp-song-audio { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }

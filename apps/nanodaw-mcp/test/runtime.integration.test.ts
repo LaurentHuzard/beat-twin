@@ -102,6 +102,35 @@ test("app owns startup, review, browser CAS execution, and clean shutdown", asyn
     assert.equal(executed.body.report.finalSnapshot.revision, 1);
     assert.equal(commandRuntime.inspect().revision, 1);
 
+    const snapshot = commandRuntime.inspect();
+    const trackId = snapshot.song!.tracks[0]!.id;
+    const musical = await runtime.service.prepareMusical("nanodaw_prepare_batch", {
+      songId: snapshot.song!.id, expectedRevision: snapshot.revision,
+      operations: [
+        { tool: "nanodaw_rename_track", arguments: { trackId, name: "Reviewed Bass" } },
+        { tool: "nanodaw_play", arguments: {} },
+      ],
+    });
+    const inbox = await jsonFetch(`${runtime.baseUrl}/v1/mcp/plans`, { headers: authorization });
+    assert.equal(inbox.response.status, 200);
+    assert.equal(inbox.body.plans.find((entry: { planId: string }) => entry.planId === musical.plan.planId).instrumentId, "multiple");
+    const genericPreview = await jsonFetch(`${runtime.baseUrl}/v1/mcp/plans/${musical.plan.planId}`, { headers: authorization });
+    assert.equal(genericPreview.response.status, 200);
+    assert.equal(genericPreview.body.patch, null);
+    assert.deepEqual(genericPreview.body.preview.commands, musical.plan.commands);
+    assert.equal(commandRuntime.inspect().revision, 1);
+    const musicalConfirmed = await jsonFetch(`${runtime.baseUrl}/v1/plans/${musical.plan.planId}/confirm`, { method: "POST", headers: authorization });
+    assert.equal(musicalConfirmed.response.status, 200, JSON.stringify(musicalConfirmed.body));
+    const musicalExecuted = await jsonFetch(`${runtime.baseUrl}/v1/plans/${musical.plan.planId}/execute`, {
+      method: "POST", headers: { ...authorization, "content-type": "application/json" },
+      body: JSON.stringify({ confirmationToken: musicalConfirmed.body.confirmationToken }),
+    });
+    assert.equal(musicalExecuted.response.status, 200, JSON.stringify(musicalExecuted.body));
+    assert.equal(musicalExecuted.body.report.status, "succeeded");
+    assert.equal(commandRuntime.inspect().revision, 2);
+    assert.equal(commandRuntime.inspect().song!.tracks[0]!.name, "Reviewed Bass");
+    assert.equal(commandRuntime.inspect().song!.transport.isPlaying, true);
+
     const browserClosed = once(browser, "close");
     await runtime.close();
     await browserClosed;

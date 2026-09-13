@@ -1,35 +1,40 @@
-# BT-MCP-069 — bounded tool discovery and dispatch
+# BT-MCP-072 — NanoDAW musical catalog and demonstration
 
-User activated issue #69 implementation on 2026-09-12.
-Base: freshly fetched origin/main at 083f949.
-Branch: agent/mcp-tool-discovery. Worktree: /tmp/beat-twin-issue69.
+User activated implementation of issue #72 on 2026-09-13.
+Base: freshly fetched origin/main b386eda752447e4c74a150468d7e0dc26522919b.
+Branch: agent/nanodaw-mcp-72. Worktree: /tmp/beat-twin-mcp-72.
 
-Status: local implementation and offline verification complete; human handoff.
-Evidence: .agents/reports/feature-20260912-mcp-069.md.
-242 backend tests and 166 NanoDAW tests passed; final focused registry run
-passed 7 tests. Builds, architecture, package smoke and packaging checks passed.
-Push/PR, merge and runtime activation remain separate, unperformed gates.
+## Orbit Ready
 
-## Contract and scope
+None. BT-MCP-072 implementation and offline/synthetic-browser verification
+are complete. User authorized commit, publication as a PR and review on
+2026-09-13. Merge and real-client listening acceptance remain separate. Report: .agents/reports/feature-20260913-mcp-072.md.
 
-First surface: historical Bitwig MCP, opt-in BITWIG_MCP_TOOL_DISCOVERY=1.
-Keep the 57 TOOL_SPECS and the default list unchanged.
-search_tools: query (optional, max 200 chars), limit (1–20, default 10),
-offset (0–10000, default 0); return deterministic authorized definitions,
-total and nextOffset. Search name/description/policy with literal terms.
-call_tool: name and optional arguments object; reject extra wrapper fields,
-unknown targets and recursion; validate against the target input schema, then
-reuse the existing dispatch and its current policy/authentication checks.
-Errors remain structured MCP tool errors. No target result is wrapped twice.
+Validation: 247 general tests, 173 NanoDAW tests, package/app builds,
+Playground typecheck/production build, architecture and diff check pass.
+Chrome desktop/mobile synthetic review -> confirmed edit -> play -> stop passed.
+Issue #72 remains open. This branch is the sole implementation PR candidate;
+no merge, activation or real provider acceptance is included.
 
-## Execution
+## Outcome
 
-1. Implement wrappers using the existing registry, no second tool catalog.
-2. Cover discovery bounds, policy changes, malformed arguments, recursion,
-   direct-call parity and real MCP in-memory transport with fake DAW calls.
-3. Run focused tests, full offline baseline, typecheck/build, architecture,
-   package smoke, packaging inspection and diff check; adversarial review.
-4. Record evidence and return Orbit Ready to a human handoff.
+Expose bounded search_tools/call_tool and a musical NanoDAW catalog for track,
+clip, note, variation and transport plans, grouped editing, status, review,
+execution reports and revision-bound recovery. Preserve browser ownership,
+exact human confirmation and existing tools/provider projections.
 
-NanoDAW MCP, model-visible tools, UI, provider access and live DAW writes are
-outside this slice. No publication, merge or branch deletion is authorized.
+## Steps
+
+1. Inspect command, adapter, plan review, retention and audio integration contracts.
+2. Extend missing commands and readback, with atomic and stale-state tests.
+3. Share one MCP registry/dispatch; implement bounded musical preparation and discovery.
+4. Integrate generic review and confirmed browser playback/recovery.
+5. Run focused and available offline suites, typecheck/build, architecture,
+   browser verification where available, diff check and adversarial review.
+6. Document catalog/demo and record evidence; return queue to honest handoff.
+
+## Boundaries
+
+No Bitwig writes, real provider access, publication, merge, deployment or branch
+cleanup. Live listening acceptance remains separate from offline evidence.
+The launcher 4x4, mix/macros and Capture Jam remain separate issues.

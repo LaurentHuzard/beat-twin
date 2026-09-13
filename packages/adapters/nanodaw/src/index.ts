@@ -29,6 +29,7 @@ import {
 export const NANODAW_CAPABILITY_VERSION = "nanodaw-v2";
 
 export const NANODAW_SUPPORTED_COMMANDS = Object.freeze([
+  "RenameTrack", "DeleteTrack", "UpdateClip", "DeleteClip", "RestoreTrack",
   "CreateSong",
   "CreateTrack",
   "SetTrackInstrument",

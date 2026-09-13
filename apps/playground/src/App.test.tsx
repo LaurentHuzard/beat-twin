@@ -292,7 +292,7 @@ describe("Playground", () => {
         loadMcpPlan: async () => preview,
         listMcpPlans: async () => null,
         confirmAndExecute: async (planId) => {
-          const batch = options.port.executeCommandBatch({
+          const batch = await options.port.executeCommandBatch({
             requestId: "request-agent-1",
             expectedRevision: 0,
             commands: commands as never,

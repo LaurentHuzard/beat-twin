@@ -7,3 +7,6 @@ shutdown.
 
 Reusable MCP schemas, service behavior, and server construction remain in
 `@beat-twin/nanodaw-mcp`. The browser remains the only owner of song state.
+
+The expanded musical tool catalog, grouped review, confirmed browser playback
+and recovery flow are documented in [NANODAW_MCP_CATALOG.md](../../docs/NANODAW_MCP_CATALOG.md).

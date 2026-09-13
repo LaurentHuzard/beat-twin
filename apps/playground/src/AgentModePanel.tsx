@@ -6,9 +6,9 @@ import {
   type AgentGatewaySession,
   type AgentGatewaySessionOptions,
   type AgentPlanPreview,
-  type BrowserCommandPort,
   type McpPlanInbox,
 } from "./agentGateway";
+import { createMcpAudioPort } from "./mcpAudioPort";
 import { usePlaygroundStore } from "./store";
 
 type SessionFactory = (options: AgentGatewaySessionOptions) => AgentGatewaySession;
@@ -26,6 +26,7 @@ type ConnectionState = "off" | "disconnected" | "connecting" | "connected";
 type OperationState = "idle" | "running" | "preview" | "executing" | "completed" | "failed";
 
 export function AgentModePanel({ developerMode = false }: { developerMode?: boolean }) {
+  const [songAudioPlaying, setSongAudioPlaying] = useState(false);
   const song = usePlaygroundStore((state) => state.commandState.song);
   const [enabled, setEnabled] = useState(false);
   const [gatewayUrl, setGatewayUrl] = useState("http://127.0.0.1:8787");
@@ -52,10 +53,11 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
     }
   }
 
-  const gatewayPort = useMemo<BrowserCommandPort>(
-    () => ({
+  const gatewayPort = useMemo(
+    () => createMcpAudioPort({
+      onPlaying: setSongAudioPlaying,
       inspect: () => usePlaygroundStore.getState().inspectRemoteSession(),
-      executeCommandBatch: (request) =>
+      execute: (request) =>
         usePlaygroundStore.getState().executeRemoteCommandBatch(request),
     }),
     [],
@@ -65,7 +67,10 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
     const session = sessionRef.current;
     sessionRef.current = null;
     session?.disconnect();
-  }, []);
+    const wasPlaying = gatewayPort.isPlaying();
+    gatewayPort.dispose();
+    if (wasPlaying && usePlaygroundStore.getState().commandState.song?.transport.isPlaying) usePlaygroundStore.getState().dispatch({ type: "StopPlayback" });
+  }, [gatewayPort]);
 
   useEffect(() => {
     if (connection !== "connected") return;
@@ -95,11 +100,24 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
     return () => { cancelled = true; clearTimeout(timer); };
   }, [connection]);
 
+  useEffect(() => usePlaygroundStore.subscribe((state, previous) => {
+    if (state.commandState !== previous.commandState && gatewayPort.isPlaying() && !gatewayPort.isBusy()) {
+      gatewayPort.stop();
+      if (state.commandState.song?.transport.isPlaying) state.dispatch({ type: "StopPlayback" });
+    }
+  }), [gatewayPort]);
+
+  const stopSongAudio = () => {
+    gatewayPort.stop();
+    if (usePlaygroundStore.getState().commandState.song?.transport.isPlaying) usePlaygroundStore.getState().dispatch({ type: "StopPlayback" });
+  };
+
   const disable = () => {
     const session = sessionRef.current;
     sessionRef.current = null;
     session?.disconnect();
     setEnabled(false);
+    stopSongAudio();
     setConnection("off");
     setOperation("idle");
     setPreview(null);
@@ -132,6 +150,7 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
         port: gatewayPort,
         onConnectionChange: (connected) => {
           if (sessionRef.current !== session) return;
+          if (!connected) stopSongAudio();
           setConnection(connected ? "connected" : "disconnected");
         },
       });
@@ -229,6 +248,7 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
 
   return (
     <section className="agent-mode-panel" aria-label="Agent mode">
+      {songAudioPlaying ? <div role="status" className="mcp-song-audio">Song audio playing <button type="button" className="tool-button" onClick={stopSongAudio}>Stop song audio</button></div> : null}
       <div className="agent-mode-heading">
         <div>
           <span className="eyebrow">Composition companion</span>
@@ -409,6 +429,15 @@ function describeMusicalChange(value: unknown, names: ReadonlyMap<string, string
   switch (command.type) {
     case "CreateSong": return `Replace the current song with “${field("title", "Untitled Beat Twin Song")}”${field("bpm") ? ` at ${field("bpm")} BPM` : ""}.`;
     case "CreateTrack": return `Add track “${field("name", "New track")}” · ${field("instrumentId", "default instrument")}`;
+    case "RenameTrack": return `${target}: rename to “${field("name")}”`;
+    case "DeleteTrack": return `${target}: DELETE track and ALL its clips and notes`;
+    case "DeleteClip": return `${target}: DELETE clip and ALL its notes`;
+    case "UpdateClip": return `${target}: edit clip · ${["name", "startBeat", "lengthBeats"].filter((key) => field(key)).map((key) => `${key}: ${field(key)}`).join(", ")}`;
+    case "RestoreTrack": {
+      const track = command.track as { name?: string; id?: string; instrumentId?: string; clips?: { pattern?: { notes?: unknown[] } }[] } | undefined;
+      const clips = track?.clips ?? [];
+      return `Restore “${track?.name ?? track?.id ?? "track"}” · ${track?.instrumentId ?? "instrument"} · ${clips.length} clips · ${clips.reduce((count, clip) => count + (clip.pattern?.notes?.length ?? 0), 0)} notes · position ${field("index")}`;
+    }
     case "SetTrackInstrument": return `${target}: change instrument to ${field("instrumentId")}`;
     case "CreateClip": return `${target}: add clip “${field("name", "Untitled Clip")}” · ${field("lengthBeats", "4")} beats, starting at beat ${field("startBeat", "0")}`;
     case "AddNote": return `${target}: add MIDI note ${field("pitch")} at beat ${field("startBeat")} · ${field("lengthBeats", "1")} beats · velocity ${field("velocity", "100")}`;
