@@ -5,17 +5,21 @@ edits from an MCP client. It connects to the browser-owned NanoDAW over the
 existing loopback Gateway and does not require Bitwig, a controller script, the
 historical Bitwig MCP server, or the S25 provider.
 
-## First Tool Slice
+## Musical catalog
 
-The MCP server exposes exactly three tools:
+The MCP server preserves these three original tools:
 
 - `nanodaw_list_instruments`: returns `drums`, `bass`, `chords`, and `lead`;
 - `nanodaw_inspect`: reads the connected browser-owned song and revision;
 - `nanodaw_prepare_instrument_clip`: validates one `SongPatchV2`, materializes
   the track, instrument, clip, and note commands, and stores a two-minute plan.
 
-There is deliberately no MCP confirmation, apply, execute, transport, plugin,
-filesystem, or arbitrary-synthesis tool. Preparation does not mutate the song.
+The expanded [musical catalog](NANODAW_MCP_CATALOG.md) adds search_tools/call_tool,
+track/clip/note editing, grouped plans, transport preparation, status/report
+inspection and revision-bound recovery. All mutations and transport changes
+remain preparations for browser confirmation. There is no MCP confirmation,
+autonomous apply/execute, plugin, filesystem or arbitrary-synthesis tool.
+Preparation does not mutate the song.
 
 ## End-to-End Flow
 
@@ -64,7 +68,9 @@ pnpm nanodaw:dev
 ```
 
 Open **TWIN**, enable **Agent mode**, open **Connection settings**, then pair
-with the operator secret and Gateway URL. External plans appear automatically
+with the Gateway URL. For this standalone MCP server, select **This gateway
+requires an operator secret** and enter the configured secret before connecting.
+Leave it unchecked for a local-pairing Gateway. External plans appear automatically
 in **Incoming MCP proposals** (refresh every ten seconds while connected).
 Choose **Review <track>** to load the exact plan. Developer Mode is not required;
 its manual **Load MCP plan** field remains a diagnostic fallback.

@@ -12,7 +12,7 @@ export type BrowserCommandPort = {
   readonly inspect: () => CommandSnapshot;
   readonly executeCommandBatch: (
     request: ExecuteCommandBatchRequest,
-  ) => CommandBatchResult;
+  ) => CommandBatchResult | Promise<CommandBatchResult>;
 };
 
 export type AgentPlanPreview = {
@@ -49,7 +49,7 @@ export type McpPlanInbox = {
   readonly plans: readonly {
     readonly planId: string;
     readonly name: string;
-    readonly instrumentId: "drums" | "bass" | "chords" | "lead";
+    readonly instrumentId: "drums" | "bass" | "chords" | "lead" | "multiple";
     readonly expiresAt: string;
   }[];
 };
@@ -58,6 +58,7 @@ export type AgentGatewaySessionOptions = {
   readonly baseUrl: string;
   readonly port: BrowserCommandPort;
   readonly actorId?: string;
+  readonly operatorSecret?: string;
   readonly fetchImpl?: typeof fetch;
   readonly WebSocketImpl?: typeof WebSocket;
   readonly onConnectionChange?: (connected: boolean) => void;
@@ -98,6 +99,7 @@ export function createAgentGatewaySession(
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        ...(options.operatorSecret ? { operatorSecret: options.operatorSecret } : {}),
         ...(actorId?.trim() ? { actorId: actorId.trim() } : {}),
       }),
     });
@@ -166,7 +168,7 @@ export function createAgentGatewaySession(
         body.plans.some((plan: unknown) => !isPlainObject(plan) ||
           !isNonBlankString(plan.planId) || !isNonBlankString(plan.name) ||
           typeof plan.instrumentId !== "string" ||
-          !["drums", "bass", "chords", "lead"].includes(plan.instrumentId) ||
+          !["drums", "bass", "chords", "lead", "multiple"].includes(plan.instrumentId) ||
           typeof plan.expiresAt !== "string" || !Number.isFinite(Date.parse(plan.expiresAt)))) {
       throw new Error("Gateway MCP proposal inbox is invalid.");
     }

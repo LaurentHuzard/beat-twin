@@ -134,6 +134,7 @@ const COMMAND_STATUSES = new Set<CommandExecutionStatus>([
   "unknown",
 ]);
 const COMMAND_TYPES = new Set<ExecutableCommandType>([
+  "RenameTrack", "DeleteTrack", "UpdateClip", "DeleteClip", "RestoreTrack",
   "CreateSong",
   "CreateTrack",
   "SetTrackInstrument",
@@ -587,6 +588,26 @@ function validateExecutableCommand(value: unknown, index: number): ValidationRes
   let keys: readonly string[];
   let valid = true;
   switch (command.type) {
+    case "RenameTrack":
+      keys = ["trackId", "name"];
+      valid = id("trackId") && id("name");
+      break;
+    case "DeleteTrack":
+      keys = ["trackId"];
+      valid = id("trackId");
+      break;
+    case "DeleteClip":
+      keys = ["trackId", "clipId"];
+      valid = id("trackId") && id("clipId");
+      break;
+    case "UpdateClip":
+      keys = ["trackId", "clipId", "name", "startBeat", "lengthBeats"];
+      valid = id("trackId") && id("clipId") && optionalString("name") && optionalNonNegative("startBeat") && optionalPositive("lengthBeats") && ["name", "startBeat", "lengthBeats"].some((key) => command[key] !== undefined);
+      break;
+    case "RestoreTrack":
+      keys = ["track", "index"];
+      valid = isRecord(command.track) && Number.isSafeInteger(command.index) && (command.index as number) >= 0;
+      break;
     case "CreateSong":
       keys = ["id", "title", "bpm"];
       valid = id("id") && optionalString("title") && optionalPositive("bpm");

@@ -1,7 +1,7 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-09-12
-Implementation base for this queue update: `083f949`
+Updated: 2026-09-14
+Implementation base for this queue update: `b386eda`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -18,16 +18,16 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-BT-LOCAL-002 Done locally: user-authorized NanoDAW local pairing without secret;
-actual Zen session connected. Confirmation gates retained.
+PR #73 integration is authorized for review and merge on 2026-09-14.
+BT-MCP-072 is implemented; main conflicts and pairing compatibility are resolved.
+252 backend / 176 NanoDAW tests pass; final GitHub head check and merge pending.
+Issue #72 stays open for real MCP-client/demo and listening acceptance.
+Evidence: .agents/reports/feature-20260913-mcp-072.md.
 
-BT-LOCAL-001 Done locally: user-authorized loopback-only Bitwig without secret.
-
-None. `BT-MCP-069` is implemented and verified locally on
-`agent/mcp-tool-discovery`; awaiting human review/publication approval.
-Report: `.agents/reports/feature-20260912-mcp-069.md`.
-Opt-in Bitwig MCP search_tools/call_tool retain existing policy/authentication.
-No live DAW/provider, runtime activation, push/PR or merge performed for #69.
+BT-LOCAL-001 and BT-LOCAL-002 are included in main d043148: loopback Bitwig
+bridge and NanoDAW local pairing without secret. Prior live evidence is in
+.agents/current-plan.md; this review does not reactivate either runtime.
+BT-MCP-069 is merged through PR #71 at b386eda (Bitwig surface only).
 Previous: PR #70 merged at 083f949; live acceptance remains separate.
 BT-ARCH-101 through 104 are merged through PR #68; BT-MUE through PR #67.
 
