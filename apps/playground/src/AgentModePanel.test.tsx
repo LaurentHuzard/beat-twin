@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentModePanel, resetAgentGatewaySessionFactory, setAgentGatewaySessionFactory } from "./AgentModePanel";
-import type { AgentPlanPreview, McpPlanInbox } from "./agentGateway";
+import type { AgentGatewaySessionOptions, AgentPlanPreview, McpPlanInbox } from "./agentGateway";
 
 const proposal: AgentPlanPreview = {
   runId: "run-test", dawId: "nanodaw", model: "offline-test", steps: 1, patch: {},
@@ -32,8 +32,6 @@ function mockSession() {
 async function connect() {
   fireEvent.click(screen.getByRole("button", { name: "Enable Agent mode" }));
   fireEvent.click(screen.getByText("Connection settings"));
-  fireEvent.change(screen.getByLabelText("Operator secret"), { target: { value: "test-only" } });
-  fireEvent.click(screen.getByRole("button", { name: "Pair Gateway" }));
   await waitFor(() => expect(screen.getByText("Connected")).toBeInTheDocument());
 }
 
@@ -113,10 +111,8 @@ describe("Twin progressive disclosure", () => {
     setAgentGatewaySessionFactory(() => { throw new Error("Gateway URL must be loopback"); });
     render(<AgentModePanel />);
     fireEvent.click(screen.getByRole("button", { name: "Enable Agent mode" }));
-    fireEvent.change(screen.getByLabelText("Operator secret"), { target: { value: "test-only" } });
-    fireEvent.click(screen.getByRole("button", { name: "Pair Gateway" }));
     expect(await screen.findByText("Gateway URL must be loopback")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Pair Gateway" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Connect Gateway" })).toBeEnabled();
   });
 
   it("keeps infrastructure behind settings and shows actual musical effects before confirmation", async () => {
@@ -156,4 +152,19 @@ describe("Twin progressive disclosure", () => {
     expect(screen.getByLabelText("Agent plan preview")).toBeInTheDocument();
     expect(disconnect).not.toHaveBeenCalled();
   });
+});
+
+it("auto-connects locally without a password and never confirms music", async () => {
+  const confirm = vi.fn();
+  const factory = vi.fn((_options: AgentGatewaySessionOptions) => ({ connect: async () => {}, disconnect: vi.fn(),
+    isConnected: () => true, run: async () => proposal, loadMcpPlan: async () => proposal,
+    listMcpPlans: async () => null, confirmAndExecute: confirm }));
+  setAgentGatewaySessionFactory(factory);
+  render(<AgentModePanel autoConnect />);
+  await waitFor(() => expect(screen.getByText("Connected")).toBeInTheDocument());
+  expect(screen.queryByLabelText("Operator secret")).toBeNull();
+  expect(factory.mock.calls[0][0]).not.toHaveProperty("operatorSecret");
+  expect(confirm).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Disable Agent mode" }));
+  expect(screen.getByRole("button", { name: "Enable Agent mode" })).toBeEnabled();
 });

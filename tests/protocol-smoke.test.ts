@@ -160,13 +160,13 @@ test("write request preserves params and accepts OK response", async () => {
   });
 });
 
-test("authenticated writes send the bridge secret once per connection", async () => {
+test("local writes handshake once per connection without sending a secret", async () => {
   await withMockServer(async (socket) => {
     const authentication = await readLengthPrefixedRequest(socket);
     assert.deepEqual(authentication.request, {
       jsonrpc: "2.0",
       method: "bridge.authenticate",
-      params: ["bridge secret value"],
+      params: [],
       id: 0,
     });
     socket.write(`${JSON.stringify({

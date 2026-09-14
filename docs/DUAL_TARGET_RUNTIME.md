@@ -19,13 +19,9 @@ readback. A confirmation issued for one target cannot authorize the other.
 
 ## Start
 
-Use Node.js 24. Store both local secrets in mode-600 files where practical:
+Use Node.js 26. Local NanoDAW pairing requires no operator secret:
 
 ```bash
-chmod 600 /tmp/beat-twin-operator-secret /tmp/beat-twin-bridge-secret
-
-BEAT_TWIN_OPERATOR_SECRET_FILE=/tmp/beat-twin-operator-secret \
-BITWIG_BRIDGE_SECRET_FILE=/tmp/beat-twin-bridge-secret \
 LITERT_BASE_URL=http://mue.orbit:8003/ \
 LITERT_MODEL=qwen3-8b \
 pnpm gateway:rtx-dual-target
@@ -34,7 +30,7 @@ pnpm gateway:rtx-dual-target
 Defaults:
 
 - Gateway: `http://127.0.0.1:8788`;
-- Bitwig controller: `127.0.0.1:8888`;
+- Bitwig clients: `127.0.0.1:8888`; controller connects out to `127.0.0.1:8889`; no Bitwig secret.
 - allowed NanoDAW origins: `http://127.0.0.1:5173` and
   `http://localhost:5173`.
 
@@ -53,7 +49,7 @@ routes. Starting it performs no authentication or mutation.
 ## Connect browser-owned NanoDAW
 
 Start the Playground with `pnpm nanodaw:dev`, enable Agent mode, use the Gateway
-URL, and pair with the operator secret. The browser keeps ownership of the
+URL, and connect to the local Gateway. The browser keeps ownership of the
 NanoDAW command state and answers inspection and atomic batch requests over the
 existing authenticated WebSocket proxy.
 
@@ -62,7 +58,6 @@ existing authenticated WebSocket proxy.
 With the browser connected and one empty Bitwig launcher slot selected:
 
 ```bash
-BEAT_TWIN_OPERATOR_SECRET_FILE=/tmp/beat-twin-operator-secret \
 pnpm preview:rtx-dual-target
 ```
 

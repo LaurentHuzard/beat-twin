@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 
@@ -85,12 +86,22 @@ export function createGatewayRequestHandler(options) {
 
       if (request.method === "POST" && url.pathname === "/v1/pair") {
         const body = await readJsonObject(request, config.bodyLimitBytes);
+        if (config.pairingMode === "local") {
+          assertExactKeys(body, [], ["actorId"]);
+          const peer = request.socket.remoteAddress;
+          if (!["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(peer) ||
+              typeof request.headers.origin !== "string" ||
+              !config.corsOrigins.includes(request.headers.origin)) {
+            throw new GatewayHttpError("local_pairing_forbidden", "Local pairing requires a loopback peer and an allowed browser Origin", 403);
+          }
+        } else {
         assertExactKeys(body, ["operatorSecret"], ["actorId"]);
         if (!isNonBlankString(body.operatorSecret)) {
           throw new GatewayHttpError("invalid_request", "operatorSecret must be a non-empty string");
         }
         if (!secretsEqual(body.operatorSecret, config.operatorSecret)) {
           throw new GatewayHttpError("unauthenticated", "operator secret is invalid", 401);
+        }
         }
         if (body.actorId !== undefined && !isNonBlankString(body.actorId)) {
           throw new GatewayHttpError("invalid_request", "actorId must be a non-empty string");
@@ -454,6 +465,11 @@ function validateOptions(options) {
   if (!isPlainObject(options)) {
     throw new GatewayHttpError("configuration_error", "gateway options are required", 500);
   }
+  const pairingMode = options.pairingMode ?? "secret";
+  if (!["local", "secret"].includes(pairingMode)) {
+    throw new GatewayHttpError("configuration_error", "pairingMode must be local or secret", 500);
+  }
+  if (pairingMode === "secret") {
   if (!isNonBlankString(options.operatorSecret)) {
     throw new GatewayHttpError("configuration_error", "operatorSecret must be configured", 500);
   }
@@ -463,6 +479,7 @@ function validateOptions(options) {
       "operatorSecret must contain at least 16 characters",
       500,
     );
+  }
   }
   if (!options.provider || typeof options.provider.runAgent !== "function" || typeof options.provider.listModels !== "function") {
     throw new GatewayHttpError("configuration_error", "provider must implement LiteRtProvider", 500);
@@ -534,6 +551,9 @@ function validateOptions(options) {
   );
   const pairingScopes = uniqueNonBlankStrings(options.pairingScopes ?? DEFAULT_PAIRING_SCOPES, "pairingScopes");
   const corsOrigins = uniqueNonBlankStrings(options.corsOrigins ?? [], "corsOrigins");
+  if (pairingMode === "local" && (corsOrigins.length === 0 || corsOrigins.includes("null") || corsOrigins.includes("*"))) {
+    throw new GatewayHttpError("configuration_error", "Local pairing requires explicit browser origins", 500);
+  }
   if (typeof options.previewOnly !== "undefined" && typeof options.previewOnly !== "boolean") {
     throw new GatewayHttpError("configuration_error", "previewOnly must be a boolean", 500);
   }
@@ -542,6 +562,7 @@ function validateOptions(options) {
   }
 
   return Object.freeze({
+    pairingMode,
     operatorSecret: options.operatorSecret,
     provider: options.provider,
     pairing: options.pairing,

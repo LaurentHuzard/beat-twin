@@ -24,8 +24,8 @@ export const RTX_BITWIG_PREVIEW_SCOPES = Object.freeze([
   "song.write",
 ]);
 
-export function readRtxBitwigPreviewConfig(env = process.env) {
-  const operatorSecret = requireSecret(env.BEAT_TWIN_OPERATOR_SECRET);
+export function readRtxBitwigPreviewConfig(env = process.env, { localPairing = false } = {}) {
+  const operatorSecret = localPairing ? undefined : requireSecret(env.BEAT_TWIN_OPERATOR_SECRET);
   const providerBaseUrl = requireHttpUrl(env.LITERT_BASE_URL, "LITERT_BASE_URL");
   const model = requireNonBlank(env.LITERT_MODEL, "LITERT_MODEL");
   const apiKey = env.LITERT_API_KEY?.trim() || undefined;

@@ -84,7 +84,7 @@ rtk proxy node --test tests/session-inspect.test.js tests/policy-gate.test.js te
 Protocol smoke is still separate because it needs a local TCP listener:
 
 ```bash
-rtk proxy node --test --test-isolation=none tests/protocol-smoke.test.js
+rtk proxy node --test --test-isolation=none tests/protocol-smoke.test.ts
 ```
 
 Live Bitwig checks remain manual and policy-gated. Use

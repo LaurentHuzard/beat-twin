@@ -1,35 +1,24 @@
 #!/usr/bin/env node
 
-import { readFileSync } from "node:fs";
+import { startLocalBitwigRelay } from "./local-bitwig-relay.ts";
 
 import { BitwigProtocolClient } from "../../../index.js";
 
 import { startRtxDualTargetRuntime } from "./rtx-dual-target-runtime.ts";
 import { readRtxBitwigPreviewConfig } from "./rtx-bitwig-preview-runtime.ts";
 
-const operatorSecret = readSecret(
-  process.env.BEAT_TWIN_OPERATOR_SECRET_FILE,
-  process.env.BEAT_TWIN_OPERATOR_SECRET,
-  "BEAT_TWIN_OPERATOR_SECRET_FILE or BEAT_TWIN_OPERATOR_SECRET is required",
-);
-const config = readRtxBitwigPreviewConfig({
-  ...process.env,
-  BEAT_TWIN_OPERATOR_SECRET: operatorSecret,
-});
-const bridgeSecret = readBridgeSecret(process.env);
+const config = readRtxBitwigPreviewConfig(process.env, { localPairing: true });
 const allowedOrigins = (process.env.BEAT_TWIN_ALLOWED_ORIGINS ??
   "http://127.0.0.1:5173,http://localhost:5173")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+const relay = await startLocalBitwigRelay();
 const client = new BitwigProtocolClient({
   host: config.bitwigHost,
   port: config.bitwigPort,
-  bridgeSecret,
 });
 const runtime = await startRtxDualTargetRuntime({
-  operatorSecret: config.operatorSecret,
-  bridgeSecret,
   providerBaseUrl: config.providerBaseUrl,
   model: config.model,
   apiKey: config.apiKey,
@@ -51,6 +40,7 @@ async function close() {
   closing = true;
   client.destroy();
   await runtime.close();
+  await relay.close();
 }
 
 for (const signal of ["SIGINT", "SIGTERM"]) {
@@ -60,20 +50,4 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
       process.exit(1);
     });
   });
-}
-
-function readBridgeSecret(env) {
-  return readSecret(
-    env.BITWIG_BRIDGE_SECRET_FILE,
-    env.BITWIG_BRIDGE_SECRET,
-    "BITWIG_BRIDGE_SECRET_FILE or BITWIG_BRIDGE_SECRET is required",
-  );
-}
-
-function readSecret(fileValue, directValue, message) {
-  const file = fileValue?.trim();
-  if (file) return readFileSync(file, "utf8").trim();
-  const secret = directValue?.trim();
-  if (!secret) throw new Error(message);
-  return secret;
 }

@@ -18,6 +18,11 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
+BT-LOCAL-002 Done locally: user-authorized NanoDAW local pairing without secret;
+actual Zen session connected. Confirmation gates retained.
+
+BT-LOCAL-001 Done locally: user-authorized loopback-only Bitwig without secret.
+
 None. `BT-MCP-069` is implemented and verified locally on
 `agent/mcp-tool-discovery`; awaiting human review/publication approval.
 Report: `.agents/reports/feature-20260912-mcp-069.md`.

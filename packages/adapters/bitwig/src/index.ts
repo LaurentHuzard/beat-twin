@@ -112,10 +112,8 @@ export type BitwigRpcCall = (
 
 export function createRpcBitwigBridgePort(options: {
   readonly call: BitwigRpcCall;
-  readonly bridgeSecret: string;
+  readonly bridgeSecret?: string;
 }): BitwigBridgePort {
-  const bridgeSecret = options.bridgeSecret.trim();
-  if (!bridgeSecret) throw new Error("Bitwig bridge secret is required");
   return Object.freeze({
     inspectTarget: async () => validateBitwigTargetInspection(
       await options.call("target.inspect", []),
@@ -124,14 +122,14 @@ export function createRpcBitwigBridgePort(options: {
       const inspection = validateBitwigTargetInspection(await options.call(
         "target.inspect",
         [],
-        { requiresAuthentication: true, bridgeSecret },
+        { requiresAuthentication: true },
       ));
       if (!inspection.writeAuthenticated) {
         throw new Error("Bitwig bridge authentication failed");
       }
     },
     mutate: async (method: BitwigMutationMethod, params: readonly unknown[]) =>
-      options.call(method, params, { requiresAuthentication: true, bridgeSecret }),
+      options.call(method, params, { requiresAuthentication: true }),
   });
 }
 

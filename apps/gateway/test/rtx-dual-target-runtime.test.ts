@@ -81,8 +81,6 @@ test("dual-target runtime reads the browser-owned NanoDAW and Bitwig before crea
   };
   const bitwigCalls = [];
   const runtime = await startRtxDualTargetRuntime({
-    operatorSecret: OPERATOR_SECRET,
-    bridgeSecret: BRIDGE_SECRET,
     provider,
     allowedOrigins: [ORIGIN],
     gatewayPort: 0,
@@ -98,8 +96,8 @@ test("dual-target runtime reads the browser-owned NanoDAW and Bitwig before crea
   try {
     const paired = await jsonFetch(`${runtime.baseUrl}/v1/pair`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ operatorSecret: OPERATOR_SECRET, actorId: "browser-test" }),
+      headers: { "content-type": "application/json", origin: ORIGIN },
+      body: JSON.stringify({ actorId: "browser-test" }),
     });
     assert.equal(paired.response.status, 201);
 

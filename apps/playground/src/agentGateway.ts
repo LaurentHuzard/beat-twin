@@ -56,7 +56,6 @@ export type McpPlanInbox = {
 
 export type AgentGatewaySessionOptions = {
   readonly baseUrl: string;
-  readonly operatorSecret: string;
   readonly port: BrowserCommandPort;
   readonly actorId?: string;
   readonly fetchImpl?: typeof fetch;
@@ -86,10 +85,6 @@ export function createAgentGatewaySession(
     WebSocketImpl: ProvidedWebSocket,
   } = options;
   const baseUrl = validateBaseUrl(baseUrlInput);
-  let operatorSecret: string | null = options.operatorSecret;
-  if (!operatorSecret.trim()) {
-    throw new Error("Operator secret is required.");
-  }
   const fetchImpl = providedFetch ?? fetch;
   const WebSocketImpl = ProvidedWebSocket ?? WebSocket;
   let token: string | null = null;
@@ -99,18 +94,13 @@ export function createAgentGatewaySession(
   async function connect(): Promise<void> {
     disconnect();
     const generation = connectionGeneration;
-    if (!operatorSecret) {
-      throw new Error("Pairing credentials have already been consumed.");
-    }
     const pairBody = await requestJson(fetchImpl, new URL("/v1/pair", baseUrl), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        operatorSecret,
         ...(actorId?.trim() ? { actorId: actorId.trim() } : {}),
       }),
     });
-    operatorSecret = null;
     if (generation !== connectionGeneration) throw new Error("Gateway pairing was cancelled.");
     if (!isPlainObject(pairBody) || !isNonBlankString(pairBody.token)) {
       throw new Error("Gateway pairing response is invalid.");

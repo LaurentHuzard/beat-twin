@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { Cable, ShieldCheck, Sparkles, Unplug } from "lucide-react";
 
 import {
@@ -25,11 +25,10 @@ export function resetAgentGatewaySessionFactory(): void {
 type ConnectionState = "off" | "disconnected" | "connecting" | "connected";
 type OperationState = "idle" | "running" | "preview" | "executing" | "completed" | "failed";
 
-export function AgentModePanel({ developerMode = false }: { developerMode?: boolean }) {
+export function AgentModePanel({ developerMode = false, autoConnect = import.meta.env.VITE_BEAT_TWIN_AUTO_CONNECT === "1" }: { developerMode?: boolean; autoConnect?: boolean }) {
   const song = usePlaygroundStore((state) => state.commandState.song);
-  const [enabled, setEnabled] = useState(false);
+  const [enabled, setEnabled] = useState(autoConnect);
   const [gatewayUrl, setGatewayUrl] = useState("http://127.0.0.1:8787");
-  const [operatorSecret, setOperatorSecret] = useState("");
   const [request, setRequest] = useState("");
   const [mcpPlanId, setMcpPlanId] = useState("");
   const [connection, setConnection] = useState<ConnectionState>("off");
@@ -39,6 +38,7 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
   const sessionRef = useRef<AgentGatewaySession | null>(null);
   const [inbox, setInbox] = useState<McpPlanInbox | null>(null);
   const [inboxError, setInboxError] = useState<string | null>(null);
+  const reconnectAttempts = useRef(0);
   const handledMcpPlans = useRef(new Map<string, number>());
 
   const musicalNames = new Map<string, string>();
@@ -103,7 +103,6 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
     setConnection("off");
     setOperation("idle");
     setPreview(null);
-    setOperatorSecret("");
     setMcpPlanId("");
     setMessage(null);
     setInbox(null);
@@ -127,7 +126,6 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
     try {
       session = sessionFactory({
         baseUrl: gatewayUrl,
-        operatorSecret,
         actorId: "nanodaw-browser",
         port: gatewayPort,
         onConnectionChange: (connected) => {
@@ -138,7 +136,7 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
       sessionRef.current = session;
       await session.connect();
       if (sessionRef.current !== session) { session.disconnect(); return; }
-      setOperatorSecret("");
+        reconnectAttempts.current = 0;
       setConnection("connected");
       setMessage(developerMode ? "Gateway paired. NanoDAW remains the song owner." : "Twin is ready. Describe your next musical idea.");
     } catch (error) {
@@ -149,6 +147,18 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
       setMessage(error instanceof Error ? error.message : String(error));
     }
   };
+
+  const connectEnabledSession = useEffectEvent(() => { void connect(); });
+  useEffect(() => {
+    if (enabled) connectEnabledSession();
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!autoConnect || !enabled || connection !== "disconnected") return;
+    const delay = Math.min(10_000, 1_000 * 2 ** Math.min(reconnectAttempts.current++, 4));
+    const timer = setTimeout(() => connectEnabledSession(), delay);
+    return () => clearTimeout(timer);
+  }, [autoConnect, enabled, connection]);
 
   const generatePreview = async () => {
     const session = sessionRef.current;
@@ -263,25 +273,14 @@ export function AgentModePanel({ developerMode = false }: { developerMode?: bool
                 disabled={connection === "connecting" || connection === "connected"}
               />
             </label>
-            <label>
-              Operator secret
-              <input
-                aria-label="Operator secret"
-                type="password"
-                autoComplete="off"
-                value={operatorSecret}
-                onChange={(event) => setOperatorSecret(event.currentTarget.value)}
-                disabled={connection === "connecting" || connection === "connected"}
-              />
-            </label>
             <button
               type="button"
               className="tool-button"
               onClick={() => void connect()}
-              disabled={!operatorSecret.trim() || connection === "connecting" || connection === "connected"}
+              disabled={connection === "connecting" || connection === "connected"}
             >
               <ShieldCheck size={16} />
-              {connection === "connecting" ? "Pairing…" : "Pair Gateway"}
+              {connection === "connecting" ? "Connecting…" : "Connect Gateway"}
             </button>
           </div>
 

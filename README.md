@@ -176,8 +176,6 @@ export LITERT_API_KEY="$(
     'cat ~/.config/mue/llama-api-key'
 )"
 
-BEAT_TWIN_OPERATOR_SECRET_FILE=/tmp/beat-twin-operator-secret \
-BITWIG_BRIDGE_SECRET_FILE=/tmp/beat-twin-bridge-secret \
 BEAT_TWIN_ALLOWED_ORIGINS=http://127.0.0.1:5174 \
 LITERT_BASE_URL=http://mue.orbit:8003/ \
 LITERT_MODEL=qwen \
@@ -186,7 +184,7 @@ pnpm gateway:rtx-dual-target
 
 The local SSH configuration in this setup names MUE `rtx` and uses the
 `taenia` account. Start the Playground at `http://127.0.0.1:5174`, enable
-Agent mode, pair with the operator secret, enter a musical request, and choose
+Agent mode, connect to the local Gateway, enter a musical request, and choose
 **Generate preview**. The Gateway creates the immutable plan; NanoDAW remains
 the owner of song state and requires a separate **Confirm and apply once**.
 
@@ -256,7 +254,7 @@ for local verification commands and troubleshooting.
 
 ## Safety Model
 
-Beat Twin is read-only by default. At the MCP entry point, write tools are not listed by MCP clients and are blocked without an enabling policy. The Bitwig controller also requires per-connection authentication for every non-read RPC. Configure its `Bridge secret` preference and pass the same value as `BITWIG_BRIDGE_SECRET`; keep the default bridge on loopback and never expose it to untrusted networks.
+Beat Twin is read-only by default. At the MCP entry point, write tools are not listed by MCP clients and are blocked without an enabling policy. The Bitwig controller connects out to a fixed loopback relay without a secret. The dual-target Gateway starts that relay automatically; for standalone MCP or preview mode, run `pnpm bridge:local` first. Install the current controller script: older controllers still listen on port 8888 and require their old secret. See [local bridge setup](docs/LOCAL_BITWIG_BRIDGE.md).
 
 The Agent Gateway does not expose these Bitwig MCP write tools to Gemma.
 It validates a constrained SongPatch, materializes executable IDs, previews the

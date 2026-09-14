@@ -391,6 +391,7 @@ function App() {
           <button ref={twinTriggerRef} type="button" aria-expanded={twinOpen} aria-controls="twin-drawer" onClick={() => twinOpen ? closeTwin() : setTwinOpen(true)}>TWIN</button>
         </nav> : null}
         <div className="shell-actions">
+          {isFirstRun ? <button ref={twinTriggerRef} type="button" aria-expanded={twinOpen} aria-controls="twin-drawer" onClick={() => twinOpen ? closeTwin() : setTwinOpen(true)}>TWIN</button> : null}
           {!isFirstRun ? <>
             <button type="button" disabled={!song} onClick={saveSong}>Save Jam</button>
             <button type="button" className="icon-button" aria-label="Undo" disabled={!canUndo} onClick={undo}><Undo2 size={18} /></button>
@@ -487,23 +488,7 @@ function App() {
               />
             </details>
           </section>
-          <aside
-            id="twin-drawer"
-            className="twin-drawer"
-            role="dialog"
-            aria-label="TWIN"
-            aria-modal="false"
-            hidden={!twinOpen}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                closeTwin();
-              }
-            }}
-          >
-            <div className="twin-drawer-heading"><h2>TWIN</h2><button ref={twinCloseRef} type="button" onClick={closeTwin} aria-label="Close TWIN"><X size={20} /></button></div>
-            <AgentModePanel developerMode={developerMode} />
-          </aside>
+
           {developerMode ? <CommandDock
             events={events}
             messages={messages}
@@ -522,6 +507,24 @@ function App() {
           /> : null}
         </div>
       ) : null}
+
+          <aside
+            id="twin-drawer"
+            className="twin-drawer"
+            role="dialog"
+            aria-label="TWIN"
+            aria-modal="false"
+            hidden={!twinOpen}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                closeTwin();
+              }
+            }}
+          >
+            <div className="twin-drawer-heading"><h2>TWIN</h2><button ref={twinCloseRef} type="button" onClick={closeTwin} aria-label="Close TWIN"><X size={20} /></button></div>
+            <AgentModePanel developerMode={developerMode} />
+          </aside>
 
       <CommandPalette
         isOpen={isCommandPaletteOpen}

@@ -248,7 +248,7 @@ unknown rather than disguised as success.
 
 Evidence: `gateway-core.test.ts`, `gateway.test.js`,
 `bitwig-adapter.test.ts`, `policy-gate.test.js`, and
-`bitwig-controller-security.test.js`.
+`bitwig-controller-security.test.ts`.
 
 ### S-04 — Persistent document and live performance are separate truths
 

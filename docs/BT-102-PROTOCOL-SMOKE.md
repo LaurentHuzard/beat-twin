@@ -23,7 +23,7 @@ The trailing newline is the record delimiter. Response chunks may arrive split a
 
 ## Offline Smoke Scope
 
-The offline smoke harness lives in `tests/protocol-smoke.test.js` and verifies:
+The offline smoke harness lives in `tests/protocol-smoke.test.ts` and verifies:
 
 - one read call;
 - one write call;

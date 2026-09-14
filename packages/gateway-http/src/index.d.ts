@@ -31,7 +31,8 @@ export type GatewayPlanStorePort = Pick<
 export type GatewayAdapterPort = DawAdapter;
 
 export type GatewayRequestHandlerOptions = {
-  readonly operatorSecret: string;
+  readonly operatorSecret?: string;
+  readonly pairingMode?: "secret" | "local";
   readonly provider: GatewayProviderPort;
   readonly pairing: GatewayPairingPort;
   readonly planStore: GatewayPlanStorePort;

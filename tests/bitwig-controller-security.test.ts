@@ -7,13 +7,10 @@ const source = await readFile(
   "utf8",
 );
 
-test("controller keeps reads open while gating every other method behind session authentication", () => {
-  assert.match(source, /bridgeSecretSetting = host\.getPreferences\(\)\.getStringSetting/);
-  assert.match(source, /request\.method !== "bridge\.authenticate"/);
-  assert.match(source, /!isBridgeReadMethod\(request\.method\)/);
-  assert.match(source, /!bridgeSession\.authenticated/);
-  assert.match(source, /throw bridgeError\(-32001, "Write authentication is required"\)/);
-  assert.doesNotMatch(source, /sendResponse\([^\n]+bridgeSecretSetting\.get/);
+test("controller uses outbound loopback with no secret setting or network listener", () => {
+  assert.match(source, /host.connectToRemoteHost\("127.0.0.1", 8889/);
+  assert.doesNotMatch(source, /createRemoteConnection|bridgeSecretSetting|Bridge secret/);
+  assert.match(source, /authentication: "local-only"/);
 });
 
 test("controller exposes bounded target identity and exact note readback methods", () => {
@@ -56,4 +53,33 @@ test("target writes validate binding and musical bounds before mutation", () => 
   assert.match(source, /Target identity changed; create and confirm a fresh plan/);
   assert.match(source, /case "target\.set_tempo":/);
   assert.match(source, /targetTempoBpm < 40 \|\| targetTempoBpm > 240/);
+});
+
+test("controller retries failed connections, uses no secret and stops reconnecting on exit", async () => {
+  const { runInNewContext } = await import("node:vm");
+  const scheduled: (() => void)[] = [];
+  let attempts = 0, disconnected: (() => void) | undefined;
+  const replies: string[] = [];
+  const connection = { setDisconnectCallback(callback: () => void) { disconnected = callback; },
+    setReceiveCallback() {}, disconnect() { disconnected?.(); },
+    send(bytes: number[]) { replies.push(String.fromCharCode(...bytes)); } };
+  const context: any = { loadAPI() {}, println() {}, host: {
+    defineController() {}, scheduleTask(task: () => void) { scheduled.push(task); },
+    connectToRemoteHost(host: string, port: number, callback: (connection: unknown) => void) {
+      assert.equal(host, "127.0.0.1"); assert.equal(port, 8889);
+      attempts++;
+      if (attempts === 1) throw new Error("relay not started yet");
+      if (attempts === 2) return; // Bitwig may log failure without invoking callback.
+      callback(connection);
+    },
+  } };
+  runInNewContext(source, context);
+  context.connectLocalBridge();
+  scheduled.shift()!(); scheduled.shift()!();
+  assert.equal(attempts, 3); assert.equal(context.isConnected, true);
+  scheduled.shift()!(); assert.equal(attempts, 3);
+  context.handleRequest({ method: "bridge.authenticate", params: [], id: 1 }, connection, { authenticated: true });
+  assert.equal(JSON.parse(replies[0]).result.authentication, "local-only");
+  disconnected!(); scheduled.shift()!(); assert.equal(attempts, 4);
+  context.exit(); scheduled.shift()!(); assert.equal(attempts, 4);
 });
