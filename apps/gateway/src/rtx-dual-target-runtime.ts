@@ -47,7 +47,6 @@ export async function startRtxDualTargetRuntime(options) {
   const bitwig = new BitwigAdapter({
     port: createRpcBitwigBridgePort({
       call: config.bitwigCall,
-      bridgeSecret: config.bridgeSecret,
     }),
     verifyDigest: (plan) => {
       const stored = planStore.getPlan(plan.planId);
@@ -63,7 +62,7 @@ export async function startRtxDualTargetRuntime(options) {
     fetch: config.fetch,
   });
   const handler = createGatewayRequestHandler({
-    operatorSecret: config.operatorSecret,
+    pairingMode: "local",
     pairing,
     planStore,
     provider,
@@ -105,8 +104,6 @@ function validateOptions(options) {
   if (!options || typeof options !== "object" || Array.isArray(options)) {
     throw new Error("RTX dual-target runtime options are required");
   }
-  const operatorSecret = requireSecret(options.operatorSecret, "operatorSecret");
-  const bridgeSecret = requireSecret(options.bridgeSecret, "bridgeSecret");
   const gatewayHost = options.gatewayHost ?? "127.0.0.1";
   assertAllowedListenHost(gatewayHost);
   const gatewayPort = options.gatewayPort ?? 0;
@@ -139,8 +136,6 @@ function validateOptions(options) {
   }
   return Object.freeze({
     ...options,
-    operatorSecret,
-    bridgeSecret,
     gatewayHost,
     gatewayPort,
     providerTimeoutMs,

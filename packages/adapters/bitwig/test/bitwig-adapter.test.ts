@@ -496,18 +496,13 @@ test("divergent note readback is partial and never presented as complete", async
   assert.equal(execution.finalSnapshot.song?.tracks[0]?.clips[0]?.pattern.notes.length, 0);
 });
 
-test("RPC port authenticates through one shared call primitive without exposing its secret", async () => {
-  assert.throws(
-    () => createRpcBitwigBridgePort({ call: async () => null, bridgeSecret: "" }),
-    /secret is required/i,
-  );
+test("RPC port checks the local session without requiring or forwarding a secret", async () => {
   const calls: Array<{
     method: string;
     params: readonly unknown[];
     options?: { readonly requiresAuthentication?: boolean; readonly bridgeSecret?: string };
   }> = [];
   const rpcPort = createRpcBitwigBridgePort({
-    bridgeSecret: "bridge secret value",
     call: async (method, params = [], options) => {
       calls.push({ method, params, options });
       if (method === "target.inspect") {
@@ -523,5 +518,5 @@ test("RPC port authenticates through one shared call primitive without exposing 
   assert.deepEqual(calls.map((entry) => entry.method), [
     "target.inspect", "target.set_tempo",
   ]);
-  assert.equal(calls.every((entry) => entry.options?.bridgeSecret === "bridge secret value"), true);
+  assert.equal(calls.every((entry) => entry.options?.bridgeSecret === undefined), true);
 });

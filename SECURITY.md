@@ -13,7 +13,8 @@ Beat Twin is an experimental local MCP bridge for Bitwig Studio. It should be tr
 
 - The TCP bridge between the MCP server and the Bitwig controller is unauthenticated.
 - The write-policy gate is not defense-in-depth: it lives in the MCP server, not in the controller. Anything that can reach the bridge port can drive Bitwig regardless of the MCP write policy.
-- Run Beat Twin only on a trusted machine and firewall the bridge port. Do not expose it to untrusted networks.
+- The relay binds only 127.0.0.1 on ports 8888 and 8889. The controller opens no listening port and connects only to 127.0.0.1:8889. Do not forward these ports. Any local process can use or impersonate this trusted-local bridge.
+- The dual-target Gateway pairs local browsers without a password, requiring a loopback peer, loopback Host and exact allowed Origin. Temporary tokens and exact per-target confirmations remain required. These gates do not isolate mutually untrusted local processes.
 
 ## Reporting Issues
 

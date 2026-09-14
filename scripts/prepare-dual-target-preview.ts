@@ -1,16 +1,14 @@
-import { readFileSync } from "node:fs";
-
 const baseUrl = requireLoopbackUrl(
   process.env.BEAT_TWIN_GATEWAY_URL ?? "http://127.0.0.1:8788",
 );
-const operatorSecret = readSecret(process.env);
+const browserOrigin = process.env.BEAT_TWIN_BROWSER_ORIGIN ?? "http://127.0.0.1:5173";
 const request = process.env.BEAT_TWIN_PREVIEW_REQUEST?.trim() ||
   "Inspecte NanoDAW et Bitwig puis propose la même boucle électronique minimale à 132 BPM.";
 
 const pairing = await requestJson(new URL("/v1/pair", baseUrl), {
   method: "POST",
-  headers: { "content-type": "application/json" },
-  body: JSON.stringify({ operatorSecret, actorId: "dual-target-preview" }),
+  headers: { "content-type": "application/json", origin: browserOrigin },
+  body: JSON.stringify({ actorId: "dual-target-preview" }),
 }, 201);
 const run = await requestJson(new URL("/v1/agent/dual-target-runs", baseUrl), {
   method: "POST",
@@ -34,16 +32,6 @@ console.log(JSON.stringify({
   confirmationsCreated: 0,
   executionsDispatched: 0,
 }, null, 2));
-
-function readSecret(env) {
-  const file = env.BEAT_TWIN_OPERATOR_SECRET_FILE?.trim();
-  if (file) return readFileSync(file, "utf8").trim();
-  const secret = env.BEAT_TWIN_OPERATOR_SECRET?.trim();
-  if (!secret) {
-    throw new Error("BEAT_TWIN_OPERATOR_SECRET_FILE or BEAT_TWIN_OPERATOR_SECRET is required");
-  }
-  return secret;
-}
 
 function requireLoopbackUrl(value) {
   const url = new URL(value);

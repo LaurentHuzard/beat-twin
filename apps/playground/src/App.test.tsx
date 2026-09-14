@@ -324,10 +324,6 @@ describe("Playground", () => {
 
 
     fireEvent.click(within(agentMode).getByRole("button", { name: /enable agent mode/i }));
-    fireEvent.change(within(agentMode).getByLabelText("Operator secret"), {
-      target: { value: "operator secret value" },
-    });
-    fireEvent.click(within(agentMode).getByRole("button", { name: /pair gateway/i }));
     await waitFor(() => expect(within(agentMode).getByText("Connected")).toBeInTheDocument());
 
     fireEvent.change(within(agentMode).getByLabelText("MCP plan id"), {
@@ -414,10 +410,6 @@ describe("Playground", () => {
     fireEvent.click(screen.getByRole("button", { name: "TWIN" }));
     const agentMode = screen.getByLabelText("Agent mode");
     fireEvent.click(within(agentMode).getByRole("button", { name: /enable agent mode/i }));
-    fireEvent.change(within(agentMode).getByLabelText("Operator secret"), {
-      target: { value: "operator secret value" },
-    });
-    fireEvent.click(within(agentMode).getByRole("button", { name: /pair gateway/i }));
     await waitFor(() => expect(within(agentMode).getByText("Connected")).toBeInTheDocument());
     fireEvent.change(within(agentMode).getByLabelText("Agent musical request"), {
       target: { value: "Create a guarded sketch" },

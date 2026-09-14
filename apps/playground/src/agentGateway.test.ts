@@ -66,7 +66,7 @@ describe("Agent Gateway browser client", () => {
       .mockResolvedValueOnce(jsonResponse({ agentAvailable: true, plans: [{ ...plans[0], instrumentId: ["bass"] }] }))
       .mockResolvedValueOnce(jsonResponse({}, 401));
     const session = createAgentGatewaySession({
-      baseUrl: "http://127.0.0.1:8787", operatorSecret: "offline-secret", fetchImpl,
+      baseUrl: "http://127.0.0.1:8787", fetchImpl,
       WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
       port: { inspect: () => ({ song: null, revision: 0 }), executeCommandBatch: vi.fn() },
     });
@@ -85,7 +85,7 @@ describe("Agent Gateway browser client", () => {
     FakeWebSocket.instances = [];
     let resolvePair!: (response: Response) => void;
     const session = createAgentGatewaySession({
-      baseUrl: "http://127.0.0.1:8787", operatorSecret: "offline-secret",
+      baseUrl: "http://127.0.0.1:8787",
       fetchImpl: () => new Promise((resolve) => { resolvePair = resolve; }),
       WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
       port: { inspect: () => ({ song: null, revision: 0 }), executeCommandBatch: vi.fn() },
@@ -144,7 +144,7 @@ describe("Agent Gateway browser client", () => {
     const connectionChanges: boolean[] = [];
     const session = createAgentGatewaySession({
       baseUrl: "http://127.0.0.1:8787",
-      operatorSecret: "operator secret value",
+
       port,
       fetchImpl: fetchImpl as unknown as typeof fetch,
       WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
@@ -192,7 +192,7 @@ describe("Agent Gateway browser client", () => {
   it("rejects non-loopback gateway origins before pairing", () => {
     expect(() => createAgentGatewaySession({
       baseUrl: "https://gateway.example",
-      operatorSecret: "secret",
+
       port: { inspect: () => ({ song: null, revision: 0 }), executeCommandBatch: vi.fn() },
     })).toThrow(/loopback/i);
   });
@@ -222,7 +222,7 @@ describe("Agent Gateway browser client", () => {
       }));
     const session = createAgentGatewaySession({
       baseUrl: "http://127.0.0.1:8787",
-      operatorSecret: "operator secret value",
+
       port: { inspect: () => ({ song: null, revision: 0 }), executeCommandBatch: vi.fn() },
       fetchImpl: fetchImpl as unknown as typeof fetch,
       WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,

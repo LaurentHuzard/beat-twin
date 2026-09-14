@@ -201,7 +201,7 @@ rtk proxy node --test tests/session-inspect.test.js tests/policy-gate.test.js te
 Protocol smoke still needs an environment that allows local TCP listen on `127.0.0.1`:
 
 ```bash
-rtk proxy node --test --test-isolation=none tests/protocol-smoke.test.js
+rtk proxy node --test --test-isolation=none tests/protocol-smoke.test.ts
 ```
 
 Once `pnpm` can access its local database/store, run:
