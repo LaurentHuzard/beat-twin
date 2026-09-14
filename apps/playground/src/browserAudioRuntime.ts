@@ -11,7 +11,7 @@ import {
   type LiveAudioControllerHost,
 } from "./liveAudioController";
 
-export type BrowserAudioOwner = "preview" | "live" | "browser-smoke";
+export type BrowserAudioOwner = "preview" | "live" | "song" | "browser-smoke";
 
 export type BrowserAudioLease = {
   readonly owner: BrowserAudioOwner;

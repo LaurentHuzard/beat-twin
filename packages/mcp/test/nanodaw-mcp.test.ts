@@ -30,10 +30,11 @@ const PATCH = Object.freeze({
   }),
 });
 
-function fixture() {
-  const pairing = new PairingAuthority({ audit: () => undefined });
+function fixture(clock?: { now: () => number }) {
+  const pairing = new PairingAuthority({ audit: () => undefined, clock });
   const planStore = new GatewayPlanStore({
     pairing,
+    clock,
     audit: () => undefined,
     policy: (plan) => plan.adapterId === "nanodaw",
   });
@@ -144,9 +145,9 @@ test("uses the runtime UUID generator without losing its Crypto receiver", async
 });
 
 test("bounds MCP reviews and only frees them after the plan expiry boundary", async () => {
-  const context = fixture();
-  const ids = ["first-request", "first-plan", "blocked-request", "blocked-plan", "next-request", "next-plan"];
   let now = Date.now();
+  const context = fixture({ now: () => now });
+  const ids = ["first-request", "first-plan", "blocked-request", "blocked-plan", "next-request", "next-plan"];
   const service = await createNanoDawMcpService({
     ...context,
     idGenerator: () => ids.shift() ?? "extra",

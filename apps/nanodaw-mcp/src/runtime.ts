@@ -4,6 +4,7 @@ import {
   assertAllowedListenHost,
   createBrowserNanoDawWebSocketProxy,
   createGatewayRequestHandler,
+  DEFAULT_PAIRING_SCOPES,
   type GatewayHandler,
 } from "@beat-twin/gateway-http";
 import {
@@ -73,6 +74,7 @@ export async function createNanoDawMcpRuntime(
   const service = await createNanoDawMcpService({ adapter, pairing, planStore });
   const fallback = createGatewayRequestHandler({
     operatorSecret: options.operatorSecret,
+    pairingScopes: [...DEFAULT_PAIRING_SCOPES, "transport.write"],
     pairing,
     planStore,
     provider: provider ?? {
@@ -157,10 +159,10 @@ export function createNanoDawMcpReviewHandler(options: {
       if (inbox) {
         sendJson(response, 200, {
           agentAvailable: options.agentAvailable ?? false,
-          plans: options.service.listReviews().map(({ patch, plan }) => ({
+          plans: options.service.listReviews().map(({ patch, plan, title }) => ({
             planId: plan.planId,
-            name: patch.track.name,
-            instrumentId: patch.track.instrumentId,
+            name: title ?? patch?.track.name ?? "Musical edit",
+            instrumentId: patch?.track.instrumentId ?? "multiple",
             expiresAt: plan.expiresAt,
           })),
         }, corsHeaders(origin, origins));

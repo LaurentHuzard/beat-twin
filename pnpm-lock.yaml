@@ -260,6 +260,9 @@ importers:
       '@beat-twin/agent-contract':
         specifier: workspace:*
         version: link:../agent-contract
+      '@beat-twin/commands':
+        specifier: workspace:*
+        version: link:../commands
       '@beat-twin/core':
         specifier: workspace:*
         version: link:../core

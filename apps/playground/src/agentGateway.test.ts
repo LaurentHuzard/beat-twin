@@ -56,6 +56,20 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("Agent Gateway browser client", () => {
+  it.each([undefined, "test-only-mcp-secret"])("pairs with the explicitly selected authentication mode (%s)", async (operatorSecret) => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ token: "btp_test" }, 201));
+    const session = createAgentGatewaySession({
+      baseUrl: "http://127.0.0.1:8787", operatorSecret, actorId: "nanodaw-browser", fetchImpl,
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+      port: { inspect: () => ({ song: null, revision: 0 }), executeCommandBatch: vi.fn() },
+    });
+    await session.connect();
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({
+      actorId: "nanodaw-browser", ...(operatorSecret ? { operatorSecret } : {}),
+    });
+    session.disconnect();
+  });
+
   it("validates the authenticated discovery inbox and preserves old gateways", async () => {
     const plans = [{ planId: "plan-inbox", name: "Bass", instrumentId: "bass", expiresAt: "2099-01-01T00:00:00Z" }];
     const fetchImpl = vi.fn()
