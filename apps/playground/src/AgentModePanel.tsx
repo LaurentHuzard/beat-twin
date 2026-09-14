@@ -29,6 +29,7 @@ export function AgentModePanel({ developerMode = false, autoConnect = import.met
   const [songAudioPlaying, setSongAudioPlaying] = useState(false);
   const song = usePlaygroundStore((state) => state.commandState.song);
   const [enabled, setEnabled] = useState(autoConnect);
+  const [editingConnection, setEditingConnection] = useState(false);
   const [gatewayUrl, setGatewayUrl] = useState("http://127.0.0.1:8787");
   const [useOperatorSecret, setUseOperatorSecret] = useState(false);
   const [operatorSecret, setOperatorSecret] = useState("");
@@ -39,6 +40,7 @@ export function AgentModePanel({ developerMode = false, autoConnect = import.met
   const [preview, setPreview] = useState<AgentPlanPreview | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const sessionRef = useRef<AgentGatewaySession | null>(null);
+  const pairingSessionRef = useRef<AgentGatewaySession | null>(null);
   const [inbox, setInbox] = useState<McpPlanInbox | null>(null);
   const [inboxError, setInboxError] = useState<string | null>(null);
   const reconnectAttempts = useRef(0);
@@ -68,6 +70,7 @@ export function AgentModePanel({ developerMode = false, autoConnect = import.met
   useEffect(() => () => {
     const session = sessionRef.current;
     sessionRef.current = null;
+    pairingSessionRef.current = null;
     session?.disconnect();
     const wasPlaying = gatewayPort.isPlaying();
     gatewayPort.dispose();
@@ -114,14 +117,7 @@ export function AgentModePanel({ developerMode = false, autoConnect = import.met
     if (usePlaygroundStore.getState().commandState.song?.transport.isPlaying) usePlaygroundStore.getState().dispatch({ type: "StopPlayback" });
   };
 
-  const disable = () => {
-    const session = sessionRef.current;
-    sessionRef.current = null;
-    session?.disconnect();
-    setEnabled(false);
-    setOperatorSecret("");
-    stopSongAudio();
-    setConnection("off");
+  const clearSessionState = () => {
     setOperation("idle");
     setPreview(null);
     setMcpPlanId("");
@@ -129,6 +125,34 @@ export function AgentModePanel({ developerMode = false, autoConnect = import.met
     setInbox(null);
     setInboxError(null);
     handledMcpPlans.current.clear();
+  };
+
+  const disconnectSession = () => {
+    const session = sessionRef.current;
+    // Invalidate callbacks before disconnect() can synchronously report closure.
+    sessionRef.current = null;
+    pairingSessionRef.current = null;
+    session?.disconnect();
+    // A connection edit must not stop unrelated local transport/audio.
+    if (gatewayPort.isPlaying()) stopSongAudio();
+    clearSessionState();
+  };
+
+  const disable = () => {
+    disconnectSession();
+    setEnabled(false);
+    setEditingConnection(false);
+    setOperatorSecret("");
+    setConnection("off");
+  };
+
+  const editConnection = () => {
+    if (operation === "executing") return;
+    setEditingConnection(true);
+    disconnectSession();
+    reconnectAttempts.current = 0;
+    setOperatorSecret("");
+    setConnection("disconnected");
   };
 
   const toggleEnabled = () => {
@@ -141,6 +165,9 @@ export function AgentModePanel({ developerMode = false, autoConnect = import.met
   };
 
   const connect = async () => {
+    if (!enabled || operation === "executing" || pairingSessionRef.current || sessionRef.current?.isConnected()) return;
+    disconnectSession();
+    setEditingConnection(false);
     setConnection("connecting");
     setMessage(null);
     let session: AgentGatewaySession | null = null;
@@ -151,37 +178,43 @@ export function AgentModePanel({ developerMode = false, autoConnect = import.met
         ...(useOperatorSecret && operatorSecret ? { operatorSecret } : {}),
         port: gatewayPort,
         onConnectionChange: (connected) => {
-          if (sessionRef.current !== session) return;
-          if (!connected) stopSongAudio();
+          // connect() first calls disconnect(); that is not a failed pairing.
+          if (sessionRef.current !== session || pairingSessionRef.current === session) return;
+          if (!connected && gatewayPort.isPlaying()) stopSongAudio();
           setConnection(connected ? "connected" : "disconnected");
         },
       });
       sessionRef.current = session;
+      pairingSessionRef.current = session;
       await session.connect();
       if (sessionRef.current !== session) { session.disconnect(); return; }
-        reconnectAttempts.current = 0;
+      pairingSessionRef.current = null;
+      reconnectAttempts.current = 0;
       setConnection("connected");
       setMessage(developerMode ? "Gateway paired. NanoDAW remains the song owner." : "Twin is ready. Describe your next musical idea.");
     } catch (error) {
       if (session && sessionRef.current !== session) return;
-      sessionRef.current?.disconnect();
       sessionRef.current = null;
+      pairingSessionRef.current = null;
+      session?.disconnect();
       setConnection("disconnected");
       setMessage(error instanceof Error ? error.message : String(error));
     }
   };
 
-  const connectEnabledSession = useEffectEvent(() => { void connect(); });
+  const connectEnabledSession = useEffectEvent(() => {
+    if (enabled && !editingConnection) void connect();
+  });
   useEffect(() => {
     if (enabled) connectEnabledSession();
   }, [enabled]);
 
   useEffect(() => {
-    if (!autoConnect || !enabled || connection !== "disconnected") return;
+    if (!autoConnect || !enabled || editingConnection || operation === "executing" || connection !== "disconnected") return;
     const delay = Math.min(10_000, 1_000 * 2 ** Math.min(reconnectAttempts.current++, 4));
     const timer = setTimeout(() => connectEnabledSession(), delay);
     return () => clearTimeout(timer);
-  }, [autoConnect, enabled, connection]);
+  }, [autoConnect, enabled, editingConnection, connection, operation]);
 
   const generatePreview = async () => {
     const session = sessionRef.current;
@@ -242,6 +275,7 @@ export function AgentModePanel({ developerMode = false, autoConnect = import.met
     setMessage(null);
     try {
       const execution = await session.confirmAndExecute(planId);
+      if (sessionRef.current !== session) return;
       if (!execution.report.ok) {
         setOperation("failed");
         setMessage(
@@ -252,6 +286,7 @@ export function AgentModePanel({ developerMode = false, autoConnect = import.met
       setOperation("completed");
       setMessage(developerMode ? "Plan applied as one NanoDAW batch and saved locally." : "Proposal applied and saved locally.");
     } catch (error) {
+      if (sessionRef.current !== session) return;
       const detail = error instanceof Error ? error.message : String(error);
       setOperation("failed");
       setMessage(
@@ -273,6 +308,14 @@ export function AgentModePanel({ developerMode = false, autoConnect = import.met
           {connection === "connected" ? <Cable size={16} /> : <Unplug size={16} />}
           {connectionLabel(connection)}
         </div>
+        {enabled && !editingConnection ? <button
+          type="button"
+          className="tool-button"
+          onClick={editConnection}
+          disabled={operation === "executing"}
+        >
+          Edit connection
+        </button> : null}
         <button
           type="button"
           className="tool-button"
@@ -285,35 +328,36 @@ export function AgentModePanel({ developerMode = false, autoConnect = import.met
 
       {enabled ? (
         <div className="agent-mode-body">
-          <details className="twin-connection-settings" open={developerMode || undefined}>
+          <details className="twin-connection-settings" open={developerMode || editingConnection || undefined}>
             <summary>Connection settings</summary>
+            {editingConnection ? <p role="status">Connection is paused. Update the settings, then choose Connect Gateway.</p> : null}
           <div className="agent-connect-grid">
             <label>
               Gateway URL
               <input
                 aria-label="Gateway URL"
                 value={gatewayUrl}
-                onChange={(event) => setGatewayUrl(event.currentTarget.value)}
-                disabled={connection === "connecting" || connection === "connected"}
+                onChange={(event) => { setGatewayUrl(event.currentTarget.value); setOperatorSecret(""); }}
+                disabled={connection === "connecting" || connection === "connected" || operation === "executing"}
               />
             </label>
             <label className="gateway-secret-toggle">
               <input type="checkbox" checked={useOperatorSecret}
                 onChange={(event) => { setUseOperatorSecret(event.currentTarget.checked); setOperatorSecret(""); }}
-                disabled={connection === "connecting" || connection === "connected"} />
+                disabled={connection === "connecting" || connection === "connected" || operation === "executing"} />
               This gateway requires an operator secret
             </label>
             {useOperatorSecret ? <label>
               Operator secret
               <input aria-label="Operator secret" type="password" autoComplete="off"
                 value={operatorSecret} onChange={(event) => setOperatorSecret(event.currentTarget.value)}
-                disabled={connection === "connecting" || connection === "connected"} />
+                disabled={connection === "connecting" || connection === "connected" || operation === "executing"} />
             </label> : null}
             <button
               type="button"
               className="tool-button"
               onClick={() => void connect()}
-              disabled={connection === "connecting" || connection === "connected"}
+              disabled={connection === "connecting" || connection === "connected" || operation === "executing"}
             >
               <ShieldCheck size={16} />
               {connection === "connecting" ? "Connecting…" : "Connect Gateway"}
