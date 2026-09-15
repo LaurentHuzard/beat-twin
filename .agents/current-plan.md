@@ -1,40 +1,40 @@
-# BT-UX-CONNECTION: editable TWIN gateway settings
+# BT-MCP-DIAGNOSTICS: local policy and tool-list diagnostics (#1)
 
-User authorized the fix on 2026-09-14 after reviewing the regression diagnosis.
-Base: 07eb274cf1da6174715d75ed98f0a1104aebf9a2 (PR #73 merged).
-Branch: fix/nanodaw-gateway-connection-settings.
-No other open implementation PR was returned by the repository search.
+User authorized implementation of issue #1 on 2026-09-15.
+Branch: fix/mcp-policy-diagnostics-issue-1, created from current main.
+The GitHub open-pulls endpoint returned no open PR before this branch was created.
 
 ## Orbit Ready
 
-BT-UX-CONNECTION is the sole authorized implementation item for this branch.
-Restore an explicit edit-connection path without disabling local auto-connect,
-changing provider configuration, or modifying any running service.
+BT-MCP-DIAGNOSTICS is the sole authorized implementation item for this branch.
+Deliver local Bitwig MCP diagnostics and distinguish unknown tools, policy-hidden
+tools and a supplied client-tool-list mismatch. Reuse the registry from #69/#71.
+No NanoDAW/model tool additions, permission widening, runtime activation or DAW
+writes are authorized. The previous connection-settings plan is retained in Git.
 
 ## Plan
 
-1. Add Edit connection, keep settings visible and suspend automatic retries.
-2. Disconnect and invalidate the previous session, pending proposals and secrets.
-3. Reconnect explicitly using the edited values; guard overlapping pairings and
-   late callbacks. Do not permit reconfiguration during confirmed execution.
-4. Add component regression tests for both auto-connect modes, cancellation,
-   retries, old responses, secret isolation and unchanged musical confirmation.
-5. Run available offline checks and inspect GitHub CI. Record unexecuted checks
-   honestly; do not claim local gateway, MUE, Bitwig or browser validation.
-6. Open one PR for review. Do not merge, deploy, activate runtimes or delete branches.
-
-## Scope and prior evidence
-
-Only NanoDAW connection UI/lifecycle, tests and the bounded loop documentation.
-Explicit Enable Agent mode keeps its current immediate-connect behavior.
-Gateway URL remains a loopback origin; model/provider settings remain server-side.
-No new persistence of endpoints, secrets, tokens or musical data is introduced.
-The prior PR #73 integration plan and its historical live evidence remain in
-this file at base commit 07eb274. Those results are not evidence for this fix.
+1. Inspect the canonical TypeScript bridge, generated entrypoint, policies,
+   discovery wrappers, tests, setup guide and current queue.
+2. Add a dependency-free, offline diagnostic with effective policies, exposed
+   tool names and optional bounded comparison with a supplied client tool list.
+   Never print secrets, raw environment values or arbitrary input names.
+3. Align direct/generic unknown-tool errors and add actionable reload guidance
+   without changing the existing policy/validation/authentication boundaries.
+4. Cover read-only, application_write and all-writes with offline tests and
+   forbidden-network/fake-call guards. Distinguish evidence from assumptions:
+   a mismatch suggests stale cache/process or a different environment/version;
+   a local diagnostic cannot inspect the active MCP client's cache by itself.
+5. Document safe setup, client/server restart boundaries and no automatic replay
+   after uncertain mutation. Regenerate index.js from index.ts.
+6. Run the available focused/non-regression checks and git diff --check, review
+   safety, record exact results/limitations and open one PR. Do not merge.
 
 ## Validation environment
 
-The current execution container has Node 22 but no pnpm or project dependencies.
-A direct clone failed because github.com could not be resolved. Repository reads
-and writes use the authorized GitHub connector. The existing PR CI defines
-Node 26, frontend/backend checks and a NanoDAW Playwright job.
+The local container provides Node 22.16.0, whereas the workspace requires Node 26.
+A direct clone failed because github.com could not be resolved. Source access and
+branch publication use the authorized GitHub connector. Full workspace/SDK checks
+must not be reported as executed unless dependencies and the required runtime
+are actually available. No live Bitwig, MCP client, gateway or provider proof is
+claimed by this offline implementation.
