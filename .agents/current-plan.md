@@ -1,40 +1,50 @@
-# BT-UX-CONNECTION: editable TWIN gateway settings
+# BT-MCP-DIAGNOSTIC: offline policy and tool diagnostics
 
-User authorized the fix on 2026-09-14 after reviewing the regression diagnosis.
-Base: 07eb274cf1da6174715d75ed98f0a1104aebf9a2 (PR #73 merged).
-Branch: fix/nanodaw-gateway-connection-settings.
-No other open implementation PR was returned by the repository search.
+User explicitly authorized selecting an issue, verifying it, implementing on a
+dedicated branch and opening a PR on 2026-09-15.
+Base: 9b0cc64b7863e68e6824f2763fe54d79e126cf93 (PR #75 merged).
+Branch: agent/mcp-policy-diagnostics-issue-1. Issue: #1.
+No open implementation PR was returned at selection.
 
 ## Orbit Ready
 
-BT-UX-CONNECTION is the sole authorized implementation item for this branch.
-Restore an explicit edit-connection path without disabling local auto-connect,
-changing provider configuration, or modifying any running service.
+BT-MCP-DIAGNOSTIC (#1) is the sole authorized implementation item for this branch.
+The previous connection-settings item is merged as PR #75; PR #73 is also merged.
+Their prior plans and evidence remain available at the base commit above.
+No live workflow or previous write authorization is reactivated.
+
+## Verified need
+
+The canonical Bitwig registry already supports policy-filtered definitions and
+opt-in search/call wrappers (#71). The missing piece is a compact local diagnostic.
+Reuse TOOL_SPECS and getToolDefinitions without a second policy parser. Keep the
+historical MCP schemas, dispatch payloads, authentication and write gates intact.
 
 ## Plan
 
-1. Add Edit connection, keep settings visible and suspend automatic retries.
-2. Disconnect and invalidate the previous session, pending proposals and secrets.
-3. Reconnect explicitly using the edited values; guard overlapping pairings and
-   late callbacks. Do not permit reconfiguration during confirmed execution.
-4. Add component regression tests for both auto-connect modes, cancellation,
-   retries, old responses, secret isolation and unchanged musical confirmation.
-5. Run available offline checks and inspect GitHub CI. Record unexecuted checks
-   honestly; do not claim local gateway, MUE, Bitwig or browser validation.
-6. Open one PR for review. Do not merge, deploy, activate runtimes or delete branches.
+1. Record the bounded authorization and align the queue's Orbit Ready section.
+2. Add a local diagnostic CLI with text/JSON output and bounded optional tool name.
+3. Distinguish unknown, policy-blocked, discovery-disabled and exposed tools.
+   Report the client cache and DAW connection as uninspected, not stale or ready.
+4. Add unit and canonical-registry/CLI integration tests, including no network,
+   no secret output, default read-only, application_write and all-writes modes.
+5. Update the agent/discovery guide, package scripts and packaged-file manifest.
+6. Run available local checks, inspect exact-head CI where available, and perform
+   an adversarial review. Record unavailable checks explicitly in the loop report.
+7. Open one PR and stop at human review. Do not merge or deploy.
 
-## Scope and prior evidence
+## Boundaries
 
-Only NanoDAW connection UI/lifecycle, tests and the bounded loop documentation.
-Explicit Enable Agent mode keeps its current immediate-connect behavior.
-Gateway URL remains a loopback origin; model/provider settings remain server-side.
-No new persistence of endpoints, secrets, tokens or musical data is introduced.
-The prior PR #73 integration plan and its historical live evidence remain in
-this file at base commit 07eb274. Those results are not evidence for this fix.
+No DAW/provider connection, permission change, model use, runtime startup,
+credential inspection, musical write, dependency upgrade or unrelated refactor.
+A diagnostic subprocess may inspect synthetic policy configuration but may never
+call a tool. Actual client-cache state cannot be read from this local process.
+Unknown arguments and module-load errors must not leak caller input or secrets.
 
 ## Validation environment
 
-The current execution container has Node 22 but no pnpm or project dependencies.
-A direct clone failed because github.com could not be resolved. Repository reads
-and writes use the authorized GitHub connector. The existing PR CI defines
-Node 26, frontend/backend checks and a NanoDAW Playwright job.
+The local container has Node 22.16.0 and TypeScript 5.8.3, not the required Node 26.
+Direct repository cloning and dependency downloads fail DNS resolution. GitHub
+reads/writes use the authorized connector. Dependency-free checks can run locally;
+the repository's existing PR CI targets Node 26 and the full offline suites.
+No live evidence will be claimed from either path.
