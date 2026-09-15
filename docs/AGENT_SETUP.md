@@ -10,6 +10,22 @@ The agent may install files, configure the MCP client, and run read-only
 validation commands. The agent must not pretend to operate the Bitwig UI unless
 it has an explicit UI automation capability and user approval.
 
+## Diagnose missing tools without a DAW
+
+Before network checks, inspect the local configuration:
+
+```bash
+pnpm diagnose:mcp
+node scripts/mcp-diagnostics.js --json
+```
+
+This prints effective policies and exposed Bitwig tool names using the canonical
+registry, with no SDK dependency, secrets or DAW access. It reports this process's
+environment, not the active client's cache. To compare an actual complete client
+`tools/list` snapshot, use `--client-tools ./client-tools.json` with the same
+server environment and checkout. See [MCP_DIAGNOSTICS.md](MCP_DIAGNOSTICS.md) for
+safe read-only/application_write/all-writes examples, bounded input and errors.
+
 ## What The Agent Can Do
 
 From the repository root, the agent can:
@@ -85,7 +101,7 @@ restart Bitwig or reload the controller settings before testing again.
 The expected result after the user completes the manual step:
 
 ```text
-Connection to 127.0.0.1 8888 port [tcp/*] succeeded!
+Connection to 127.0.0.1:8888 port [tcp/*] succeeded!
 ```
 
 ## Safety Boundary
@@ -105,8 +121,11 @@ confirms they are using a disposable Bitwig project or a copy of real work.
 
 Beat Twin hides write tools from MCP `listTools` until the server process starts
 with an explicit write policy. If an agent cannot see tools such as
-`application_create_instrument_track`, the MCP client is probably still running
-the default read-only server.
+`application_create_instrument_track`, inspect policies before assuming the tool
+is missing. `policy_blocked` means a registered tool is hidden by its policy;
+`unknown_tool` means the name is not in this Bitwig registry. A diagnostic
+`tool_list_mismatch` can indicate a stale list/process or a different server,
+environment or version; it is not proof of a stale cache by itself.
 
 To expose every currently implemented write tool for an explicit write test:
 
@@ -122,9 +141,12 @@ codex mcp remove beat-twin
 codex mcp add beat-twin --env BITWIG_HOST=127.0.0.1 --env BITWIG_PORT=8888 --env BITWIG_MCP_WRITE_POLICY=application_write -- node /absolute/path/to/beat-twin/index.js
 ```
 
-After changing MCP environment variables, restart or reload the MCP client
-session. Some clients keep the old MCP server and tool list in memory; in that
-case, the updated tools will not appear until a new session starts.
+After changing MCP environment variables, restart the MCP server process and
+reload the client's tool list/session. Some clients retain both the old process
+and its catalog. Check a fresh complete `tools/list` after reloading; editing
+configuration alone is not evidence that the running server changed. Do not
+execute a write merely to check tool exposure. Never automatically replay an
+uncertain mutation after a reload: reconcile the actual state first.
 
 Before calling any write tool, tell the user which write policy is active and
 which Bitwig action will be attempted.

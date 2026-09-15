@@ -1,40 +1,36 @@
-# BT-UX-CONNECTION: editable TWIN gateway settings
+# BT-MCP-DIAGNOSTICS: local policy and tool-list diagnostics (#1)
 
-User authorized the fix on 2026-09-14 after reviewing the regression diagnosis.
-Base: 07eb274cf1da6174715d75ed98f0a1104aebf9a2 (PR #73 merged).
-Branch: fix/nanodaw-gateway-connection-settings.
-No other open implementation PR was returned by the repository search.
+User authorized implementation of issue #1 on 2026-09-15.
+Branch: fix/mcp-policy-diagnostics-issue-1, created from main at
+9b0cc64b7863e68e6824f2763fe54d79e126cf93.
+The GitHub open-pulls endpoint returned no open PR before this branch was created.
 
 ## Orbit Ready
 
-BT-UX-CONNECTION is the sole authorized implementation item for this branch.
-Restore an explicit edit-connection path without disabling local auto-connect,
-changing provider configuration, or modifying any running service.
+BT-MCP-DIAGNOSTICS is the sole authorized implementation item for this branch.
+Implementation is complete for review, not merged. No new item is activated.
+No NanoDAW/model tool additions, permission widening, runtime activation or DAW
+writes are authorized. Previous plans and their historical evidence remain in Git.
 
-## Plan
+## Completed plan
 
-1. Add Edit connection, keep settings visible and suspend automatic retries.
-2. Disconnect and invalidate the previous session, pending proposals and secrets.
-3. Reconnect explicitly using the edited values; guard overlapping pairings and
-   late callbacks. Do not permit reconfiguration during confirmed execution.
-4. Add component regression tests for both auto-connect modes, cancellation,
-   retries, old responses, secret isolation and unchanged musical confirmation.
-5. Run available offline checks and inspect GitHub CI. Record unexecuted checks
-   honestly; do not claim local gateway, MUE, Bitwig or browser validation.
-6. Open one PR for review. Do not merge, deploy, activate runtimes or delete branches.
+1. Inspected the shared TypeScript registry, generated entrypoint, policies,
+   discovery wrappers, setup guide, existing tests and queue.
+2. Added an offline diagnostic of effective policies/exposed names and bounded
+   comparison with a supplied complete client tool list; no secrets or DAW calls.
+3. Aligned direct unknown-tool errors with generic dispatch, preserving existing
+   policy-blocked, validation and authentication boundaries.
+4. Added 25 diagnostic tests; combined focused suite passes 34/34, including the
+   nine existing policy tests. The new suite failed 21/25 before implementation.
+5. Documented configuration versus live state, precise reload boundaries and no
+   automatic replay. Regenerated index.js and checked syntax and local diffs.
+6. Publish one PR for review; merge and supported-environment checks are separate.
 
-## Scope and prior evidence
+## Evidence and limitations
 
-Only NanoDAW connection UI/lifecycle, tests and the bounded loop documentation.
-Explicit Enable Agent mode keeps its current immediate-connect behavior.
-Gateway URL remains a loopback origin; model/provider settings remain server-side.
-No new persistence of endpoints, secrets, tokens or musical data is introduced.
-The prior PR #73 integration plan and its historical live evidence remain in
-this file at base commit 07eb274. Those results are not evidence for this fix.
-
-## Validation environment
-
-The current execution container has Node 22 but no pnpm or project dependencies.
-A direct clone failed because github.com could not be resolved. Repository reads
-and writes use the authorized GitHub connector. The existing PR CI defines
-Node 26, frontend/backend checks and a NanoDAW Playwright job.
+Report: .agents/reports/feature-20260915-mcp-diagnostics.md.
+The container has Node 22.16.0, not the required Node 26, and no project dependencies
+or pnpm. DNS prevented cloning; authorized connector reads/writes and a verified
+partial local reconstruction were used. Full workspace/SDK checks and live client
+reload are not claimed. No Bitwig, MCP client, gateway, browser/audio or provider
+was activated, and no real write, merge, deployment or branch deletion occurred.
