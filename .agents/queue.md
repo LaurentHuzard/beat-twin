@@ -22,7 +22,11 @@ BT-MCP-DIAGNOSTIC (#1) is the sole implementation item authorized by the user on
 2026-09-15, on `agent/mcp-policy-diagnostics-issue-1`: local policy/tool diagnostics,
 offline tests and documentation only. No DAW/provider connection or write, merge,
 deployment, credential change or runtime activation is authorized.
-Plan: `.agents/current-plan.md`. Status: In progress.
+Plan: `.agents/current-plan.md`. PR: #76.
+Implementation and focused offline verification are complete (32 passing tests
+on Node 22.16.0). Full Node 26 CI and human review remain unverified gates; this
+is not merge authorization or permission to start another implementation loop.
+Report: `.agents/reports/feature-20260915-mcp-policy-diagnostics.md`.
 
 ## Historical integration evidence (not active authorization)
 
@@ -106,7 +110,7 @@ BT-204 proves the current standalone loop.
 | Q1-A | Can one headless clock and transition ledger express intent, target beat, execution, failure, cancellation, and independent stop? | Done | BT-204 |
 | Q1-B | Does a disposable two-track Session Deck make the next gesture obvious? | Done | Q1-A |
 | Q1-C | Does a disposable two-track Mutation Instrument create clearer musical momentum? | Done | Q1-A |
-| Q1-D | Which costume is promoted, paused, or killed after one shared performance scenario? | Done | Q1-A |
+| Q1-D | Which costume is promoted, paused, or killed after one shared performance scenario? | Done | Q1-B, Q1-C |
 
 ## Next - Listening Gate
 
@@ -143,7 +147,7 @@ payload, import, decode, UI, or persistence work below is implemented here.
 | --- | --- | --- | --- | --- | --- |
 | BT-AUDIO-200 | Open the bounded audio-clip and sample playback tranche | P0 | XL | Done | GitHub #31 |
 | BT-AUDIO-201 | Define versioned browser-owned audio asset references and validation | P0 | M | Done | BT-AUDIO-200 |
-| BT-AUDIO-202 | Add explicit local import, decode, and asset lifecycle boundaries | P0 | M | Parked | BT-AUDIO-201 |
+| BT-AUDIO-202 | Add explicit local import, decode, and asset lifecycle boundaries | P0 | L | Parked | BT-AUDIO-201 |
 | BT-AUDIO-203 | Implement a prepared-buffer material adapter on the live engine registry | P0 | L | Parked | BT-AUDIO-202 |
 | BT-AUDIO-204 | Prove non-warped clip offset, loop, replacement, and track-local stop timing | P0 | L | Parked | BT-AUDIO-203 |
 | BT-AUDIO-205 | Add bounded sample/audio slot UI with honest loading and failure states | P1 | L | Parked | BT-AUDIO-204 |

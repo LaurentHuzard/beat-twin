@@ -4,6 +4,81 @@ Issue #69 adds an opt-in discovery surface to the **historical Bitwig MCP**
 entrypoint, `index.js`. This first slice does not add wrappers to NanoDAW MCP
 or change the three model-visible provider tools.
 
+## Local policy and tool diagnostic
+
+Before testing a live connection, inspect the configuration offline:
+
+```sh
+pnpm diagnose:tools
+pnpm diagnose:tools --json
+pnpm diagnose:tools --tool application_create_instrument_track
+# Equivalent without invoking pnpm or building workspace packages:
+node scripts/mcp-tools-diagnostic.js --json
+```
+
+The command reads the canonical `TOOL_SPECS` / `getToolDefinitions` metadata.
+It lists effective enabled/disabled policies and every exposed tool name,
+including the optional wrappers when enabled. It never starts an MCP server,
+calls a tool, contacts the DAW/provider, or reads an MCP client's configuration.
+It does not print raw environment values, endpoints, paths or tokens. An unknown
+input name is deliberately not echoed, in case a secret was pasted accidentally.
+
+**These are the diagnostic process's policies, not proof of the environment of
+an already-running MCP server.** Use the same checkout/version and the same MCP
+launch environment when comparing. A shell variable not exported to the server,
+a different configured executable, and a stale client list can all cause a
+mismatch. Local policy-enabled status does not establish human authorization.
+
+These POSIX examples inspect three profiles in short-lived diagnostic processes
+only; they do not change the current shell or any running server:
+
+```sh
+# Read-only, even if the shell normally permits writes or discovery.
+env -u BITWIG_MCP_ENABLE_WRITES -u BITWIG_MCP_WRITE_POLICY -u BITWIG_MCP_TOOL_DISCOVERY node scripts/mcp-tools-diagnostic.js --json
+# Track-creation policy only, never an actual track creation.
+env -u BITWIG_MCP_ENABLE_WRITES BITWIG_MCP_WRITE_POLICY=application_write node scripts/mcp-tools-diagnostic.js --tool application_create_instrument_track
+# All write classes: metadata only, no tool call.
+BITWIG_MCP_ENABLE_WRITES=1 node scripts/mcp-tools-diagnostic.js --json
+```
+
+### Interpret results without weakening permissions
+
+| Targeted status | Meaning and next step |
+| --- | --- |
+| `unknown_tool` | Not in this Bitwig registry version. Check spelling/version and whether the target is NanoDAW rather than Bitwig. |
+| `policy_blocked` | Known tool hidden by the effective write policy. A reload alone cannot enable it; do not broaden permissions without explicit human authorization. |
+| `tool_unavailable` | Known optional discovery wrapper disabled. The exact `BITWIG_MCP_TOOL_DISCOVERY=1` option enables wrappers, not writes. |
+| `exposed` | Present in this process's policy-filtered list. Missing in the client? Check its executable and environment, restart the MCP server, then reload the client tool list/session. |
+
+The JSON explicitly reports `dawConnection: "not_contacted"` and
+`clientToolCache: "not_inspected"`. It cannot positively diagnose a stale remote
+client cache. Do not treat missing client tools as proof that the tool is absent
+from the repository, and never replay an uncertain write as a diagnostic.
+
+Existing MCP error compatibility is preserved: `call_tool` uses `unknown_tool`
+for unknown targets, while a legacy direct unknown-name call uses
+`tool_call_failed` with an `Unknown tool` message. Policy denial remains
+`policy_blocked`. Use this local diagnostic to classify the name independently
+of those historical response envelopes; no new MCP permission is introduced.
+
+Exit codes are `0` for a successful listing or an exposed target, `1` for an
+unknown/blocked/unavailable target, and `2` for invalid CLI arguments or a local
+registry-load failure. `--json` keeps errors machine-readable on stdout;
+text-mode usage/load errors go to stderr. Names are bounded to 128 ASCII letters,
+digits or underscores, beginning with a letter or underscore. `--help` describes
+the command without loading the registry.
+
+Run the focused offline tests with:
+
+```sh
+node --test tests/mcp-tools-diagnostic*.test.js tests/policy-gate.test.js
+```
+
+The CLI integration test forbids socket connections/listeners and other common
+network entrypoints in its subprocesses, including in all-writes metadata mode.
+The normal `pnpm test` and `pnpm test:unit` suites include both diagnostic files.
+This is configuration evidence, not a live Bitwig or client-cache acceptance test.
+
 ## Enable
 
 Start the Bitwig MCP process with:

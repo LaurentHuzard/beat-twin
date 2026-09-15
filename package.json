@@ -21,7 +21,7 @@
     "capture:s25-tool-call": "corepack pnpm run build:packages && node scripts/capture-litert-tool-call.js",
     "gateway:rtx-bitwig-preview": "corepack pnpm run build:packages && corepack pnpm --filter @beat-twin/gateway start:rtx-bitwig-preview",
     "gateway:rtx-dual-target": "corepack pnpm run build:packages && corepack pnpm --filter @beat-twin/gateway start:rtx-dual-target",
-    "preview:rtx-dual-target": "corepack pnpm run build:packages && node --experimental-strip-types scripts/prepare-dual-target-preview.ts",
+    "preview:rtx-dual-target": "node --experimental-strip-types scripts/prepare-dual-target-preview.ts",
     "test:protocol-smoke": "node --test tests/protocol-smoke.test.ts",
     "test:live": "node scripts/run-live-tests.js",
     "diagnose:tools": "node scripts/mcp-tools-diagnostic.js",
