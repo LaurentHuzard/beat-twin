@@ -1,40 +1,36 @@
 # BT-MCP-DIAGNOSTICS: local policy and tool-list diagnostics (#1)
 
 User authorized implementation of issue #1 on 2026-09-15.
-Branch: fix/mcp-policy-diagnostics-issue-1, created from current main.
+Branch: fix/mcp-policy-diagnostics-issue-1, created from main at
+9b0cc64b7863e68e6824f2763fe54d79e126cf93.
 The GitHub open-pulls endpoint returned no open PR before this branch was created.
 
 ## Orbit Ready
 
 BT-MCP-DIAGNOSTICS is the sole authorized implementation item for this branch.
-Deliver local Bitwig MCP diagnostics and distinguish unknown tools, policy-hidden
-tools and a supplied client-tool-list mismatch. Reuse the registry from #69/#71.
+Implementation is complete for review, not merged. No new item is activated.
 No NanoDAW/model tool additions, permission widening, runtime activation or DAW
-writes are authorized. The previous connection-settings plan is retained in Git.
+writes are authorized. Previous plans and their historical evidence remain in Git.
 
-## Plan
+## Completed plan
 
-1. Inspect the canonical TypeScript bridge, generated entrypoint, policies,
-   discovery wrappers, tests, setup guide and current queue.
-2. Add a dependency-free, offline diagnostic with effective policies, exposed
-   tool names and optional bounded comparison with a supplied client tool list.
-   Never print secrets, raw environment values or arbitrary input names.
-3. Align direct/generic unknown-tool errors and add actionable reload guidance
-   without changing the existing policy/validation/authentication boundaries.
-4. Cover read-only, application_write and all-writes with offline tests and
-   forbidden-network/fake-call guards. Distinguish evidence from assumptions:
-   a mismatch suggests stale cache/process or a different environment/version;
-   a local diagnostic cannot inspect the active MCP client's cache by itself.
-5. Document safe setup, client/server restart boundaries and no automatic replay
-   after uncertain mutation. Regenerate index.js from index.ts.
-6. Run the available focused/non-regression checks and git diff --check, review
-   safety, record exact results/limitations and open one PR. Do not merge.
+1. Inspected the shared TypeScript registry, generated entrypoint, policies,
+   discovery wrappers, setup guide, existing tests and queue.
+2. Added an offline diagnostic of effective policies/exposed names and bounded
+   comparison with a supplied complete client tool list; no secrets or DAW calls.
+3. Aligned direct unknown-tool errors with generic dispatch, preserving existing
+   policy-blocked, validation and authentication boundaries.
+4. Added 25 diagnostic tests; combined focused suite passes 34/34, including the
+   nine existing policy tests. The new suite failed 21/25 before implementation.
+5. Documented configuration versus live state, precise reload boundaries and no
+   automatic replay. Regenerated index.js and checked syntax and local diffs.
+6. Publish one PR for review; merge and supported-environment checks are separate.
 
-## Validation environment
+## Evidence and limitations
 
-The local container provides Node 22.16.0, whereas the workspace requires Node 26.
-A direct clone failed because github.com could not be resolved. Source access and
-branch publication use the authorized GitHub connector. Full workspace/SDK checks
-must not be reported as executed unless dependencies and the required runtime
-are actually available. No live Bitwig, MCP client, gateway or provider proof is
-claimed by this offline implementation.
+Report: .agents/reports/feature-20260915-mcp-diagnostics.md.
+The container has Node 22.16.0, not the required Node 26, and no project dependencies
+or pnpm. DNS prevented cloning; authorized connector reads/writes and a verified
+partial local reconstruction were used. Full workspace/SDK checks and live client
+reload are not claimed. No Bitwig, MCP client, gateway, browser/audio or provider
+was activated, and no real write, merge, deployment or branch deletion occurred.

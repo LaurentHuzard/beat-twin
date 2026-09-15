@@ -1,7 +1,7 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-09-14
-Implementation base for this queue update: `b386eda`
+Updated: 2026-09-15
+Implementation base for this queue update: `9b0cc64`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -18,15 +18,24 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-PR #73 integration is authorized for review and merge on 2026-09-14.
-BT-MCP-072 is implemented; main conflicts and pairing compatibility are resolved.
-252 backend / 176 NanoDAW tests pass; final GitHub head check and merge pending.
-Issue #72 stays open for real MCP-client/demo and listening acceptance.
+BT-MCP-DIAGNOSTICS (#1) is the sole authorized implementation item for this branch.
+Implementation is complete for review on fix/mcp-policy-diagnostics-issue-1;
+34 focused offline tests pass. Full supported-workspace CI and live-client reload
+are separate evidence. No new product item, permission or runtime is activated.
+Report: .agents/reports/feature-20260915-mcp-diagnostics.md.
+Merge is not authorized by this implementation loop.
+
+## Previous integration evidence (historical, not re-executed here)
+
+PR #73 integration was authorized for review and merge on 2026-09-14.
+The prior queue recorded BT-MCP-072 implemented with conflicts/pairing resolved
+and 252 backend / 176 NanoDAW tests passing; these are not results of issue #1.
+Issue #72 retains its separate real MCP-client/demo and listening acceptance.
 Evidence: .agents/reports/feature-20260913-mcp-072.md.
 
 BT-LOCAL-001 and BT-LOCAL-002 are included in main d043148: loopback Bitwig
-bridge and NanoDAW local pairing without secret. Prior live evidence is in
-.agents/current-plan.md; this review does not reactivate either runtime.
+bridge and NanoDAW local pairing without secret. Prior live evidence is retained
+in the history of .agents/current-plan.md; this work reactivates neither runtime.
 BT-MCP-069 is merged through PR #71 at b386eda (Bitwig surface only).
 Previous: PR #70 merged at 083f949; live acceptance remains separate.
 BT-ARCH-101 through 104 are merged through PR #68; BT-MUE through PR #67.
