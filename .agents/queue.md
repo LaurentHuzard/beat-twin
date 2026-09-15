@@ -1,7 +1,7 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-09-14
-Implementation base for this queue update: `b386eda`
+Updated: 2026-09-15
+Implementation base for this queue update: `9b0cc64`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -18,15 +18,25 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-PR #73 integration is authorized for review and merge on 2026-09-14.
-BT-MCP-072 is implemented; main conflicts and pairing compatibility are resolved.
-252 backend / 176 NanoDAW tests pass; final GitHub head check and merge pending.
-Issue #72 stays open for real MCP-client/demo and listening acceptance.
+BT-MCP-DIAGNOSTIC (#1) is the sole implementation item authorized by the user on
+2026-09-15, on `agent/mcp-policy-diagnostics-issue-1`: local policy/tool diagnostics,
+offline tests and documentation only. No DAW/provider connection or write, merge,
+deployment, credential change or runtime activation is authorized.
+Plan: `.agents/current-plan.md`. Status: In progress.
+
+## Historical integration evidence (not active authorization)
+
+PR #73 is merged at 07eb274. BT-MCP-072 is implemented; issue #72 stays open for
+real MCP-client/demo and listening acceptance. Its historical 252 backend /
+176 NanoDAW test results are not validation of this diagnostic loop.
 Evidence: .agents/reports/feature-20260913-mcp-072.md.
+PR #75 connection-settings fix is merged at 9b0cc64; its plan remains in Git
+history and is not a second Orbit Ready item.
 
 BT-LOCAL-001 and BT-LOCAL-002 are included in main d043148: loopback Bitwig
 bridge and NanoDAW local pairing without secret. Prior live evidence is in
-.agents/current-plan.md; this review does not reactivate either runtime.
+.agents/current-plan.md at historical commits; this review does not reactivate
+either runtime.
 BT-MCP-069 is merged through PR #71 at b386eda (Bitwig surface only).
 Previous: PR #70 merged at 083f949; live acceptance remains separate.
 BT-ARCH-101 through 104 are merged through PR #68; BT-MUE through PR #67.
@@ -96,7 +106,7 @@ BT-204 proves the current standalone loop.
 | Q1-A | Can one headless clock and transition ledger express intent, target beat, execution, failure, cancellation, and independent stop? | Done | BT-204 |
 | Q1-B | Does a disposable two-track Session Deck make the next gesture obvious? | Done | Q1-A |
 | Q1-C | Does a disposable two-track Mutation Instrument create clearer musical momentum? | Done | Q1-A |
-| Q1-D | Which costume is promoted, paused, or killed after one shared performance scenario? | Done | Q1-B, Q1-C |
+| Q1-D | Which costume is promoted, paused, or killed after one shared performance scenario? | Done | Q1-A |
 
 ## Next - Listening Gate
 
@@ -133,7 +143,7 @@ payload, import, decode, UI, or persistence work below is implemented here.
 | --- | --- | --- | --- | --- | --- |
 | BT-AUDIO-200 | Open the bounded audio-clip and sample playback tranche | P0 | XL | Done | GitHub #31 |
 | BT-AUDIO-201 | Define versioned browser-owned audio asset references and validation | P0 | M | Done | BT-AUDIO-200 |
-| BT-AUDIO-202 | Add explicit local import, decode, and asset lifecycle boundaries | P0 | L | Parked | BT-AUDIO-201 |
+| BT-AUDIO-202 | Add explicit local import, decode, and asset lifecycle boundaries | P0 | M | Parked | BT-AUDIO-201 |
 | BT-AUDIO-203 | Implement a prepared-buffer material adapter on the live engine registry | P0 | L | Parked | BT-AUDIO-202 |
 | BT-AUDIO-204 | Prove non-warped clip offset, loop, replacement, and track-local stop timing | P0 | L | Parked | BT-AUDIO-203 |
 | BT-AUDIO-205 | Add bounded sample/audio slot UI with honest loading and failure states | P1 | L | Parked | BT-AUDIO-204 |
