@@ -1,7 +1,7 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-09-14
-Implementation base for this queue update: `b386eda`
+Updated: 2026-09-15
+Implementation base for this queue update: `9b0cc64`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -18,15 +18,29 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-PR #73 integration is authorized for review and merge on 2026-09-14.
-BT-MCP-072 is implemented; main conflicts and pairing compatibility are resolved.
-252 backend / 176 NanoDAW tests pass; final GitHub head check and merge pending.
-Issue #72 stays open for real MCP-client/demo and listening acceptance.
+BT-MCP-DIAGNOSTIC (#1) is the sole implementation item authorized by the user on
+2026-09-15, on `agent/mcp-policy-diagnostics-issue-1`: local policy/tool diagnostics,
+offline tests and documentation only. No DAW/provider connection or write, merge,
+deployment, credential change or runtime activation is authorized.
+Plan: `.agents/current-plan.md`. PR: #76.
+Implementation and focused offline verification are complete (32 passing tests
+on Node 22.16.0). Full Node 26 CI and human review remain unverified gates; this
+is not merge authorization or permission to start another implementation loop.
+Report: `.agents/reports/feature-20260915-mcp-policy-diagnostics.md`.
+
+## Historical integration evidence (not active authorization)
+
+PR #73 is merged at 07eb274. BT-MCP-072 is implemented; issue #72 stays open for
+real MCP-client/demo and listening acceptance. Its historical 252 backend /
+176 NanoDAW test results are not validation of this diagnostic loop.
 Evidence: .agents/reports/feature-20260913-mcp-072.md.
+PR #75 connection-settings fix is merged at 9b0cc64; its plan remains in Git
+history and is not a second Orbit Ready item.
 
 BT-LOCAL-001 and BT-LOCAL-002 are included in main d043148: loopback Bitwig
 bridge and NanoDAW local pairing without secret. Prior live evidence is in
-.agents/current-plan.md; this review does not reactivate either runtime.
+.agents/current-plan.md at historical commits; this review does not reactivate
+either runtime.
 BT-MCP-069 is merged through PR #71 at b386eda (Bitwig surface only).
 Previous: PR #70 merged at 083f949; live acceptance remains separate.
 BT-ARCH-101 through 104 are merged through PR #68; BT-MUE through PR #67.
