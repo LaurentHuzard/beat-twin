@@ -557,7 +557,7 @@ export function createArrangementPlanFromInspection(inspection, args = {}) {
           title: "Reconnect and inspect",
           intent:
             inspection?.setup_hint ??
-            "Start Bitwig, enable the controller, then run inspection again.",
+            "Start the MCP server, open Bitwig Studio, enable the Beat Twin controller, then retry inspection.",
           permissions_required: ["read"],
           missing_data: ["transport", "tracks", "scenes", "selected device"],
           risks: [inspection?.error ?? "Bitwig is not connected."],
@@ -1542,6 +1542,56 @@ export function getToolDefinitions({ env = process.env } = {}) {
     : definitions;
 }
 
+// Local configuration only: reuse listTools and its policy parser, never the DAW.
+export function getMcpDiagnostics({ env = process.env, clientToolNames } = {}) {
+  const enabled = parseEnabledWritePolicies(env);
+  const exposedTools = getToolDefinitions({ env }).map((tool) => tool.name);
+  let clientToolList = { status: "not_checked" };
+
+  if (clientToolNames !== undefined) {
+    if (!Array.isArray(clientToolNames) || clientToolNames.length > 512 ||
+        Array.from(clientToolNames).some((name) =>
+          typeof name !== "string" || name.length === 0 || name.length > 128 ||
+          /[\u0000-\u001f\u007f]/.test(name))) {
+      const error = new Error("Expected at most 512 nonempty tool names of at most 128 characters, without control characters.");
+      error.code = "invalid_client_tool_list";
+      throw error;
+    }
+    const supplied = new Set(clientToolNames);
+    const exposed = new Set(exposedTools);
+    const missing = exposedTools.filter((name) => !supplied.has(name));
+    // Only echo canonical names. Unrecognized client input might contain secrets.
+    const known = (name) => TOOL_SPEC_MAP.has(name) || DISCOVERY_NAMES.has(name);
+    const noLongerExposed = [...supplied].filter((name) => known(name) && !exposed.has(name)).sort();
+    const unrecognizedCount = [...supplied].filter((name) => !known(name)).length;
+    const mismatch = missing.length > 0 || noLongerExposed.length > 0 || unrecognizedCount > 0;
+    clientToolList = {
+      status: mismatch ? "mismatch" : "matches",
+      missing,
+      no_longer_exposed: noLongerExposed,
+      unrecognized_count: unrecognizedCount,
+      ...(mismatch ? {
+        error: "tool_list_mismatch",
+        hint: "The supplied list differs from local configuration: a stale client list/server process or a different server, environment or version may explain it. Compare the same Bitwig server and complete tools/list result before reloading.",
+      } : {}),
+    };
+  }
+
+  return {
+    scope: "local-mcp-configuration",
+    surface: "bitwig",
+    daw_checked: false,
+    mode: enabled.size === 0 ? "read-only" : enabled.size === WRITE_POLICIES.length ? "all-writes" : "selective-writes",
+    enabled_policies: ["read", ...WRITE_POLICIES.filter((policy) => enabled.has(policy))],
+    disabled_policies: WRITE_POLICIES.filter((policy) => !enabled.has(policy)),
+    discovery_enabled: discoveryEnabled(env),
+    exposed_tools: exposedTools,
+    tool_count: exposedTools.length,
+    client_tool_list: clientToolList,
+    reload_hint: "After changing MCP configuration, restart the MCP server process and reload the client's tool list/session. Reconcile any uncertain mutation before another attempt; never automatically replay a write.",
+  };
+}
+
 export async function handleToolCall(
   request,
   { call = callBitwig, env = process.env } = {},
@@ -1552,7 +1602,10 @@ export async function handleToolCall(
     const tool = TOOL_SPEC_MAP.get(name);
 
     if (!tool) {
-      throw new Error(`Unknown tool: ${name}`);
+      return serializeToolError({
+        error: "unknown_tool",
+        message: "Requested tool is not in the Bitwig registry.",
+      });
     }
 
     if (!isPolicyEnabled(tool.policy, env)) {
