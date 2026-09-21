@@ -1,14 +1,14 @@
 # RTX Dual-Target Runtime
 
 BT-213B composes the existing browser-owned NanoDAW port, bounded Bitwig
-adapter, Gateway plan lifecycle, and Qwen provider in one loopback runtime.
+adapter, Gateway plan lifecycle, and Gemma 4 E4B provider in one loopback runtime.
 One model run returns one validated `SongPatchV1`; Beat Twin then compiles that
 exact patch independently for NanoDAW and Bitwig.
 
 ```text
 NanoDAW browser state --- inspect ---+
                                     |
-Bitwig selected target --- inspect --+-> Qwen proposes one SongPatchV1
+Bitwig selected target --- inspect --+-> Gemma proposes one SongPatchV1
                                          |-> NanoDAW preview and immutable plan
                                          `-> Bitwig preview and immutable plan
 ```
@@ -23,7 +23,7 @@ Use Node.js 26. Local NanoDAW pairing requires no operator secret:
 
 ```bash
 LITERT_BASE_URL=http://mue.orbit:8003/ \
-LITERT_MODEL=qwen3-8b \
+LITERT_MODEL=gemma4_e4b \
 pnpm gateway:rtx-dual-target
 ```
 
@@ -40,7 +40,7 @@ to loopback.
 
 Remote model steps use a 60-second timeout by default. Set the positive integer
 `LITERT_TIMEOUT_MS` only when the local inference host needs a different bound.
-Qwen reasoning is capped at 512 tokens per step through llama.cpp's request-level
+Model reasoning is capped at 512 tokens per step through llama.cpp's request-level
 extension; `LITERT_THINKING_BUDGET_TOKENS` accepts another non-negative bound.
 
 The runtime is write-capable only through the existing exact confirmation

@@ -91,7 +91,7 @@ running MUE model server:
 ```bash
 NANODAW_MCP_OPERATOR_SECRET=replace-with-a-long-local-secret \
 LITERT_BASE_URL=http://mue.orbit:8003/ \
-LITERT_MODEL=qwen3-8b \
+LITERT_MODEL=gemma4_e4b \
 LITERT_API_KEY=replace-with-your-provider-key \
 pnpm nanodaw:agent
 ```
