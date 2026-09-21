@@ -6,7 +6,7 @@ Twin Gateway, OpenAI-compatible provider, and bounded Bitwig adapter:
 ```text
 operator HTTP client
   -> loopback Beat Twin Gateway
-  -> Qwen through llama.cpp
+  -> Gemma 4 E4B through llama.cpp
   -> real read-only Bitwig target inspection
   -> strict SongPatch validation and compilation
   -> immutable preview
@@ -39,7 +39,7 @@ read -rsp "Beat Twin operator secret: " BEAT_TWIN_OPERATOR_SECRET
 export BEAT_TWIN_OPERATOR_SECRET
 
 LITERT_BASE_URL=http://mue.orbit:8003/ \
-LITERT_MODEL=qwen3-8b \
+LITERT_MODEL=gemma4_e4b \
 pnpm gateway:rtx-bitwig-preview
 ```
 
@@ -52,7 +52,7 @@ Defaults:
 Ports may be changed with `BEAT_TWIN_GATEWAY_PORT` and `BITWIG_PORT`.
 Remote model steps use a 60-second timeout by default; override it with the
 positive integer `LITERT_TIMEOUT_MS` when needed.
-RTX requests also cap Qwen reasoning at 512 tokens by default through llama.cpp's
+RTX requests also cap model reasoning at 512 tokens by default through llama.cpp's
 per-request `thinking_budget_tokens`; override the non-negative bound with
 `LITERT_THINKING_BUDGET_TOKENS`. Other provider runtimes omit this extension.
 
@@ -104,11 +104,11 @@ immutable plan, and side-effect-free preview. Stop there. A future BT-213B
 runtime and a fresh human gate are required for any Bitwig write.
 
 For the same sequence as a single disposable diagnostic command, including
-health, real inspection, Qwen proposal, and preview:
+health, real inspection, Gemma proposal, and preview:
 
 ```bash
 LITERT_BASE_URL=http://mue.orbit:8003/ \
-LITERT_MODEL=qwen3-8b \
+LITERT_MODEL=gemma4_e4b \
 pnpm smoke:rtx-bitwig-preview
 ```
 

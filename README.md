@@ -155,18 +155,18 @@ remain separate follow-up gates.
 
 The preview-only RTX-to-Bitwig composition can be started with
 `pnpm gateway:rtx-bitwig-preview`. It performs real controller inspection,
-bounded Qwen proposal generation, compilation, and immutable preview while
+bounded Gemma 4 E4B proposal generation, compilation, and immutable preview while
 omitting confirmation and execution routes. See
 [`docs/RTX_BITWIG_PREVIEW_RUNTIME.md`](docs/RTX_BITWIG_PREVIEW_RUNTIME.md).
 
-The separately gated dual-target runtime uses one Qwen proposal to prepare
+The separately gated dual-target runtime uses one Gemma 4 E4B proposal to prepare
 independent NanoDAW and Bitwig plans with target-specific previews and
 confirmation domains. See
 [`docs/DUAL_TARGET_RUNTIME.md`](docs/DUAL_TARGET_RUNTIME.md).
 
 ### Run NanoDAW Agent mode with MUE
 
-MUE exposes the loaded model as `qwen` and requires its LAN API key for chat
+MUE exposes the adopted daily model as `gemma4_e4b` and requires its LAN API key for chat
 completions. Keep the key on the local machine and load it into the Gateway
 process without printing it:
 
@@ -178,7 +178,7 @@ export LITERT_API_KEY="$(
 
 BEAT_TWIN_ALLOWED_ORIGINS=http://127.0.0.1:5174 \
 LITERT_BASE_URL=http://mue.orbit:8003/ \
-LITERT_MODEL=qwen \
+LITERT_MODEL=gemma4_e4b \
 pnpm gateway:rtx-dual-target
 ```
 
