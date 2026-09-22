@@ -1,11 +1,11 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-09-15
-Implementation base for this queue update: `9b0cc64`
+Updated: 2026-09-22
+Implementation base for this queue update: `b79d127`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
-`docs/BEAT_TWIN_EXECUTION_ROADMAP_2026-07-14.md`.
+docs/BEAT_TWIN_EXECUTION_ROADMAP_2026-07-14.md.
 
 Armada launch prompt:
 `.agents/prompts/ARMADA_BEAT_TWIN_NANODAW_ROADMAP_2026-07-14.md`.
@@ -18,12 +18,11 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-BT-MCP-DIAGNOSTICS (#1) is the sole authorized implementation item for this branch.
-Implementation is complete for review on fix/mcp-policy-diagnostics-issue-1;
-34 focused offline tests pass. Full supported-workspace CI and live-client reload
-are separate evidence. No new product item, permission or runtime is activated.
-Report: .agents/reports/feature-20260915-mcp-diagnostics.md.
-Merge is not authorized by this implementation loop.
+BT-GOV-080 (#80) is the sole authorized reconciliation item for this branch.
+Scope is governance truth only: verify merged PR #77 / closed issue #1, confirm
+PR #76 supersession, reconcile stale queue/current-plan state, preserve historical
+evidence, and leave Orbit Ready empty afterward. No new product item, MCP
+permission, runtime, DAW write, deployment, merge, or branch deletion is activated.
 
 ## Previous integration evidence (historical, not re-executed here)
 
@@ -88,7 +87,7 @@ Report: `.agents/reports/feature-20260910-bt-ux-065-instrument-shell.md`.
 ## Today - Standalone NanoDAW
 
 | Order | ID | Task | Priority | Size | Status | Depends on |
-| --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- |
 | 1 | BT-201 | Create the isolated NanoDAW development worktree from `main` | P0 | S | Done | - |
 | 2 | BT-202 | Prove the offline package, typecheck, and NanoDAW test baseline | P0 | M | Done | BT-201 |
 | 3 | BT-203 | Run a real-browser NanoDAW smoke without Bitwig, MCP, gateway, or S25 | P0 | M | Done | BT-202 |
@@ -116,7 +115,7 @@ BT-204 proves the current standalone loop.
 ## Next - Honest Bitwig Dependency Health
 
 | Order | ID | Task | Priority | Size | Status | Depends on |
-| --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- |
 | 6 | BT-206 | Detect the Bitwig desktop process and return a structured local status | P0 | M | Done | - |
 | 7 | BT-207 | Distinguish app stopped, controller missing, TCP unavailable, MCP unavailable, and ready | P0 | M | Done | BT-206 |
 | 8 | BT-208 | Expose the dependency state to TwinPilot without giving TwinPilot Beat Twin-specific logic | P1 | M | Done | BT-207, TP-202 |
