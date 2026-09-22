@@ -1,36 +1,49 @@
-# BT-MCP-DIAGNOSTICS: local policy and tool-list diagnostics (#1)
+# BT-DUO-001: TwinPilot Duo Android ↔ MUE collaboration spike
 
-User authorized implementation of issue #1 on 2026-09-15.
-Branch: fix/mcp-policy-diagnostics-issue-1, created from main at
-9b0cc64b7863e68e6824f2763fe54d79e126cf93.
-The GitHub open-pulls endpoint returned no open PR before this branch was created.
+User authorized this spike and pull request on 2026-09-22.
+Branch: `spike/twinpilot-duo-android-mue`, created from `main`.
+GitHub search returned no open pull requests in the repository before the branch
+was created.
 
 ## Orbit Ready
 
-BT-MCP-DIAGNOSTICS is the sole authorized implementation item for this branch.
-Implementation is complete for review, not merged. No new item is activated.
-No NanoDAW/model tool additions, permission widening, runtime activation or DAW
-writes are authorized. Previous plans and their historical evidence remain in Git.
+BT-DUO-001 is the sole authorized implementation item for this branch.
 
-## Completed plan
+Build one local-first, read-only collaboration harness that lets two distinct
+OpenAI-compatible model endpoints work on the same bounded task while preserving
+their asymmetry:
 
-1. Inspected the shared TypeScript registry, generated entrypoint, policies,
-   discovery wrappers, setup guide, existing tests and queue.
-2. Added an offline diagnostic of effective policies/exposed names and bounded
-   comparison with a supplied complete client tool list; no secrets or DAW calls.
-3. Aligned direct unknown-tool errors with generic dispatch, preserving existing
-   policy-blocked, validation and authentication boundaries.
-4. Added 25 diagnostic tests; combined focused suite passes 34/34, including the
-   nine existing policy tests. The new suite failed 21/25 before implementation.
-5. Documented configuration versus live state, precise reload boundaries and no
-   automatic replay. Regenerated index.js and checked syntax and local diffs.
-6. Publish one PR for review; merge and supported-environment checks are separate.
+- MUE acts as analyst and starts without Android-only witness evidence;
+- Android acts as witness/scout and receives private evidence;
+- both answer independently before seeing the peer response;
+- both then challenge the peer response;
+- MUE produces a final synthesis from the explicit transcript;
+- the harness records auditable phase outputs and latency without granting either
+  model DAW, Gateway-confirmation, merge, deployment, or destructive authority.
 
-## Evidence and limitations
+The spike must be runnable without Bitwig or NanoDAW and must not widen existing
+agent, MCP, Gateway, or DAW permissions.
 
-Report: .agents/reports/feature-20260915-mcp-diagnostics.md.
-The container has Node 22.16.0, not the required Node 26, and no project dependencies
-or pnpm. DNS prevented cloning; authorized connector reads/writes and a verified
-partial local reconstruction were used. Full workspace/SDK checks and live client
-reload are not claimed. No Bitwig, MCP client, gateway, browser/audio or provider
-was activated, and no real write, merge, deployment or branch deletion occurred.
+## Planned loop
+
+1. Add a dependency-free two-endpoint collaboration core around
+   `/v1/chat/completions`.
+2. Add a CLI scenario runner with configurable MUE/Android URLs, models and
+   optional bearer tokens.
+3. Ship one private-evidence scenario that demonstrates independent answers,
+   cross-examination and belief revision.
+4. Add deterministic offline tests using fake providers; no live model success is
+   claimed by those tests.
+5. Document the Android llama.cpp + MUE wiring and one exact live command to play.
+6. Publish one draft PR for review. Merge and live device validation remain human
+   gates.
+
+## Implementation status\n\nImplementation is complete for review on this branch. The focused and workspace\ntests were authored but could not be executed in this environment because DNS\nprevented cloning github.com. Live Android/MUE validation remains separate.\nReport: .agents/reports/feature-20260922-twinpilot-duo.md.\n\n## Safety / evidence boundaries
+
+- No DAW writes or browser state mutations.
+- No model receives confirmation/execution tools.
+- API keys are read from environment variables and never included in transcripts.
+- Offline fixtures prove orchestration only, not real Android/MUE inference.
+- Live outputs are evidence only when the operator actually runs the documented
+  two-device scenario.
+- No merge, deployment, branch deletion or publication beyond the requested PR.
