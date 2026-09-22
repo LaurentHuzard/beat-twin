@@ -1,31 +1,33 @@
-# BT-GOV-080: reconcile stale Orbit state after MCP diagnostics merge
+# No active Orbit
 
-User authorized selecting and treating one current GitHub issue on 2026-09-22.
-Issue: #80. Branch: `fix/issue-80-reconcile-orbit-state`.
-Base: `b79d127da970b1e4ea30139c4b02bf6c7c2ba4eb` (`main`).
+Last reconciled: 2026-09-22 through issue #80 on branch
+`fix/issue-80-reconcile-orbit-state`.
 
-## Orbit Ready
+## Current state
 
-BT-GOV-080 (#80) is the sole bounded reconciliation item for this branch.
-This authorization is limited to repository governance truth: inspect the merged
-MCP diagnostics delivery, reconcile the queue/current plan, preserve historical
-evidence, and document the result. It does not authorize a new product slice,
-MCP permission, runtime activation, DAW write, deployment, merge, or branch deletion.
+There is no active implementation item. `.agents/queue.md` is the canonical
+execution queue and its `Orbit Ready` section is explicitly empty.
 
-## Plan
+BT-MCP-DIAGNOSTICS / issue #1 is historical delivered work: PR #77 merged as
+`add81650e418c0acb1776cf74998668249001086` and issue #1 is closed completed.
+Its implementation evidence remains in
+`.agents/reports/feature-20260915-mcp-diagnostics.md`.
 
-1. Re-verify PR #77, its merge SHA, and issue #1 against current GitHub state.
-2. Re-verify PR #76 and whether it is already closed/superseded by #77.
-3. Replace stale active BT-MCP-DIAGNOSTICS wording with historical delivered evidence.
-4. Leave `Orbit Ready` explicitly empty after reconciliation so no new work is
-   activated implicitly.
-5. Add a durable reconciliation report and inspect the final diff for scope/truth.
-6. Open one draft PR for review and stop. Do not merge or deploy.
+PR #76 is closed without merge and is explicitly superseded by #77. Its branch
+and evidence remain historical; they do not grant current implementation authority.
 
-## Verification boundary
+## Reconciliation evidence
 
-This is a governance-only change. No Node workspace, browser, MCP, gateway,
-provider, Bitwig, audio, network runtime, or generated product artifact needs to
-be executed. Verification is GitHub-state cross-checking plus final repository
-diff/content review. Historical test results remain historical and are not
-re-executed or presented as evidence for this reconciliation.
+See `.agents/reports/issue-80-orbit-reconciliation.md` for the GitHub-state
+cross-check, main-ancestry verification, PR #76 supersession review, and scope
+review performed for issue #80.
+
+## Next authorization boundary
+
+Do not promote a legacy `Ready`, `In progress`, backlog, issue, roadmap item, or
+historical branch into implementation authority automatically. A future product
+loop must receive fresh explicit authorization and then update both
+`.agents/queue.md` and this plan before meaningful implementation begins.
+
+No MCP permission, provider, runtime, DAW write, dependency, deployment, merge,
+or branch deletion is authorized by this handoff.
