@@ -18,11 +18,24 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-BT-GOV-080 (#80) is the sole authorized reconciliation item for this branch.
-Scope is governance truth only: verify merged PR #77 / closed issue #1, confirm
-PR #76 supersession, reconcile stale queue/current-plan state, preserve historical
-evidence, and leave Orbit Ready empty afterward. No new product item, MCP
-permission, runtime, DAW write, deployment, merge, or branch deletion is activated.
+_None._
+
+No next product item is implicitly activated by the governance reconciliation in
+issue #80. A future implementation loop requires fresh explicit authorization.
+
+## Delivered Orbit evidence (historical, not active authorization)
+
+BT-MCP-DIAGNOSTICS / issue #1 was delivered through PR #77,
+`fix(mcp): add offline policy diagnostics and detect tool-list mismatches`, merged
+as `add81650e418c0acb1776cf74998668249001086` on 2026-09-15. Issue #1 is closed
+as completed. Its focused verification and limitations remain historical evidence
+in `.agents/reports/feature-20260915-mcp-diagnostics.md`; they are not re-executed
+or re-claimed by this queue reconciliation.
+
+PR #76 is closed without merge and explicitly recorded as superseded by #77.
+Reintroducing its overlapping `diagnose:tools` implementation would create a
+second diagnostic contract; any narrower `--tool NAME` UX should be proposed as
+a separate follow-up if desired. Reconciliation evidence: `.agents/reports/issue-80-orbit-reconciliation.md`.
 
 ## Previous integration evidence (historical, not re-executed here)
 
