@@ -355,7 +355,7 @@ Live tests require Bitwig Studio, the controller script, and explicit write perm
 - [`docs/SPRINT-8-TIMELINE-SELECTION.md`](docs/SPRINT-8-TIMELINE-SELECTION.md)
 - [`docs/SPRINT-9-COMMAND-PALETTE.md`](docs/SPRINT-9-COMMAND-PALETTE.md)
 - [`docs/SPRINT-10-DRAFT-COMMAND-PARSER.md`](docs/SPRINT-10-DRAFT-COMMAND-PARSER.md)
-- [`docs/AGENT_SETUP.md`](docs/AGENT_SETUP.md)
+- [`docs/TWINPILOT_DUO_ANDROID_MUE.md`](docs/TWINPILOT_DUO_ANDROID_MUE.md)\n- [`docs/AGENT_SETUP.md`](docs/AGENT_SETUP.md)
 - [`docs/LOCAL_MCP_SETUP.md`](docs/LOCAL_MCP_SETUP.md)
 
 ## Status
