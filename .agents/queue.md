@@ -18,12 +18,16 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-BT-MCP-DIAGNOSTICS (#1) is the sole authorized implementation item for this branch.
-Implementation is complete for review on fix/mcp-policy-diagnostics-issue-1;
-34 focused offline tests pass. Full supported-workspace CI and live-client reload
-are separate evidence. No new product item, permission or runtime is activated.
-Report: .agents/reports/feature-20260915-mcp-diagnostics.md.
-Merge is not authorized by this implementation loop.
+BT-DUO-001 is the sole authorized implementation item on
+`spike/twinpilot-duo-android-mue`.
+
+Goal: prove a read-only two-agent collaboration loop between a MUE analyst and an
+Android witness using distinct OpenAI-compatible endpoints, isolated first-pass
+answers, peer challenge, final synthesis, auditable transcript, and deterministic
+offline tests. No DAW/model permission widening, confirmation, execution, merge,
+deployment, or destructive action is authorized.
+
+Report will be written when the spike is ready for review.
 
 ## Previous integration evidence (historical, not re-executed here)
 
