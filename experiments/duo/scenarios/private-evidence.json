@@ -1,0 +1,13 @@
+{
+  "name": "private-evidence-beacon",
+  "purpose": "Prove that MUE starts without the decisive observation, Android contributes it, both challenge, and the final synthesis can revise.",
+  "task": "A test beacon is safe to approach only if a local observation reports beacon_code=ORBIT-GREEN-47. Decide whether proceeding is supported. Do not guess missing observations.",
+  "witnessEvidence": "Synthetic Android-local observation for this experiment: beacon_code=ORBIT-GREEN-47; source=fixture; captured_at=2026-09-22T00:00:00Z.",
+  "expectedHumanChecks": [
+    "MUE independent answer notices the decisive observation is missing.",
+    "Android independent answer uses the witness evidence.",
+    "MUE challenge explicitly revises or explains why it does not.",
+    "Android challenge checks MUE did not invent the observation.",
+    "Final synthesis preserves remaining uncertainty instead of fabricating consensus."
+  ]
+}
