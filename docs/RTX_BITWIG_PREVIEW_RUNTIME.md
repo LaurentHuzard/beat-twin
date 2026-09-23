@@ -21,7 +21,7 @@ required or used by the preview transport.
 
 ## Prerequisites
 
-- Node.js 24;
+- Node.js 26 or newer (the workspace enforces `>=26.0.0`);
 - the repository dependencies installed through pnpm;
 - a running OpenAI-compatible llama.cpp server;
 - Bitwig Studio with the Beat Twin controller enabled;
