@@ -1,11 +1,11 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-09-15
-Implementation base for this queue update: `9b0cc64`
+Updated: 2026-09-22
+Implementation base for this queue update: `b79d127`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
-`docs/BEAT_TWIN_EXECUTION_ROADMAP_2026-07-14.md`.
+docs/BEAT_TWIN_EXECUTION_ROADMAP_2026-07-14.md.
 
 Armada launch prompt:
 `.agents/prompts/ARMADA_BEAT_TWIN_NANODAW_ROADMAP_2026-07-14.md`.
@@ -18,12 +18,24 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-BT-MCP-DIAGNOSTICS (#1) is the sole authorized implementation item for this branch.
-Implementation is complete for review on fix/mcp-policy-diagnostics-issue-1;
-34 focused offline tests pass. Full supported-workspace CI and live-client reload
-are separate evidence. No new product item, permission or runtime is activated.
-Report: .agents/reports/feature-20260915-mcp-diagnostics.md.
-Merge is not authorized by this implementation loop.
+_None._
+
+No next product item is implicitly activated by the governance reconciliation in
+issue #80. A future implementation loop requires fresh explicit authorization.
+
+## Delivered Orbit evidence (historical, not active authorization)
+
+BT-MCP-DIAGNOSTICS / issue #1 was delivered through PR #77,
+`fix(mcp): add offline policy diagnostics and detect tool-list mismatches`, merged
+as `add81650e418c0acb1776cf74998668249001086` on 2026-09-15. Issue #1 is closed
+as completed. Its focused verification and limitations remain historical evidence
+in `.agents/reports/feature-20260915-mcp-diagnostics.md`; they are not re-executed
+or re-claimed by this queue reconciliation.
+
+PR #76 is closed without merge and explicitly recorded as superseded by #77.
+Reintroducing its overlapping `diagnose:tools` implementation would create a
+second diagnostic contract; any narrower `--tool NAME` UX should be proposed as
+a separate follow-up if desired. Reconciliation evidence: `.agents/reports/issue-80-orbit-reconciliation.md`.
 
 ## Previous integration evidence (historical, not re-executed here)
 
@@ -88,7 +100,7 @@ Report: `.agents/reports/feature-20260910-bt-ux-065-instrument-shell.md`.
 ## Today - Standalone NanoDAW
 
 | Order | ID | Task | Priority | Size | Status | Depends on |
-| --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- |
 | 1 | BT-201 | Create the isolated NanoDAW development worktree from `main` | P0 | S | Done | - |
 | 2 | BT-202 | Prove the offline package, typecheck, and NanoDAW test baseline | P0 | M | Done | BT-201 |
 | 3 | BT-203 | Run a real-browser NanoDAW smoke without Bitwig, MCP, gateway, or S25 | P0 | M | Done | BT-202 |
@@ -116,7 +128,7 @@ BT-204 proves the current standalone loop.
 ## Next - Honest Bitwig Dependency Health
 
 | Order | ID | Task | Priority | Size | Status | Depends on |
-| --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- |
 | 6 | BT-206 | Detect the Bitwig desktop process and return a structured local status | P0 | M | Done | - |
 | 7 | BT-207 | Distinguish app stopped, controller missing, TCP unavailable, MCP unavailable, and ready | P0 | M | Done | BT-206 |
 | 8 | BT-208 | Expose the dependency state to TwinPilot without giving TwinPilot Beat Twin-specific logic | P1 | M | Done | BT-207, TP-202 |

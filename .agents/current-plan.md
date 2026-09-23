@@ -1,36 +1,33 @@
-# BT-MCP-DIAGNOSTICS: local policy and tool-list diagnostics (#1)
+# No active Orbit
 
-User authorized implementation of issue #1 on 2026-09-15.
-Branch: fix/mcp-policy-diagnostics-issue-1, created from main at
-9b0cc64b7863e68e6824f2763fe54d79e126cf93.
-The GitHub open-pulls endpoint returned no open PR before this branch was created.
+Last reconciled: 2026-09-22 through issue #80 on branch
+`fix/issue-80-reconcile-orbit-state`.
 
-## Orbit Ready
+## Current state
 
-BT-MCP-DIAGNOSTICS is the sole authorized implementation item for this branch.
-Implementation is complete for review, not merged. No new item is activated.
-No NanoDAW/model tool additions, permission widening, runtime activation or DAW
-writes are authorized. Previous plans and their historical evidence remain in Git.
+There is no active implementation item. `.agents/queue.md` is the canonical
+execution queue and its `Orbit Ready` section is explicitly empty.
 
-## Completed plan
+BT-MCP-DIAGNOSTICS / issue #1 is historical delivered work: PR #77 merged as
+`add81650e418c0acb1776cf74998668249001086` and issue #1 is closed completed.
+Its implementation evidence remains in
+`.agents/reports/feature-20260915-mcp-diagnostics.md`.
 
-1. Inspected the shared TypeScript registry, generated entrypoint, policies,
-   discovery wrappers, setup guide, existing tests and queue.
-2. Added an offline diagnostic of effective policies/exposed names and bounded
-   comparison with a supplied complete client tool list; no secrets or DAW calls.
-3. Aligned direct unknown-tool errors with generic dispatch, preserving existing
-   policy-blocked, validation and authentication boundaries.
-4. Added 25 diagnostic tests; combined focused suite passes 34/34, including the
-   nine existing policy tests. The new suite failed 21/25 before implementation.
-5. Documented configuration versus live state, precise reload boundaries and no
-   automatic replay. Regenerated index.js and checked syntax and local diffs.
-6. Publish one PR for review; merge and supported-environment checks are separate.
+PR #76 is closed without merge and is explicitly superseded by #77. Its branch
+and evidence remain historical; they do not grant current implementation authority.
 
-## Evidence and limitations
+## Reconciliation evidence
 
-Report: .agents/reports/feature-20260915-mcp-diagnostics.md.
-The container has Node 22.16.0, not the required Node 26, and no project dependencies
-or pnpm. DNS prevented cloning; authorized connector reads/writes and a verified
-partial local reconstruction were used. Full workspace/SDK checks and live client
-reload are not claimed. No Bitwig, MCP client, gateway, browser/audio or provider
-was activated, and no real write, merge, deployment or branch deletion occurred.
+See `.agents/reports/issue-80-orbit-reconciliation.md` for the GitHub-state
+cross-check, main-ancestry verification, PR #76 supersession review, and scope
+review performed for issue #80.
+
+## Next authorization boundary
+
+Do not promote a legacy `Ready`, `In progress`, backlog, issue, roadmap item, or
+historical branch into implementation authority automatically. A future product
+loop must receive fresh explicit authorization and then update both
+`.agents/queue.md` and this plan before meaningful implementation begins.
+
+No MCP permission, provider, runtime, DAW write, dependency, deployment, merge,
+or branch deletion is authorized by this handoff.
