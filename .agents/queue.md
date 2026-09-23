@@ -1,7 +1,7 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-09-22
-Implementation base for this queue update: `b79d127`
+Updated: 2026-09-23
+Implementation base for this queue update: `4e0a74d`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -18,10 +18,13 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-_None._
+BT-RUNTIME-DOCS-079 / issue #79 — align active setup docs with the enforced
+Node 26 / pnpm 11.10.0 runtime contract and add a drift check.
 
-No next product item is implicitly activated by the governance reconciliation in
-issue #80. A future implementation loop requires fresh explicit authorization.
+Fresh authorization: maintainer automation request on 2026-09-23 to select and
+implement one useful issue, including branch push and PR creation. Scope is
+documentation plus deterministic contract validation only; no dependency,
+runtime, DAW, provider, data, deployment, or merge action is authorized.
 
 ## Delivered Orbit evidence (historical, not active authorization)
 
@@ -113,7 +116,7 @@ These are spike steps, not committed product backlog. They activate only after
 BT-204 proves the current standalone loop.
 
 | Step | Evidence question | Status | Depends on |
-| --- | --- | --- | --- |
+| --- | --- | --- |
 | Q1-A | Can one headless clock and transition ledger express intent, target beat, execution, failure, cancellation, and independent stop? | Done | BT-204 |
 | Q1-B | Does a disposable two-track Session Deck make the next gesture obvious? | Done | Q1-A |
 | Q1-C | Does a disposable two-track Mutation Instrument create clearer musical momentum? | Done | Q1-A |
@@ -122,7 +125,7 @@ BT-204 proves the current standalone loop.
 ## Next - Listening Gate
 
 | Step | Evidence question | Status | Depends on |
-| --- | --- | --- | --- |
+| --- | --- | --- |
 | Q2-L | Does a human listening run confirm the Deck's clarity or reveal stronger musical pull in the Mutation Instrument? | Done | Q1-D |
 
 ## Next - Honest Bitwig Dependency Health
