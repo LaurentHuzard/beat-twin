@@ -43,13 +43,13 @@ A focused dependency-free harness using the exact checker logic and the updated
 runtime-contract values produced:
 
 - runtime checker: PASS;
-- Node test runner: 3 tests, 3 passed, 0 failed.
+- Node test runner: 3 tests, 3 passed, 0 failed;
+- syntax checks for the checker and focused test: PASS.
 
-The available execution host was Node 22.16.0. Repository `AGENTS.md` requires
-language-specific checks through Docker, but Docker and pnpm were unavailable in
-this environment. Therefore this run does **not** claim the canonical full
-`pnpm test`, typecheck, build, or Node-26 Docker validation. GitHub Actions on
-the PR is the canonical Node-26 follow-up when available.
+The available execution host was Node 22.16.0, with no pnpm installation and no
+local repository checkout available. Therefore this run does **not** claim the
+full `pnpm test`, typecheck, build, or a direct Node-26 local validation. GitHub
+Actions on the PR is the canonical Node-26 follow-up when available.
 
 ## Safety / scope review
 
