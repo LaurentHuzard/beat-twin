@@ -116,7 +116,7 @@ These are spike steps, not committed product backlog. They activate only after
 BT-204 proves the current standalone loop.
 
 | Step | Evidence question | Status | Depends on |
-| --- | --- | --- |
+| --- | --- | --- | --- |
 | Q1-A | Can one headless clock and transition ledger express intent, target beat, execution, failure, cancellation, and independent stop? | Done | BT-204 |
 | Q1-B | Does a disposable two-track Session Deck make the next gesture obvious? | Done | Q1-A |
 | Q1-C | Does a disposable two-track Mutation Instrument create clearer musical momentum? | Done | Q1-A |
@@ -125,7 +125,7 @@ BT-204 proves the current standalone loop.
 ## Next - Listening Gate
 
 | Step | Evidence question | Status | Depends on |
-| --- | --- | --- |
+| --- | --- | --- | --- |
 | Q2-L | Does a human listening run confirm the Deck's clarity or reveal stronger musical pull in the Mutation Instrument? | Done | Q1-D |
 
 ## Next - Honest Bitwig Dependency Health
