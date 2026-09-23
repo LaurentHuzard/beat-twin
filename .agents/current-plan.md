@@ -28,9 +28,10 @@ CI.
 - Review the final GitHub diff for whitespace and accidental scope changes.
 - Inspect CI status if GitHub Actions runs.
 
-Canonical Docker-backed repo commands remain required by `AGENTS.md`. If Docker
-is unavailable in the execution environment, report that limitation rather than
-claiming full pnpm/build/test validation.
+The canonical repository commands should run under the declared Node 26 / pnpm
+runtime. If the execution environment cannot provide that toolchain or a local
+checkout, report the limitation rather than claiming full pnpm/build/test
+validation.
 
 ## Risks and stop conditions
 
