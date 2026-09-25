@@ -1,3 +1,14 @@
+# Current plan — BT-AUD-01–03
+
+Authorized 2026-09-25: fix the audited UI/documentation tickets in an isolated freshly fetched worktree. No media/DAW mutation, publication or shared-runtime restart. Validate focused regressions and isolated browser rendering; report in /tmp/lolos-ticket-treatment-20260925/audio-beat.md.
+
+## Local result
+
+34 App unit tests, three isolated browser viewports, frontend build and npm distribution smoke pass. Packed executable initializes and lists14 read-policy tools without tools/call. BT-AUD-03 is a corrected audit false positive: existing SVG icon decodes; original404 was optional MCP plans. No DAW writes.
+Local commit only; no publication or shared-runtime activation.
+
+## Previous plan
+
 # No active Orbit
 
 Last reconciled: 2026-09-22 through issue #80 on branch

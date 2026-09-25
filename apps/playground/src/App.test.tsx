@@ -216,7 +216,7 @@ describe("Playground", () => {
     const runtimeMode = screen.getByLabelText("Runtime mode");
     expect(runtimeMode).toHaveTextContent("Standalone");
     expect(runtimeMode).toHaveTextContent("NanoDAW ready");
-    expect(runtimeMode).toHaveTextContent("Bitwig and S25 are optional · not enabled");
+    expect(runtimeMode).toHaveTextContent("Bitwig and S25 are optional. Check their connection in Bitwig Remote or TWIN.");
     expect(runtimeMode).not.toHaveTextContent(/connected/i);
   });
 
