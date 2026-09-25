@@ -2,7 +2,7 @@ import type { BeatTwinCommand } from "@beat-twin/commands";
 
 export type JsonSchema = { type: "object"; properties?: Record<string, unknown>; required?: string[]; additionalProperties: false };
 const str = { type: "string", minLength: 1, maxLength: 128 };
-const name = { type: "string", minLength: 1, maxLength: 200, pattern: "\\S" };
+const name = { type: "string", minLength: 1, maxLength: 200, pattern: "^.*\\S.*$" };
 const beat = { type: "number", minimum: 0, maximum: 4096 };
 const length = { type: "number", exclusiveMinimum: 0, maximum: 1024 };
 const instrumentId = { enum: ["drums", "bass", "chords", "lead"] };
