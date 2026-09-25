@@ -95,8 +95,8 @@ apps/playground
   -> localStorage JSON save/load
 ```
 
-The historical 57-tool Bitwig MCP bridge still lives in `index.js` as a
-compatibility path. The portable `BitwigAdapter` lives separately under
+The 57-tool Bitwig MCP bridge is maintained in `index.ts`; `index.js` is its
+committed, generated runtime entry point for the npm package and MCP clients. The portable `BitwigAdapter` lives separately under
 `packages/adapters/bitwig` and receives the shared authenticated RPC primitive
 through an injected port. Browser audition is local Web Audio preview, not a
 Bitwig mutation or MCP write.
@@ -382,3 +382,28 @@ CI=1 PLAYWRIGHT_CHANNEL=chrome pnpm --filter @beat-twin/playground exec playwrig
 `apps/nanodaw-mcp`. TWIN discovers pending external MCP proposals for explicit
 review and human confirmation. See `docs/NANODAW_MCP.md`. Rendered-browser,
 real-provider and human listening acceptance remain unverified for this slice.
+
+## Source and distribution boundaries
+
+The root npm package distributes the Bitwig MCP bridge, controller and its
+operator diagnostics. It does **not** package the full NanoDAW browser app,
+Gateway or S25 development workspace.
+
+- Edit `index.ts` and `bitwig-controller/BeatTwin/BeatTwin.control.ts`.
+  `node --experimental-strip-types scripts/build-bridge.ts` regenerates their
+  committed `.js` delivery files. Bitwig requires its ES5-compatible controller
+  output; the npm executable remains `index.js`.
+- Other existing `.js` files under `scripts/` are historical maintained tools,
+  not generated bridge artifacts. In particular `mcp-diagnostics.js` and
+  `read-only-smoke.js` are distributed operator tools; capture/provider/live
+  scripts are repository workflows and require their documented prerequisites.
+  New maintained scripts use TypeScript. Do not regenerate or rename legacy
+  scripts as part of an unrelated runtime update.
+- From a source checkout, `npm run smoke:distribution` builds the bridge, packs with lifecycle scripts
+  disabled, extracts to a temporary directory, verifies required artifacts and
+  uses the installed SDK to initialize the packed executable and list tools.
+  It never connects to Bitwig, runs musical tools, installs dependencies or
+  publishes. Temporary files are removed on success or failure.
+- This smoke checks distribution contents and MCP startup with the existing
+  local dependency installation. It is not a clean-network npm installation,
+  browser packaging, live controller test or proof of DAW writes.

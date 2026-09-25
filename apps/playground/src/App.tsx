@@ -412,7 +412,7 @@ function App() {
         {!persistence.hasSavedSong ? <p>No local song saved yet.</p> : null}
       </section> : null}
       {settingsOpen ? <section id="workspace-settings" className="workspace-settings" aria-label="Settings">
-        <div className="runtime-mode" aria-label="Runtime mode"><strong>Standalone</strong><span>NanoDAW ready</span><small>Bitwig and S25 are optional · not enabled</small></div>
+        <div className="runtime-mode" aria-label="Runtime mode"><strong>Standalone</strong><span>NanoDAW ready</span><small>Bitwig and S25 are optional. Check their connection in Bitwig Remote or TWIN.</small></div>
         <div className="storage-actions">
           <button type="button" onClick={createDemoAndRevealTools}>Create Demo</button>
           <button type="button" onClick={addTrackAndRevealTools}>Add Track</button>

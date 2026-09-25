@@ -18,6 +18,12 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
+None. BT-AUD-01–03 completed locally 2026-09-25; awaiting review/integration.
+
+34 App unit tests, three isolated browser viewports, frontend build and npm distribution smoke pass. Packed executable initializes and lists14 read-policy tools without tools/call. BT-AUD-03 is a corrected audit false positive: existing SVG icon decodes; original404 was optional MCP plans. No DAW writes.
+
+### Previous readiness (historical)
+
 _None._
 
 No next product item is implicitly activated by the governance reconciliation in

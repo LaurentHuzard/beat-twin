@@ -37,7 +37,8 @@
     "playground:dev": "corepack pnpm --filter @beat-twin/playground dev",
     "build:apps": "corepack pnpm --filter @beat-twin/nanodaw-mcp-app build",
     "build:bridge": "node --experimental-strip-types scripts/build-bridge.ts",
-    "bridge:local": "node --experimental-strip-types apps/gateway/src/local-bitwig-relay.ts"
+    "bridge:local": "node --experimental-strip-types apps/gateway/src/local-bitwig-relay.ts",
+    "smoke:distribution": "node --experimental-strip-types scripts/build-bridge.ts && node --experimental-strip-types scripts/distribution-smoke.ts"
   },
   "engines": {
     "node": ">=26.0.0"
@@ -69,7 +70,8 @@
     "SECURITY.md",
     "index.ts",
     "apps/gateway/src/local-bitwig-relay.ts",
-    "bitwig-controller/BeatTwin/BeatTwin.control.ts"
+    "bitwig-controller/BeatTwin/BeatTwin.control.ts",
+    "scripts/read-only-smoke.js"
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0"
