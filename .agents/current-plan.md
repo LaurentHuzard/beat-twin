@@ -1,33 +1,42 @@
-# No active Orbit
+# Active Orbit: issue #79 runtime documentation contract
 
-Last reconciled: 2026-09-22 through issue #80 on branch
-`fix/issue-80-reconcile-orbit-state`.
+Activated: 2026-09-23
+Branch: `fix/issue-79-node-26-doc-contract`
+Base: `4e0a74da80025778faf25c3f806cb43126704a64`
 
-## Current state
+## Outcome
 
-There is no active implementation item. `.agents/queue.md` is the canonical
-execution queue and its `Orbit Ready` section is explicitly empty.
+Make Beat Twin expose one public, executable runtime prerequisite contract:
+Node >=26.0.0 and pnpm 11.10.0 through Corepack, matching package metadata and
+CI.
 
-BT-MCP-DIAGNOSTICS / issue #1 is historical delivered work: PR #77 merged as
-`add81650e418c0acb1776cf74998668249001086` and issue #1 is closed completed.
-Its implementation evidence remains in
-`.agents/reports/feature-20260915-mcp-diagnostics.md`.
+## Scope
 
-PR #76 is closed without merge and is explicitly superseded by #77. Its branch
-and evidence remain historical; they do not grant current implementation authority.
+- Align README and active runtime setup docs that still present Node 22/24 as
+  supported.
+- Explain the expected install warning/error when Node is below the declared
+  engine floor.
+- Add a dependency-free drift check covering package metadata, CI runtime and
+  the active setup docs.
+- Add focused regression coverage for the drift checker.
+- Record exact verification and limits; do not rewrite historical run reports.
 
-## Reconciliation evidence
+## Checks
 
-See `.agents/reports/issue-80-orbit-reconciliation.md` for the GitHub-state
-cross-check, main-ancestry verification, PR #76 supersession review, and scope
-review performed for issue #80.
+- Characterize current main as failing the new runtime-contract check.
+- Focused checker/test after the documentation change.
+- Review the final GitHub diff for whitespace and accidental scope changes.
+- Inspect CI status if GitHub Actions runs.
 
-## Next authorization boundary
+The canonical repository commands should run under the declared Node 26 / pnpm
+runtime. If the execution environment cannot provide that toolchain or a local
+checkout, report the limitation rather than claiming full pnpm/build/test
+validation.
 
-Do not promote a legacy `Ready`, `In progress`, backlog, issue, roadmap item, or
-historical branch into implementation authority automatically. A future product
-loop must receive fresh explicit authorization and then update both
-`.agents/queue.md` and this plan before meaningful implementation begins.
+## Risks and stop conditions
 
-No MCP permission, provider, runtime, DAW write, dependency, deployment, merge,
-or branch deletion is authorized by this handoff.
+- Historical evidence must remain historical rather than be mass-edited.
+- No lowering of `engines.node`, no dependency updates, no provider/DAW/runtime
+  execution, no deployment, no merge.
+- Stop if a concurrent #79 PR appears or the default-branch runtime contract
+  changes beneath this branch.

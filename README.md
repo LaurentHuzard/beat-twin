@@ -190,9 +190,22 @@ the owner of song state and requires a separate **Confirm and apply once**.
 
 ## Requirements
 
-- Node.js 24 for local development; Node.js 22 and 24 are covered by CI
+- Node.js 26 or newer (`package.json` enforces `>=26.0.0`; CI runs Node 26)
 - pnpm 11.10.0 through Corepack
 - Bitwig Studio for live/manual verification
+
+If Node is older than 26, stop before installing dependencies. The workspace is
+outside its declared runtime contract. pnpm reports an `Unsupported engine`
+warning by default, or an install error when `engine-strict` is enabled; a
+green install on an older Node runtime is not evidence of support. Upgrade Node,
+then let Corepack activate the repository-pinned pnpm:
+
+```bash
+node --version
+corepack enable
+corepack prepare pnpm@11.10.0 --activate
+pnpm --version
+```
 
 ## Install
 
