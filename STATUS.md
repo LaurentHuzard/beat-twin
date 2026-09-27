@@ -1,5 +1,18 @@
 # Beat Twin Status
 
+Last reviewed: 2026-09-27
+
+## Current checkpoint — 2026-09-27
+
+PR #92 merged on 2026-09-25 at `413238b2`; BT-AUD-01–03 is no longer awaiting publication. Drafts #89 (Android/MUE Duo spike) and #91 (runtime prerequisites) remain open. The Ready queue is empty; these drafts do not activate a live experiment or DAW operation.
+
+Read [the reconciled queue](.agents/queue.md) and [current plan](.agents/current-plan.md)
+for delivery state. Older validation paragraphs below retain their original
+scope and dates; publication-pending wording there is superseded when the
+checkpoint above identifies an integrated change. No runtime or application
+test was rerun by this documentation refresh.
+
+
 ## Current State
 
 Beat Twin is a local Bitwig Studio + MCP proof of concept with a browser NanoDAW

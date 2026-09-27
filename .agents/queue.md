@@ -1,7 +1,7 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-09-22
-Implementation base for this queue update: `b79d127`
+Updated: 2026-09-27
+Reconciliation base: `413238b2`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
 and from live Bitwig validation. Detailed tickets live in
@@ -18,7 +18,8 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-None. BT-AUD-01–03 completed locally 2026-09-25; awaiting review/integration.
+None. BT-AUD-01–03 is integrated through PR #92 at `413238b2` on
+2026-09-25; publication rechecked 2026-09-27. No successor is activated.
 
 34 App unit tests, three isolated browser viewports, frontend build and npm distribution smoke pass. Packed executable initializes and lists14 read-policy tools without tools/call. BT-AUD-03 is a corrected audit false positive: existing SVG icon decodes; original404 was optional MCP plans. No DAW writes.
 
@@ -28,6 +29,13 @@ _None._
 
 No next product item is implicitly activated by the governance reconciliation in
 issue #80. A future implementation loop requires fresh explicit authorization.
+
+## Open drafts not represented by Ready
+
+GitHub lists #89 (Android witness / MUE analyst Duo spike) and #91 (Node 26
+runtime documentation), both drafts. #89 has no canonical suite or live-device
+proof in its description. Reconcile a chosen draft with the execution queue
+before resuming it; an open PR alone is not live-experiment authority.
 
 ## Delivered Orbit evidence (historical, not active authorization)
 
