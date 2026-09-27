@@ -1,3 +1,35 @@
+# Documentation reconciliation — 2026-09-27
+
+The maintainer requested a refresh of the lolOS portfolio, project docs and PR
+state. Dedicated worktree from freshly fetched and remotely confirmed main
+`413238b2659ffb8a0a417feab2b8bb536fb8c3a6`. This is a documentation task.
+
+## Current publication and Orbit checkpoint
+
+PR #92 merged on 2026-09-25 at `413238b2`; BT-AUD-01–03 is no longer awaiting publication. Drafts #89 (Android/MUE Duo spike) and #91 (runtime prerequisites) remain open. The Ready queue is empty; these drafts do not activate a live experiment or DAW operation.
+
+GitHub issue/PR metadata and main ancestry were checked for this reconciliation.
+Publication-pending statements in the dated plans below are historical where
+this checkpoint names an integrated change. Integration is not deployment.
+
+## Scope and verification
+
+Reconcile status, queue and documentation entry points; retain historical test
+evidence. Check changed Markdown links, structured portfolio projections where
+applicable, merge ancestry and `git diff --check`. No application suite or live
+provider evidence is claimed by a documentation-only refresh. No new product
+item is promoted to Ready. Publication was explicitly authorized by the maintainer on 2026-09-27.
+
+## Local documentation outcome
+
+Status and tracking reconciliation is complete locally. Added Markdown links,
+Git whitespace and the cited merge ancestry pass verification. Application
+code and original checkout modifications are unchanged. The maintainer explicitly authorized commit, push and merge on 2026-09-27.
+The associated documentation PR records integration state; its merge metadata
+is authoritative. Application deployment remains a separate operation.
+
+## Historical plans and validation evidence
+
 # Current plan — BT-AUD-01–03
 
 Authorized 2026-09-25: fix the audited UI/documentation tickets in an isolated freshly fetched worktree. No media/DAW mutation, publication or shared-runtime restart. Validate focused regressions and isolated browser rendering; report in /tmp/lolos-ticket-treatment-20260925/audio-beat.md.
@@ -5,7 +37,8 @@ Authorized 2026-09-25: fix the audited UI/documentation tickets in an isolated f
 ## Local result
 
 34 App unit tests, three isolated browser viewports, frontend build and npm distribution smoke pass. Packed executable initializes and lists14 read-policy tools without tools/call. BT-AUD-03 is a corrected audit false positive: existing SVG icon decodes; original404 was optional MCP plans. No DAW writes.
-Local commit only; no publication or shared-runtime activation.
+Historical local checkpoint; subsequently merged through PR #92 on
+2026-09-25. Shared-runtime activation is not established by this documentation review.
 
 ## Previous plan
 
