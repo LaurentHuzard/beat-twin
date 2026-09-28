@@ -11,7 +11,8 @@ function harness() {
     let current = initial;
     const observers: (() => void)[] = [];
     const val: any = { get: () => current, update(next: any) { current = next; },
-      set(next: any) { calls.push([name + ".set", next]); }, markInterested() {},
+      set(next: any) { calls.push([name + ".set", next]); },
+      setImmediately(next: any) { calls.push([name + ".setImmediately", next]); }, markInterested() {},
       addValueObserver(fn: () => void) { observers.push(fn); }, notify() { observers.forEach((fn) => fn()); } };
     values.push(val); return val;
   }
@@ -105,6 +106,42 @@ test("six reads report bounded known cursor/mixer state without mutations", () =
   assert.deepEqual(h.rpc("cursor_clip.get_status", [], false).result, { exists: true, scope: "selected_launcher", trackPosition: 0, slotSceneIndex: 0,
     loopLength: 16, loopStart: 0, playStart: 0, playStop: 16, color: { red: 0.2, green: 0.3, blue: 0.4 } });
   assert.deepEqual(h.calls, []);
+});
+
+test("legacy channel writes resolve explicit host methods and reject unknown fields", () => {
+  const h = harness();
+  assert.equal(h.rpc("track.bank.pan", [0, 0.4]).result, "OK");
+  assert.deepEqual(h.calls, [["track0.pan.setImmediately", 0.4]]);
+  assert.equal(h.ctx.advancedState.cursorTrack.seen.pan, false);
+  for (const key of ["volume", "pan", "mute", "solo", "arm"]) {
+    assert.equal(h.ctx.channelValue(h.main[0], key), h.main[0].values[key]);
+  }
+  assert.throws(() => h.ctx.channelValue(h.main[0], "constructor"), /Unknown channel/);
+  // JS mocks cannot reproduce Graal invokeMember vs readMember behavior.
+  // Keep a source regression for the dynamic property access that failed live.
+  assert.doesNotMatch(source, /(?:track|cursorTrack)\[key\]\(\)/);
+  assert.doesNotMatch(source, /getItemAt\(i\)\[key\]\(\)/);
+});
+
+test("absolute normalized MCP commands bypass physical takeover while retaining readback guards", () => {
+  for (const [method, args, label] of [
+    ["track.bank.pan", [0, 0.3], "track0.pan"],
+    ["track.bank.volume", [0, 0.3], "track0.volume"],
+    ["track.selected.pan", [0.3], "track0.pan"],
+    ["track.selected.volume", [0.3], "track0.volume"],
+    ["mixer.master.set_volume", [0.3], "track0.volume"],
+    ["mixer.track.set_send", [0, 0, 0.3], "send0:0"],
+    ["mixer.return.pan", [0, 0.3], "track0.pan"],
+    ["mixer.return.volume", [0, 0.3], "track0.volume"],
+  ] as [string, any[], string][]) {
+    const h = harness();
+    const invalid = args.slice(); invalid[invalid.length - 1] = 1.1;
+    assert.equal(h.rpc(method, invalid).error.code, -32602, method);
+    assert.deepEqual(h.calls, []);
+    assert.ok(h.rpc(method, args).result, method);
+    assert.deepEqual(h.calls, [[label + ".setImmediately", 0.3]], method);
+    if (method === "mixer.master.set_volume") assert.equal(h.rpc("mixer.master.get_volume").error.code, -32004);
+  }
 });
 
 test("track structure revokes bindings before calls and waits for observed count while allowing new positions", () => {

@@ -138,9 +138,33 @@ test("musical supported enum and expression boundaries remain usable", async () 
     ["clip_set_note_expressions", { trackIndex: 7, sceneIndex: 7, snapshotId: "snap", notes: [{ step: 63, pitch: 127, velocity: 0, releaseVelocity: 1, pan: -1, timbre: 1, pressure: 0, gain: 1, transpose: -96 }] }],
     ["transport_set_arranger_loop", { enabled: false, startBeats: 1048575, durationBeats: 1, snapshotId: "snap" }],
     ["note_input_set_key_translation", { table: table.map(() => -1) }],
-    ["note_input_set_velocity_translation", { table: table.map(() => -1) }],
+    ["note_input_set_velocity_translation", { table: table.map(() => 0) }],
+    ["note_input_set_velocity_translation", { table: table.map(() => 127) }],
   ];
   for (const [name, args] of valid) assert.equal((await handleToolCall(request(name, args), { env: allowed, call: async () => "OK", earCall: noIo })).isError, undefined, name);
+});
+
+test("velocity translation rejects unsupported -1 through every MCP route before I/O", async () => {
+  const keyTool = MUSICAL_TOOL_SPECS.find((tool) => tool.name === "note_input_set_key_translation");
+  const velocityTool = MUSICAL_TOOL_SPECS.find((tool) => tool.name === "note_input_set_velocity_translation");
+  assert.equal(keyTool.inputSchema.properties.table.items.minimum, -1);
+  assert.equal(velocityTool.inputSchema.properties.table.items.minimum, 0);
+  assert.match(velocityTool.description, /Negative velocity filtering is unsupported and rejected/);
+  for (const index of [0, 45, 127]) {
+    const values = [...table]; values[index] = -1;
+    for (const entry of routes) {
+      const result = await handleToolCall(route("note_input_set_velocity_translation", { table: values }, entry), { env: allowed, call: noIo });
+      assert.equal(payload(result).error, "invalid_arguments", `${entry}: negative entry ${index}`);
+      const accepted = await handleToolCall(route("note_input_set_key_translation", { table: values }, entry), { env: allowed, call: async (_method, params) => {
+        assert.deepEqual(params, [values]); return "OK";
+      } });
+      assert.equal(accepted.isError, undefined);
+    }
+  }
+  for (const entry of routes) {
+    const result = await handleToolCall(route("note_input_set_velocity_translation", { table: Array(128).fill(-1) }, entry), { env: allowed, call: noIo });
+    assert.equal(payload(result).error, "invalid_arguments");
+  }
 });
 
 test("historical discovery aliases retain pagination and forbid recursion among all four wrappers", async () => {

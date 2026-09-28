@@ -1,6 +1,7 @@
 // @ts-nocheck
 // Concatenated with BeatTwin.control.ts. Runtime syntax intentionally stays ES5.
 var creativeState = null;
+var creativeMutationTimeoutMs = 10000;
 var creativeColumns = ["smartCollection", "location", "device", "category", "tag", "deviceType", "fileType", "creator"];
 var creativeExpressionLimits = { velocity: [0, 1], releaseVelocity: [0, 1], pan: [-1, 1], timbre: [-1, 1], pressure: [0, 1], gain: [0, 1], transpose: [-96, 96] };
 
@@ -137,16 +138,34 @@ function creativeDispatch(operations, group, matches, identity) {
   var state = creativeState[group];
   targetGeneration += 1; invalidateInspection();
   var operationIdentity = identity || function () { return true; }, projectEpoch = creativeState.projectEpoch;
-  creativeState.pending = { group: group, beforeCallbacks: state.callbacks, matches: matches, identity: function () { return creativeState.projectEpoch === projectEpoch && operationIdentity(); }, failed: false };
+  creativeState.pending = { group: group, beforeCallbacks: state.callbacks, matches: matches, identity: function () { return creativeState.projectEpoch === projectEpoch && operationIdentity(); }, failed: false, failureReason: null, startedAt: Date.now() };
   state.version += 1; state.settled = -1;
   var dispatched = 0;
   try {
     for (var i = 0; i < operations.length; i++) { operations[i](); dispatched += 1; }
   } catch (error) {
     creativeState.pending.failed = true;
+    creativeState.pending.failureReason = "host_setter_failed";
     return { status: "partial", dispatchedCount: dispatched, totalCount: operations.length, verified: false, requiresReadback: true, uncertain: true, recovery: "readback_then_reload_controller", error: safeHostError(error) };
   }
   return { status: "dispatched", dispatchedCount: dispatched, totalCount: operations.length, verified: false, requiresReadback: true };
+}
+function creativeExpirePending() {
+  var pending = creativeState && creativeState.pending;
+  if (pending && !pending.failed && Date.now() - pending.startedAt >= creativeMutationTimeoutMs) {
+    // A deadline is not evidence that a setter failed, succeeded or was undone.
+    // Keep the write barrier until controller reload; release only diagnostics.
+    pending.failed = true;
+    pending.failureReason = "observation_timeout";
+  }
+}
+function creativeMutationStatus() {
+  creativeExpirePending();
+  var pending = creativeState && creativeState.pending;
+  if (!pending) return null;
+  return { status: pending.failed ? "uncertain" : "awaiting_observation", group: pending.group,
+    reason: pending.failureReason, verified: false, writesBlocked: true,
+    recovery: pending.failed ? "readback_then_reload_controller" : "wait_for_controller_updates" };
 }
 function flushCreative() {
   if (!creativeState || !creativeState.initialized) return;
@@ -155,6 +174,7 @@ function flushCreative() {
     if (state.flushed === state.version) state.settled = state.version;
     state.flushed = state.version;
   }
+  creativeExpirePending();
   var pending = creativeState.pending;
   if (pending && !pending.failed) {
     var group = creativeState[pending.group];
@@ -166,15 +186,26 @@ function flushCreative() {
 function isCreativeReadMethod(method) {
   return method === "clip.get_note_expressions" || method === "browser.get_filter_items" || method === "device.remote_pages_get" || method === "transport.get_arranger_loop";
 }
+function creativeReadGroup(method) {
+  if (method === "clip.get_note_expressions") return "notes";
+  if (method === "browser.get_filter_items" || method === "browser.get_status" || method === "browser.list_results") return "browser";
+  if (method === "device.remote_pages_get" || method === "device.get_remote_controls") return "remote";
+  if (method === "transport.get_arranger_loop") return "loop";
+  return null;
+}
 function guardCreativeLegacyRequest(method, params) {
   if (!creativeState || !creativeState.pending) return;
+  creativeExpirePending();
   if (method === "ping" || method.indexOf("bridge.") === 0 || method === "transport.stop" || method === "note_input.get_status" || method === "note_input.send_note_off" || method === "note_input.all_notes_off") return;
-  var pending = creativeState.pending;
-  if (pending.failed && (isCreativeReadMethod(method) || method === "browser.get_status" || method === "browser.list_results" || method === "device.get_remote_controls")) {
+  var pending = creativeState.pending, readGroup = creativeReadGroup(method);
+  // Independent diagnostics still enforce their own observation/identity guards.
+  // Never permit a write merely because a timed-out getter did not converge.
+  if (readGroup !== pending.group && (readGroup !== null || (typeof isBridgeReadMethod === "function" && isBridgeReadMethod(method)))) return;
+  if (pending.failed && readGroup === pending.group) {
     if (creativeState[pending.group].settled !== creativeState[pending.group].version || !pending.identity()) throw creativeError("Uncertain mutation diagnostics require the original identity and settled observations");
     return;
   }
-  throw creativeError(pending.failed ? "Uncertain creative mutation; read back then reload controller before further writes" : "Creative mutation awaiting observed outcome; wait for controller updates");
+  throw creativeError(pending.failed ? "Uncertain creative mutation (" + pending.failureReason + "); read back then reload controller before further writes" : "Creative mutation awaiting observed outcome; wait for controller updates");
 }
 function creativeCoordinates(notes, writing) {
   if (!Array.isArray(notes) || notes.length < 1 || notes.length > 256) throw invalidParams("notes must contain 1 to 256 entries");
@@ -365,6 +396,11 @@ function creativeLegacyBrowser(method, params) {
       sessionId: "browser:" + controllerInstanceId + ":" + creativeState.session };
   }
   creativeBrowserOpen();
+  if (method === "browser.cancel") {
+    // Cancelling never needs a selected result, result count, or item identity.
+    var cancelSession = creativeState.session;
+    return creativeDispatch([function () { popupBrowser.cancel(); }], "browser", function () { return popupBrowser.exists().get() === false; }, function () { return creativeState.session === cancelSession + 1 && popupBrowser.exists().get() === false; });
+  }
   var items = [], i, window = creativeResultWindow();
   for (i = 0; i < 32; i++) {
     var observed = creativeBrowserItem(browserResultBank.getItemAt(i), "result." + i, i, false);
@@ -382,14 +418,12 @@ function creativeLegacyBrowser(method, params) {
     creativeInvalidate("browser", [selectedKey]);
     return creativeDispatch([creativeSetValue(selectedValue, true)], "browser", function () { return creativeSeen("browser", [selectedKey]) && selectedValue.get() === true; }, identity);
   }
-  if (method === "browser.commit" || method === "browser.cancel") {
-    if (method === "browser.commit") {
-      var selectedCount = 0;
-      for (i = 0; i < items.length; i++) if (items[i].available && items[i].exists && items[i].selected) selectedCount += 1;
-      if (selectedCount !== 1) throw creativeError("Exactly one observed browser result must be selected before commit");
-    }
-    var session = creativeState.session, command = method === "browser.commit" ? "commit" : "cancel";
-    return creativeDispatch([function () { popupBrowser[command](); }], "browser", function () { return popupBrowser.exists().get() === false; }, function () { return creativeState.session === session + 1 && popupBrowser.exists().get() === false; });
+  if (method === "browser.commit") {
+    var selectedCount = 0;
+    for (i = 0; i < items.length; i++) if (items[i].available && items[i].exists && items[i].selected) selectedCount += 1;
+    if (selectedCount !== 1) throw creativeError("Exactly one observed browser result must be selected before commit");
+    var session = creativeState.session;
+    return creativeDispatch([function () { popupBrowser.commit(); }], "browser", function () { return popupBrowser.exists().get() === false; }, function () { return creativeState.session === session + 1 && popupBrowser.exists().get() === false; });
   }
   var selectedIndex = -1;
   for (i = 0; i < items.length; i++) if (items[i].available && items[i].selected) {
@@ -434,7 +468,8 @@ function creativeLegacyRemote(method, params) {
   var parameter = remoteControlsBank.getParameter(params[0]).value(), next = params[1];
   if (controls[params[0]].value === next) return creativeDispatch([], "remote", function () { return true; });
   var valueKey = params[0] + ".value"; creativeInvalidate("remote", [valueKey]);
-  return creativeDispatch([creativeSetValue(parameter, next)], "remote", function () { return creativeSeen("remote", [valueKey]) && Math.abs(parameter.get() - next) <= 0.000001; }, function () { return remoteControlsBank.selectedPageIndex().get() === pages.selectedPageIndex && cursorTrack.position().get() === pages.trackPosition && cursorDevice.position().get() === pages.devicePosition; });
+  // Remote knobs are absolute normalized commands, independent of host takeover.
+  return creativeDispatch([function () { parameter.setImmediately(next); }], "remote", function () { return creativeSeen("remote", [valueKey]) && Math.abs(parameter.get() - next) <= 0.000001; }, function () { return remoteControlsBank.selectedPageIndex().get() === pages.selectedPageIndex && cursorTrack.position().get() === pages.trackPosition && cursorDevice.position().get() === pages.devicePosition; });
 }
 function handleCreativeRequest(method, params) {
   var newMethod = isCreativeReadMethod(method) || method === "clip.set_note_expressions" || method === "browser.set_filter" || method === "browser.scroll_filter_items" || method === "device.remote_page_select" || method === "transport.set_arranger_loop";
@@ -454,5 +489,9 @@ function handleCreativeRequest(method, params) {
   else if (["browser.get_status", "browser.list_results", "browser.select_result", "browser.select_first_file", "browser.select_next_file", "browser.select_previous_file", "browser.commit", "browser.cancel"].indexOf(method) >= 0) result = creativeLegacyBrowser(method, params);
   else if (["device.get_remote_controls", "device.set_remote_control", "device.page_next", "device.page_previous"].indexOf(method) >= 0) result = creativeLegacyRemote(method, params);
   else return { handled: false };
+  if (creativeObject(result) && creativeReadGroup(method) !== null) {
+    var mutation = creativeMutationStatus();
+    if (mutation) result.mutation = mutation;
+  }
   return { handled: true, result: result };
 }
