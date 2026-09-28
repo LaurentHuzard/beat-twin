@@ -1,9 +1,9 @@
 # Musical extensions, MIDI profile and Ear adapter
 
-Tranche6, 2026-09-28. Source catalogue:187 tools /42 default reads. Opt-in
-discovery adds four wrappers, for191 total when all policies are enabled.
-Controller API 15. This document describes the installed candidate and bounded
-live evidence from 2026-09-28: mixer/groove readbacks, remote pages, browser
+Updated 2026-09-28. Source catalogue: 190 tools / 43 default reads. Opt-in
+discovery adds four wrappers, for 194 total when all policies are enabled.
+Controller API 15. This document describes the current source and bounded
+installed-controller evidence from 2026-09-28: mixer/groove readbacks, remote pages, browser
 insertion, pressure rejection and a five-note clip producing captured audio.
 These outcomes do not establish every scenario or full musical parity.
 [API inventory](BITWIG_CONTROLLER_API_COVERAGE.md) and
@@ -82,11 +82,33 @@ member-pitch independence, not every MPE dimension, zone, range or instrument.
 The same campaign compared incoming polyphonic aftertouch with assignment `NONE`
 versus `PITCH_UP` and a twelve-semitone range. Both captures retained a fundamental
 near `130.812 Hz` before, during and after the aftertouch event; no expected octave
-shift was observed. Their final seconds were digital silence. The musical effect
-of `note_input_assign_expression` therefore remains unvalidated. The cause is
-open: read-only Java-path inspection found unchanged argument forwarding, but
-does not establish native-engine event delivery or explain its handling. No host
-bug or successful mapping is inferred from dispatch acknowledgement alone.
+shift was observed. Their final seconds were digital silence.
+
+A subsequent seven-capture matrix extended the comparison to `PAN_LEFT`,
+`GAIN_DOWN`, and `PITCH_UP`, including note/pressure channels `0/0`, `0/1` and
+`1/1`, pressure sent before a second note, and pressure repeated during that note.
+Analysis covered 39 active windows: six windows in each of six ordinary probes,
+plus three in the MPE control. No mapped pan/gain/pitch effect was demonstrated:
+the ordinary probes remained near `130.812 Hz`, maximum left/right RMS difference
+was `0.0000321 dB`, and GAIN_DOWN's level change relative to NONE's corresponding
+envelope change was only `−0.01573 dB`. These tiny differences do not establish
+the expected mapping. The repeated MPE control produced
+`130.812 → 184.996 → 130.812 Hz` with a stable second voice near `195.997 Hz`.
+All seven captures had exact digital silence in their final second.
+
+A separate direct ALSA witness replayed the same SMF files into an isolated
+receiver and observed note-on channel 0 plus polyphonic-aftertouch channel 0/1,
+note 48, value 127. This confirms production of the intended events by
+`aplaymidi` in that witness; it does not confirm their receipt by Bitwig's native
+engine during the audio probes. The earlier observer subscribed to the virtual
+destination logged only headers and supplies no event-delivery evidence.
+Channel-pressure D0 contrast, channel 15 and wrong-pitch controls were prepared
+but were not part of the performed matrix.
+
+The musical effect of `note_input_assign_expression` remains unvalidated and
+its cause open. Read-only Java-path inspection found unchanged argument
+forwarding, without establishing native-engine receipt or handling. No host bug
+or successful mapping is inferred from dispatch acknowledgement alone.
 
 These bounded incoming-note releases do not resolve the separate exit/reload
 audio-tail question above. The campaign report tracks replay of the exact
@@ -289,3 +311,18 @@ MPE and Ear outcomes above. Polyphonic-aftertouch mapping remains unvalidated,
 and immediate exit/reload audio cleanup remains unproven. Other MPE dimensions
 and target contexts need their own evidence. Full musical parity is not
 established by the catalogue count or these selected successes.
+
+## Bounded project persistence witness
+
+A live [save/reopen witness](BITWIG_MCP_PERSISTENCE.md) now verifies persisted
+content within an explicit scope. Save As and Save persisted a three-note clip;
+a fourth note was then added without saving. Closing with No to the save prompt
+and reopening the exact saved file restored the three-note state. The bounded
+manifest comparison reported zero differences, using numeric tolerance `1e-6`.
+
+The comparison covers eight visible tracks, scenes, the four-beat clip inspected
+over 64 steps and MIDI pitches 0–127 on channel 0, note expressions excluding
+unsupported pressure, device inventory and page 0 macros. It does not establish
+persistence of the entire arranger, all tracks/channels, every device state or
+every remote page. The unsaved fourth-note control and content comparison supply
+the evidence; action acknowledgements alone remain insufficient.

@@ -27,11 +27,11 @@ const cases = [
 ];
 
 test("construction adds 13 unique tools and two default reads without enabling writes", async () => {
-  assert.equal(TOOL_SPECS.length, 187);
-  assert.equal(new Set(TOOL_SPECS.map((tool) => tool.name)).size, 187);
+  assert.equal(TOOL_SPECS.length, 190);
+  assert.equal(new Set(TOOL_SPECS.map((tool) => tool.name)).size, 190);
   assert.deepEqual(TOOL_SPECS.slice(70, 83), CONSTRUCTION_TOOL_SPECS);
   const definitions = getToolDefinitions({ env: {} });
-  assert.equal(definitions.length, 42);
+  assert.equal(definitions.length, 43);
   assert.deepEqual(definitions.slice(20, 22).map((tool) => tool.name), ["clip_get_color", "transport_get_recording_status"]);
   for (const [name, args, , , policy] of cases.filter((entry) => entry[4] !== "read")) {
     for (const env of [discovery, { ...discovery, BITWIG_MCP_WRITE_POLICY: "mixer_write,device_write,transport" }]) {

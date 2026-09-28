@@ -17,7 +17,7 @@ try {
   assert.equal(packed.length, 1);
   const paths = new Set(packed[0].files.map(file => file.path));
   for (const file of ["index.js", "index.ts", "bitwig-controller/BeatTwin/BeatTwin.control.js",
-    "bitwig-controller/BeatTwin/BeatTwin.control.ts", "scripts/mcp-diagnostics.js", "scripts/read-only-smoke.js", "docs/BITWIG_MCP_PORT.md", "docs/BITWIG_MCP_PARITY.md", "docs/BITWIG_MCP_CONSTRUCTION.md", "docs/BITWIG_MCP_TRANSPORT.md", "docs/BITWIG_MCP_MIX.md", "docs/BITWIG_MCP_PARITY_NEXT.md", "docs/BITWIG_CONTROLLER_API_COVERAGE.md", "lib/ear-client.js", "lib/ear-client.ts", "bitwig-controller/BeatTwin/BeatTwinMidi.control.js", "bitwig-controller/BeatTwin/midi.ts", "bitwig-controller/BeatTwin/creative.ts", "docs/BITWIG_MCP_MUSICAL.md", "docs/BITWIG_LIVE_ACCEPTANCE.md", "README.md", "package.json"]) {
+    "bitwig-controller/BeatTwin/BeatTwin.control.ts", "scripts/mcp-diagnostics.js", "scripts/read-only-smoke.js", "docs/BITWIG_MCP_PORT.md", "docs/BITWIG_MCP_PARITY.md", "docs/BITWIG_MCP_CONSTRUCTION.md", "docs/BITWIG_MCP_TRANSPORT.md", "docs/BITWIG_MCP_MIX.md", "docs/BITWIG_MCP_PARITY_NEXT.md", "docs/BITWIG_CONTROLLER_API_COVERAGE.md", "lib/ear-client.js", "lib/ear-client.ts", "bitwig-controller/BeatTwin/BeatTwinMidi.control.js", "bitwig-controller/BeatTwin/midi.ts", "bitwig-controller/BeatTwin/creative.ts", "docs/BITWIG_MCP_MUSICAL.md", "docs/BITWIG_MCP_PERSISTENCE.md", "docs/BITWIG_LIVE_ACCEPTANCE.md", "README.md", "package.json"]) {
     assert.ok(paths.has(file), `Missing distribution artifact: ${file}`);
   }
   assert.ok(![...paths].some(path => /(^|\/)(?:node_modules|\.env|test-results)(?:\/|$)/.test(path)));
@@ -39,7 +39,7 @@ try {
     (async () => {
       await client.connect(transport!);
       const result = await client.listTools();
-      assert.equal(result.tools.length, 42);
+      assert.equal(result.tools.length, 43);
       assert.deepEqual(result.tools.map(tool => tool.name).sort(), [
         "bitwig_session_inspect", "bitwig_arrangement_plan", "transport_get_tempo", "transport_get_position",
         "transport_playing_status", "track_bank_get_status", "scene_list", "clip_get_info",
@@ -51,6 +51,7 @@ try {
         "cursor_track_get_status", "cursor_device_get_status", "cursor_clip_get_status", "mixer_get_master_volume", "mixer_get_send_level", "mixer_return_list",
         "application_get_status", "arranger_get_cue_markers", "drumpad_get_status", "groove_get_status", "project_get_status",
         "midi_get_status", "clip_get_note_expressions", "browser_get_filter_items", "device_remote_pages_get", "transport_get_arranger_loop",
+        "application_list_actions",
       ].sort());
       assert.ok(result.tools.some(tool => tool.name === "bitwig_session_inspect"));
       // No tools/call: discovery never opens the controller connection.

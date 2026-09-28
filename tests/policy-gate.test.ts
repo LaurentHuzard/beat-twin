@@ -73,6 +73,7 @@ test("default tool list exposes only read tools", () => {
       "browser_get_filter_items",
       "device_remote_pages_get",
       "transport_get_arranger_loop",
+      "application_list_actions",
     ],
   );
   assert.ok(tools.every((tool) => tool.description.startsWith("[policy:read]")));

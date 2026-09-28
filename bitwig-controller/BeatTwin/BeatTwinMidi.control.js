@@ -459,6 +459,7 @@ function isBridgeReadMethod(method) {
     method === "note_input.get_status" ||
     (typeof isCreativeReadMethod === "function" && isCreativeReadMethod(method)) ||
     method === "application.get_status" ||
+    method === "application.list_actions" ||
     method === "project.get_status" ||
     method === "groove.get_status" ||
     method === "drumpad.get_status" ||
@@ -1464,6 +1465,52 @@ function handleRequest(request, connection, bridgeSession) {
     }
 
     switch (request.method) {
+      case "project.save": case "project.save_as":
+        requireArgumentCount(request.params, 1);
+        var expectedProjectName = request.params[0];
+        if (typeof expectedProjectName !== "string" || expectedProjectName.length < 1 || expectedProjectName.length > 256 || expectedProjectName.trim().length === 0 || /[\x00-\x1f\x7f-\x9f]/.test(expectedProjectName)) throw invalidParams("Expected project name must contain 1-256 characters without control characters");
+        requireStoppedStructure();
+        var saveProjectName = mixObserved(application.projectName(), "projectName", "application", "string");
+        if (saveProjectName !== expectedProjectName) throw bridgeError(-32003, "Project name changed; inspect the active project before requesting save");
+        var saveActionId = request.method === "project.save" ? "Save" : "Save as";
+        if (typeof application.getAction !== "function") throw bridgeError(-32004, "Project save action is unavailable");
+        var saveAction = application.getAction(saveActionId);
+        if (!saveAction || typeof saveAction.getId !== "function" || saveAction.getId() !== saveActionId || typeof saveAction.invoke !== "function") throw bridgeError(-32004, "Expected project save action is unavailable");
+        // Lookup is not an acknowledgement and names are not persistent IDs.
+        // Recheck the observed target immediately before the only host write.
+        if (mixObserved(application.projectName(), "projectName", "application", "string") !== expectedProjectName) throw bridgeError(-32003, "Project name changed during save preparation");
+        requireStoppedStructure();
+        saveAction.invoke();
+        // API 1 Action.invoke() has no completion result. Save may open a
+        // dialog for an unnamed project, and Save as always needs a target.
+        // Do not create a mutation barrier that waits for a nonexistent ack.
+        result = { status: "dispatched", command: request.method, actionId: saveActionId,
+          projectName: expectedProjectName, identityScope: "project_name_only", projectPath: null,
+          verified: false, saved: null, mayOpenDialog: true, requiresUserInteraction: true,
+          requiresReadback: true, persistenceVerified: false };
+        break;
+      case "application.list_actions":
+        requireArgumentCount(request.params, 2);
+        var actionOffset = request.params[0], actionLimit = request.params[1];
+        if (!isIntegerInRange(actionOffset, 0, 4096) || !isIntegerInRange(actionLimit, 1, 64)) throw invalidParams("Action offset must be 0-4096 and limit must be 1-64");
+        if (typeof application.getActions !== "function") throw bridgeError(-32004, "Application action catalogue is unavailable");
+        var hostActions = application.getActions();
+        if (!hostActions || !isIntegerInRange(hostActions.length, 0, 2147483647)) throw bridgeError(-32004, "Application action catalogue is unavailable");
+        var actionItems = [], actionEnd = Math.min(hostActions.length, actionOffset + actionLimit);
+        for (var actionIndex = actionOffset; actionIndex < actionEnd; actionIndex++) {
+          var hostAction = hostActions[actionIndex];
+          if (!hostAction || typeof hostAction.getId !== "function" || typeof hostAction.getName !== "function") throw bridgeError(-32004, "Application action metadata is unavailable");
+          var actionId = hostAction.getId(), actionName = hostAction.getName();
+          if (typeof actionId !== "string" || actionId.length < 1 || actionId.length > 256 || typeof actionName !== "string" || actionName.length > 512) throw bridgeError(-32004, "Application action metadata is unavailable or exceeds bounds");
+          actionItems.push({ id: actionId, name: actionName });
+        }
+        var nextActionOffset = actionOffset + actionItems.length;
+        result = { actions: actionItems, count: hostActions.length,
+          coverage: { offset: actionOffset, limit: actionLimit, returned: actionItems.length,
+            hasMore: nextActionOffset < hostActions.length,
+            nextOffset: nextActionOffset < hostActions.length && nextActionOffset <= 4096 ? nextActionOffset : null,
+            complete: actionOffset === 0 && actionItems.length === hostActions.length } };
+        break;
       case "application.get_status":
         requireArgumentCount(request.params, 0);
         result = { projectName: mixObserved(application.projectName(), "projectName", "application", "string"),

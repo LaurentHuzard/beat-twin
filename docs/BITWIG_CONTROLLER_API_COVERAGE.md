@@ -18,6 +18,11 @@ are separate kinds of evidence. The [historical matrix](BITWIG_MCP_PARITY.md)
 counts names; this inventory compares musical capabilities. One MCP tool need
 not correspond to one API method.
 
+Current source catalogue: **190 tools / 43 default reads**, plus four optional
+discovery wrappers (**194 total**). Catalogue coverage is separate from the live
+evidence below. A [bounded project save/reopen witness](BITWIG_MCP_PERSISTENCE.md)
+now compares actual persisted content; action dispatch alone remains insufficient.
+
 ## Tranche 6 implementation update
 
 [Musical extensions](BITWIG_MCP_MUSICAL.md) now implement bounded note-expression
@@ -73,9 +78,30 @@ and confirmed the original velocity remained unchanged.
   independence, not all MPE dimensions, zones, ranges or instruments.
 - **Polyphonic aftertouch:** `NONE` versus `PITCH_UP` with range 12 produced the
   same approximately `130.812 Hz` fundamental throughout the event; no octave
-  shift was observed. Musical mapping remains unvalidated and its cause open.
-  Java-path inspection found unchanged argument forwarding; that neither proves
-  native delivery nor establishes a host bug. Both captures ended in silence.
+  shift was observed. A later seven-capture matrix added PAN_LEFT, GAIN_DOWN,
+  same/cross-channel cases and pressure before/during a second note. Across 39
+  active windows (six ordinary probes × six windows, MPE control × three), no
+  mapped pan/gain/pitch response was demonstrated. Maximum ordinary left/right
+  RMS imbalance was `0.0000321 dB`; GAIN_DOWN's envelope-corrected change against
+  NONE was `−0.01573 dB`. Fundamentals stayed near `130.812 Hz`. The MPE positive
+  control independently repeated `130.812 → 184.996 → 130.812 Hz`, with a second
+  voice near `195.997 Hz` unchanged. All seven final seconds were digital silence.
+- **Aftertouch event generation:** an isolated direct ALSA receiver observed
+  note-on channel 0 and polyphonic aftertouch on channels 0/1, note 48, value 127,
+  from replay of the same SMF files. This validates `aplaymidi` event production
+  for that witness, not Bitwig native-engine receipt during the audio probes.
+  The earlier virtual-port subscriber log contained headers only. Musical
+  mapping remains unvalidated and its cause open; Java-path argument forwarding
+  neither establishes native delivery nor identifies a host bug. D0, channel 15
+  and wrong-pitch controls were prepared but not executed in this matrix.
+- **Project persistence:** Save As and Save persisted three notes; a fourth was
+  added without saving. Closing with No to the save prompt and reopening the
+  exact saved file restored three notes. The bounded manifest matched with zero
+  differences at numeric tolerance `1e-6`. Scope: eight visible tracks, scenes,
+  one four-beat clip inspected across 64 steps and pitches 0–127 on channel 0,
+  note expressions excluding pressure, device inventory and page 0 macros.
+  This is not a full-arranger, all-track/channel, all-device-state or all-page
+  persistence claim. [Witness and boundaries](BITWIG_MCP_PERSISTENCE.md).
 
 The exact publication-head replay is recorded separately in the campaign report;
 the bounded observations above must not be expanded to untested target contexts.
