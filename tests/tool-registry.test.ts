@@ -19,7 +19,7 @@ test("preserves every historical tool schema and policy as a stable prefix", () 
   }));
   const digest = createHash("sha256").update(JSON.stringify(schemas)).digest("hex");
 
-  assert.equal(TOOL_SPECS.length, 83);
+  assert.equal(TOOL_SPECS.length, 104);
   assert.equal(new Set(TOOL_SPECS.map(({ name }) => name)).size, TOOL_SPECS.length);
   assert.deepEqual(tools, snapshot.tools);
   assert.equal(digest, snapshot.schemaDigest);
@@ -54,8 +54,10 @@ test("search pages only currently permitted definitions, preserving schemas and 
   assert.equal(first.total, getToolDefinitions({ env: {} }).length);
   assert.equal(first.nextOffset, 3);
   const second = await search({ limit: 20, offset: first.nextOffset });
-  assert.equal(second.nextOffset, null);
-  assert.deepEqual([...first.tools, ...second.tools].map((tool) => tool.name),
+  assert.equal(second.nextOffset, 23);
+  const third = await search({ limit: 20, offset: second.nextOffset });
+  assert.equal(third.nextOffset, null);
+  assert.deepEqual([...first.tools, ...second.tools, ...third.tools].map((tool) => tool.name),
     getToolDefinitions({ env: {} }).map((tool) => tool.name));
   for (const tool of first.tools) {
     assert.deepEqual(tool.inputSchema, TOOL_SPECS.find((spec) => spec.name === tool.name).inputSchema);

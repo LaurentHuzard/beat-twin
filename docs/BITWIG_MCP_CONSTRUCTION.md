@@ -1,5 +1,8 @@
 # Bitwig MCP bounded launcher construction
 
+This document records tranche 2 (merged in PR #95). Subsequent catalog additions
+are documented in [transport and cue tools](BITWIG_MCP_TRANSPORT.md).
+
 Date: 2026-09-28. This is the second capability-port tranche, following the
 inspection/navigation baseline merged in PR #94. It adds 13 tools to the source
 catalogue: 9 historical names and 4 new names. The catalogue has **83 tools**,

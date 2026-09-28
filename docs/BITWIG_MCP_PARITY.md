@@ -1,6 +1,6 @@
 # Bitwig MCP capability parity and port plan
 
-Audit dates: 2026-09-27 (tranche 1), 2026-09-28 (tranche 2). Historical source: `llm2Bitwig` advanced branch at
+Audit dates: 2026-09-27 (tranche 1), 2026-09-28 (tranches 2 and 3). Historical source: `llm2Bitwig` advanced branch at
 `52563e4be42da37abf589245dd9ce3862c9dd7e1`. This inventory follows each catalogue
 name through the Java dispatch and the modules initialized by `controller-mcp.ts`.
 A declaration, a dispatch branch, a handler body, and a successful live operation
@@ -14,19 +14,21 @@ names are `arranger_get_status`, `arranger_set_panel_visibility`, and
 `arranger_zoom` (two entries each). Before these ports, the base catalogue had
 **57 tools**, including **47 historical names** and **10 newer names**. Tranche 1
 added **13 historical names**, reaching **70 tools**. Tranche 2 adds **9 historical
-names and 4 new names**, reaching **83 tools**, with **22 reads** exposed under
-the default read-only policy. Optional discovery wrappers are counted separately.
+names and 4 new names**, reaching **83 tools**. Tranche 3 adds **21 historical
+names**, reaching **104 tools**, with **26 reads** exposed under the default
+read-only policy. Optional discovery wrappers are counted separately.
 These are source catalogue counts, not claims about an installed live controller.
 
 Each of the 164 historical names appears exactly once below. Categories are
 exclusive and concern this port's status, while the last column records any
 historical incompleteness:
 
-- **Current: 47** — same name present before either tranche; not a fresh live claim.
+- **Current: 47** — same name present before these tranches; not a fresh live claim.
 - **Ported 1: 13** — historical name added in the inspection/navigation tranche.
 - **Ported 2: 9** — historical name added in the construction tranche.
+- **Ported 3: 21** — historical name added in the transport/arranger tranche.
 - **Equivalent: 3** — usable current replacement; historical alias is not registered.
-- **Next: 61** — historical handler exists; explicitly deferred to a later tranche.
+- **Next: 40** — historical handler exists; explicitly deferred to a later tranche.
 - **Stub: 2** — historical handler deliberately does not execute the requested operation.
 - **External: 6** — separate Ear service integration; outside the controller.
 - **Unwired: 23** — missing Java dispatch or missing/uninitialized controller handler.
@@ -81,10 +83,18 @@ They add selected-cursor naming, bounded batch insertion/removal, and loop lengt
 control. Their inclusion in the 83-tool catalogue does not change the historical
 matrix denominator.
 
+## Third tranche: transport and bounded arranger inspection
+
+See [the transport contract](BITWIG_MCP_TRANSPORT.md). Seventeen transport tools
+and four arranger/cue tools move to Ported 3. Cue lists are a bounded 32-marker
+bank; cue launch starts quantized playback. The tranche does not add timeline
+region editing. Zoom remains deferred because API 10 compatibility is not
+established, and cue naming/creation require API 15.
+
 ## Complete historical-name matrix
 
 `Next` means source-level port candidate, not guaranteed API correctness. Current
-and Ported 1/2 identify exact registered names. Equivalent identifies replacements,
+and Ported 1/2/3 identify exact registered names. Equivalent identifies replacements,
 not source-compatible aliases. Historical module names refer to the archived
 `bitwig-controller/modules/` files.
 
@@ -185,11 +195,11 @@ not source-compatible aliases. Historical module names refer to the archived
 | `mixer_return_set_volume` | Next | `Deferred: mixer_return_set_volume` | `mixer.return.volume` / Mixer |
 | `mixer_return_set_pan` | Next | `Deferred: mixer_return_set_pan` | `mixer.return.pan` / Mixer |
 | `project_get_summary` | Ported 1 | `project_get_summary` | `project.get_summary` / controller-mcp — Visible bank only; new shape is not the old selection/mixer/arranger aggregate. |
-| `arranger_get_status` | Next | `Deferred: arranger_get_status` | `arranger.get_status` / Arranger |
-| `arranger_set_panel_visibility` | Next | `Deferred: arranger_set_panel_visibility` | `arranger.set_panel_visibility` / Arranger |
-| `arranger_zoom` | Next | `Deferred: arranger_zoom` | `arranger.zoom` / Arranger |
-| `arranger_get_cue_markers` | Unwired | `Deferred: implement/fix wiring` | Java only / missing dispatch — No Java dispatch case; use future arranger_cues_list/jump port. |
-| `arranger_jump_to_cue_marker` | Unwired | `Deferred: implement/fix wiring` | Java only / missing dispatch — No Java dispatch case; use future arranger_cues_list/jump port. |
+| `arranger_get_status` | Ported 3 | `arranger_get_status` | `arranger.get_status` / Arranger |
+| `arranger_set_panel_visibility` | Ported 3 | `arranger_set_panel_visibility` | `arranger.set_panel_visibility` / Arranger |
+| `arranger_zoom` | Next | `Deferred: arranger_zoom` | `arranger.zoom` / Arranger — direct-method compatibility with loadAPI(10) not established; Action/stepper variants require API 14. |
+| `arranger_get_cue_markers` | Unwired | `Deferred: implement/fix wiring` | Java only / missing dispatch — No Java dispatch case; current arranger_cues_list/jump provide the intended functions, but these aliases remain unregistered. |
+| `arranger_jump_to_cue_marker` | Unwired | `Deferred: implement/fix wiring` | Java only / missing dispatch — No Java dispatch case; current arranger_cues_list/jump provide the intended functions, but these aliases remain unregistered. |
 | `midi_send_raw` | Unwired | `Deferred: implement/fix wiring` | `note_input.send_raw_midi` / no active handler — NoteInput.ts handler exists but module not initialized; zero MIDI ports. note_play only sends note-on. |
 | `note_on` | Unwired | `Deferred: implement/fix wiring` | `note_input.send_note_on` / no active handler — NoteInput.ts handler exists but module not initialized; zero MIDI ports. note_play only sends note-on. |
 | `note_off` | Unwired | `Deferred: implement/fix wiring` | `note_input.send_note_off` / no active handler — NoteInput.ts handler exists but module not initialized; zero MIDI ports. note_play only sends note-on. |
@@ -218,28 +228,28 @@ not source-compatible aliases. Historical module names refer to the archived
 | `browser_select_result` | Current | `browser_select_result` | `browser.select_result` / Browser |
 | `browser_commit` | Current | `browser_commit` | `browser.commit` / Browser |
 | `browser_cancel` | Current | `browser_cancel` | `browser.cancel` / Browser |
-| `transport_toggle_metronome` | Next | `Deferred: transport_toggle_metronome` | `transport.toggle_metronome` / Transport |
-| `transport_set_time_signature` | Next | `Deferred: transport_set_time_signature` | `transport.time_signature` / Transport |
-| `transport_tap_tempo` | Next | `Deferred: transport_tap_tempo` | `transport.tap_tempo` / Transport |
-| `transport_toggle_punch_in` | Next | `Deferred: transport_toggle_punch_in` | `transport.toggle_punch_in` / Transport |
-| `transport_toggle_punch_out` | Next | `Deferred: transport_toggle_punch_out` | `transport.toggle_punch_out` / Transport |
-| `transport_set_punch_in` | Next | `Deferred: transport_set_punch_in` | `transport.set_punch_in` / Transport |
-| `transport_set_punch_out` | Next | `Deferred: transport_set_punch_out` | `transport.set_punch_out` / Transport |
-| `transport_get_punch_status` | Next | `Deferred: transport_get_punch_status` | `transport.get_punch_status` / Transport |
-| `transport_toggle_arranger_overdub` | Next | `Deferred: transport_toggle_arranger_overdub` | `transport.toggle_arranger_overdub` / Transport |
-| `transport_toggle_launcher_overdub` | Next | `Deferred: transport_toggle_launcher_overdub` | `transport.toggle_launcher_overdub` / Transport |
-| `transport_get_overdub_status` | Next | `Deferred: transport_get_overdub_status` | `transport.get_overdub_status` / Transport |
-| `transport_continue_playback` | Next | `Deferred: transport_continue_playback` | `transport.continue_playback` / Transport |
-| `transport_return_to_zero` | Next | `Deferred: transport_return_to_zero` | `transport.return_to_zero` / Transport |
-| `transport_fast_forward` | Next | `Deferred: transport_fast_forward` | `transport.fast_forward` / Transport |
-| `transport_rewind` | Next | `Deferred: transport_rewind` | `transport.rewind` / Transport |
-| `transport_nudge_forward` | Next | `Deferred: transport_nudge_forward` | `transport.nudge_forward` / Transport |
-| `transport_nudge_backward` | Next | `Deferred: transport_nudge_backward` | `transport.nudge_backward` / Transport |
-| `arranger_cues_list` | Next | `Deferred: arranger_cues_list` | `arranger.cues.list` / Arranger |
-| `arranger_cues_jump` | Next | `Deferred: arranger_cues_jump` | `arranger.cues.jump` / Arranger |
-| `arranger_cues_rename` | Next | `Deferred: arranger_cues_rename` | `arranger.cues.rename` / Arranger |
+| `transport_toggle_metronome` | Ported 3 | `transport_toggle_metronome` | `transport.toggle_metronome` / Transport |
+| `transport_set_time_signature` | Ported 3 | `transport_set_time_signature` | `transport.time_signature` / Transport |
+| `transport_tap_tempo` | Ported 3 | `transport_tap_tempo` | `transport.tap_tempo` / Transport |
+| `transport_toggle_punch_in` | Ported 3 | `transport_toggle_punch_in` | `transport.toggle_punch_in` / Transport |
+| `transport_toggle_punch_out` | Ported 3 | `transport_toggle_punch_out` | `transport.toggle_punch_out` / Transport |
+| `transport_set_punch_in` | Ported 3 | `transport_set_punch_in` | `transport.set_punch_in` / Transport |
+| `transport_set_punch_out` | Ported 3 | `transport_set_punch_out` | `transport.set_punch_out` / Transport |
+| `transport_get_punch_status` | Ported 3 | `transport_get_punch_status` | `transport.get_punch_status` / Transport |
+| `transport_toggle_arranger_overdub` | Ported 3 | `transport_toggle_arranger_overdub` | `transport.toggle_arranger_overdub` / Transport |
+| `transport_toggle_launcher_overdub` | Ported 3 | `transport_toggle_launcher_overdub` | `transport.toggle_launcher_overdub` / Transport |
+| `transport_get_overdub_status` | Ported 3 | `transport_get_overdub_status` | `transport.get_overdub_status` / Transport |
+| `transport_continue_playback` | Ported 3 | `transport_continue_playback` | `transport.continue_playback` / Transport |
+| `transport_return_to_zero` | Ported 3 | `transport_return_to_zero` | `transport.return_to_zero` / Transport |
+| `transport_fast_forward` | Ported 3 | `transport_fast_forward` | `transport.fast_forward` / Transport |
+| `transport_rewind` | Ported 3 | `transport_rewind` | `transport.rewind` / Transport |
+| `transport_nudge_forward` | Ported 3 | `transport_nudge_forward` | `transport.nudge_forward` / Transport |
+| `transport_nudge_backward` | Ported 3 | `transport_nudge_backward` | `transport.nudge_backward` / Transport |
+| `arranger_cues_list` | Ported 3 | `arranger_cues_list` | `arranger.cues.list` / Arranger |
+| `arranger_cues_jump` | Ported 3 | `arranger_cues_jump` | `arranger.cues.jump` / Arranger |
+| `arranger_cues_rename` | Next | `Deferred: arranger_cues_rename` | `arranger.cues.rename` / Arranger — CueMarker.name() write requires API 15; current controller selects API 10. |
 | `arranger_cues_color` | Stub | `Deferred` | `arranger.cues.color` / Arranger — Always throws: cue marker color read-only in historical API. |
-| `transport_add_cue_marker` | Next | `Deferred: transport_add_cue_marker` | `transport.add_cue_marker` / Transport |
+| `transport_add_cue_marker` | Next | `Deferred: transport_add_cue_marker` | `transport.add_cue_marker` / Transport — addCueMarkerAtPlaybackPosition requires API 15. |
 | `application_undo` | Next | `Deferred: application_undo` | `application.undo` / Application |
 | `application_redo` | Next | `Deferred: application_redo` | `application.redo` / Application |
 | `application_cut` | Next | `Deferred: application_cut` | `application.cut` / Application |
@@ -265,9 +275,10 @@ not source-compatible aliases. Historical module names refer to the archived
 2. **Sound and mix:** device navigation and replacement, real browser filtering,
    sends/returns/master, effect-track creation. Loading an instrument requires a
    device identity and settled browser result, not a successful request alone.
-3. **Song form:** advanced transport, overdub, scene construction, cue markers
-   and arranger view controls. These historical arranger handlers control views
-   and markers; they do not establish arbitrary timeline clip-region editing.
+3. **Further song form:** tranche 3 restores transport/overdub, arranger panel
+   controls and bounded cue listing/launch. Cue creation/naming, zoom and complete
+   timeline region editing remain deferred. Existing view/marker tools do not
+   establish arbitrary timeline clip-region editing.
 4. **Separate feasibility work:** raw MIDI, expressive MIDI, drum pads, groove,
    project-wide bulk actions and Ear. These include missing wiring, missing
    implementations and external services; they cannot be recovered just by

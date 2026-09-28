@@ -910,6 +910,119 @@ export const CONSTRUCTION_TOOL_SPECS = Object.freeze([
   },
 ].map((tool) => ({ ...tool, validateInput: true, partialResultIsError: true })));
 
+export const TRANSPORT_TOOL_SPECS = Object.freeze([
+  {
+    name: "transport_toggle_metronome",
+    description: "Toggle Bitwig's metronome. This is non-idempotent: do not automatically repeat after an uncertain result. Acknowledgement confirms dispatch, not observed state.",
+    inputSchema: boundedToolSchema(), policy: "transport", method: "transport.toggle_metronome",
+  },
+  {
+    name: "transport_set_time_signature",
+    description: "Set the transport time signature with an integer numerator from 1 to 32 and denominator 1, 2, 4, 8, 16 or 32. The controller sends a formatted signature string to Bitwig. Acknowledgement confirms dispatch only.",
+    inputSchema: boundedToolSchema({ numerator: { type: "integer", minimum: 1, maximum: 32 }, denominator: { type: "integer", enum: [1, 2, 4, 8, 16, 32] } }),
+    policy: "transport", method: "transport.time_signature", mapArgs: (args) => [args.numerator, args.denominator],
+  },
+  {
+    name: "transport_tap_tempo",
+    description: "Submit one tempo tap. Bitwig derives tempo from timing across multiple taps; MCP arrival timing is not a precise musical clock. Never automatically retry a tap, and inspect tempo to verify any effect.",
+    inputSchema: boundedToolSchema(), policy: "transport", method: "transport.tap_tempo",
+  },
+  {
+    name: "transport_toggle_punch_in",
+    description: "Toggle arranger punch-in recording mode. Non-idempotent; inspect punch status before retrying an uncertain dispatch. Does not set the punch-in position.",
+    inputSchema: boundedToolSchema(), policy: "transport", method: "transport.toggle_punch_in",
+  },
+  {
+    name: "transport_toggle_punch_out",
+    description: "Toggle arranger punch-out recording mode. Non-idempotent; inspect punch status before retrying an uncertain dispatch. Does not set the punch-out position.",
+    inputSchema: boundedToolSchema(), policy: "transport", method: "transport.toggle_punch_out",
+  },
+  {
+    name: "transport_set_punch_in",
+    description: "Enable or disable arranger punch-in recording mode using an explicit boolean. This changes the mode, not the punch-in position; read punch status to verify the dispatched change.",
+    inputSchema: boundedToolSchema({ state: { type: "boolean" } }), policy: "transport", method: "transport.set_punch_in",
+    mapArgs: (args) => [args.state],
+  },
+  {
+    name: "transport_set_punch_out",
+    description: "Enable or disable arranger punch-out recording mode using an explicit boolean. This changes the mode, not the punch-out position; read punch status to verify the dispatched change.",
+    inputSchema: boundedToolSchema({ state: { type: "boolean" } }), policy: "transport", method: "transport.set_punch_out",
+    mapArgs: (args) => [args.state],
+  },
+  {
+    name: "transport_get_punch_status",
+    description: "Read observed punch-in and punch-out enabled flags. This reports recording modes, not punch positions; unavailable observed state is an error.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "transport.get_punch_status",
+  },
+  {
+    name: "transport_toggle_arranger_overdub",
+    description: "Toggle arranger overdub recording mode. Non-idempotent and changes recording behavior; read overdub status before retrying an uncertain dispatch.",
+    inputSchema: boundedToolSchema(), policy: "transport", method: "transport.toggle_arranger_overdub",
+  },
+  {
+    name: "transport_toggle_launcher_overdub",
+    description: "Toggle clip-launcher overdub recording mode. Non-idempotent and changes recording behavior; read overdub status before retrying an uncertain dispatch.",
+    inputSchema: boundedToolSchema(), policy: "transport", method: "transport.toggle_launcher_overdub",
+  },
+  {
+    name: "transport_get_overdub_status",
+    description: "Read observed arranger and clip-launcher overdub enabled flags. Unavailable observed state is an error.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "transport.get_overdub_status",
+  },
+  {
+    name: "transport_continue_playback",
+    description: "Continue transport playback using Bitwig's continue action. This can produce audio; acknowledgement confirms dispatch only. Inspect playing status afterward.",
+    inputSchema: boundedToolSchema(), policy: "transport", method: "transport.continue_playback",
+  },
+  {
+    name: "transport_return_to_zero",
+    description: "Set transport position to zero beats without explicitly starting playback. Uses Bitwig setPosition(0); read position afterward to verify the dispatched change.",
+    inputSchema: boundedToolSchema(), policy: "transport", method: "transport.return_to_zero",
+  },
+  {
+    name: "transport_fast_forward",
+    description: "Invoke Bitwig's fast-forward transport action. The travel distance is host-defined; this is not a fixed beat increment. Do not automatically retry an uncertain dispatch.",
+    inputSchema: boundedToolSchema(), policy: "transport", method: "transport.fast_forward",
+  },
+  {
+    name: "transport_rewind",
+    description: "Rewind transport toward the beginning of the arrangement using Bitwig's rewind action. Read position afterward; acknowledgement is not verified playhead state.",
+    inputSchema: boundedToolSchema(), policy: "transport", method: "transport.rewind",
+  },
+  {
+    name: "transport_nudge_forward",
+    description: "Advance transport position by exactly one beat (one quarter-note), without snapping to the beat grid. Non-idempotent; inspect position before retrying an uncertain dispatch.",
+    inputSchema: boundedToolSchema(), policy: "transport", method: "transport.nudge_forward",
+  },
+  {
+    name: "transport_nudge_backward",
+    description: "Move transport position backward by one beat (one quarter-note), without snapping to the beat grid. Requires a known current position of at least one beat; moving below zero is rejected. Non-idempotent; inspect position before retrying an uncertain dispatch.",
+    inputSchema: boundedToolSchema(), policy: "transport", method: "transport.nudge_backward",
+  },
+  {
+    name: "arranger_get_status",
+    description: "Read seven observed arranger display flags: timeline, I/O, clip launcher, effect tracks, double row height, cue markers and playback follow. This is display state, not arrangement clip-region content.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "arranger.get_status",
+  },
+  {
+    name: "arranger_set_panel_visibility",
+    description: "Set one arranger display flag using an explicit panel name and boolean. playback_follow controls follow behavior, and double_row_height controls track height. Acknowledgement confirms dispatch only; inspect arranger status to verify.",
+    inputSchema: boundedToolSchema({ panel: { type: "string", enum: ["timeline", "io", "clip_launcher", "effect_tracks", "double_row_height", "cue_markers", "playback_follow"] }, state: { type: "boolean" } }),
+    policy: "application_write", method: "arranger.set_panel_visibility", mapArgs: (args) => [args.panel, args.state],
+  },
+  {
+    name: "arranger_cues_list",
+    description: "Read cue markers in the current bounded 32-marker bank, including names, colors and positions in beats (quarter-notes). Inspect coverage metadata: this is not necessarily every project marker and does not scroll, select or launch playback.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "arranger.cues.list",
+  },
+  {
+    name: "arranger_cues_jump",
+    description: "Launch playback quantized at an existing cue marker in the current 32-marker bank (index 0-31). This starts playback; it is not merely a cursor move. Requires transport permission. Inspect transport after dispatch and never automatically replay an uncertain launch.",
+    inputSchema: boundedToolSchema({ index: { type: "integer", minimum: 0, maximum: 31 } }),
+    policy: "transport", method: "arranger.cues.jump", mapArgs: (args) => [args.index],
+  },
+].map((tool) => ({ ...tool, validateInput: true, partialResultIsError: true })));
+
 export const TOOL_SPECS = Object.freeze([
   {
     name: "bitwig_session_inspect",
@@ -1559,6 +1672,7 @@ export const TOOL_SPECS = Object.freeze([
   },
   ...PORTED_TOOL_SPECS,
   ...CONSTRUCTION_TOOL_SPECS,
+  ...TRANSPORT_TOOL_SPECS,
 ]);
 
 const TOOL_SPEC_MAP = new Map(TOOL_SPECS.map((tool) => [tool.name, tool]));

@@ -18,9 +18,11 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-- **BT-MCP-PORT-002 — Launcher construction and note batches** (Done locally; publication authorized). 318 offline tests pass; see current-plan.md and construction report. Live Bitwig tests deferred.
+- **BT-MCP-PORT-003 — Advanced transport and cue-marker controls** (Done locally; publication authorized). 338 offline tests pass; typecheck, architecture and distribution verified. Live tests deferred. See current-plan.md.
 
 ### Previous readiness (historical)
+
+BT-MCP-PORT-002 merged through PR #95 as `9bd2ec9c6c4bf5de15b2b97eafec78f9ad4a4b07`; 318 offline tests, typecheck, architecture and distribution passed. Live acceptance deferred.
 
 BT-MCP-PORT-001 merged through PR #94 as `0f9318ea25a231e09aba1e20dc56a5e8a5b40cf8`; 294 offline tests passed. Actions disabled; live Bitwig acceptance deferred by the user.
 
