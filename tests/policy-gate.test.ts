@@ -53,6 +53,10 @@ test("default tool list exposes only read tools", () => {
       "clip_get_notes",
       "clip_get_color",
       "transport_get_recording_status",
+      "transport_get_punch_status",
+      "transport_get_overdub_status",
+      "arranger_get_status",
+      "arranger_cues_list",
     ],
   );
   assert.ok(tools.every((tool) => tool.description.startsWith("[policy:read]")));

@@ -5,6 +5,13 @@ loadAPI(10);
 host.defineController("Beat Twin", "Beat Twin", "0.1", "761be710-90df-4577-8094-01314323214c", "Laurent Huzard");
 
 var transport;
+var arranger;
+var cueMarkerBank;
+var advancedState = {
+  transport: { version: 0, flushedVersion: -1, settledVersion: -1, seen: {} },
+  arranger: { version: 0, flushedVersion: -1, settledVersion: -1, seen: {} },
+  cues: { version: 0, flushedVersion: -1, settledVersion: -1, seen: {} }
+};
 var application;
 var trackBank;
 var sceneBank;
@@ -52,6 +59,26 @@ function init() {
   transport.getPosition().markInterested();
   transport.isPlaying().markInterested();
   transport.isArrangerRecordEnabled().markInterested();
+
+  watchAdvancedValue(transport.isMetronomeEnabled(), "metronome", "transport");
+  watchAdvancedValue(transport.isPunchInEnabled(), "punchIn", "transport");
+  watchAdvancedValue(transport.isPunchOutEnabled(), "punchOut", "transport");
+  watchAdvancedValue(transport.isArrangerOverdubEnabled(), "arrangerOverdub", "transport");
+  watchAdvancedValue(transport.isClipLauncherOverdubEnabled(), "launcherOverdub", "transport");
+
+  arranger = host.createArranger();
+  var panels = arrangerPanelValues();
+  for (var panelName in panels) watchAdvancedValue(panels[panelName], panelName, "arranger");
+  cueMarkerBank = arranger.createCueMarkerBank(32);
+  watchAdvancedValue(cueMarkerBank.itemCount(), "count", "cues");
+  watchAdvancedValue(cueMarkerBank.scrollPosition(), "offset", "cues");
+  for (var cueIndex = 0; cueIndex < 32; cueIndex++) {
+    var marker = cueMarkerBank.getItemAt(cueIndex);
+    watchAdvancedValue(marker.exists(), cueIndex + ".exists", "cues");
+    watchAdvancedValue(marker.getName(), cueIndex + ".name", "cues");
+    watchAdvancedValue(marker.position(), cueIndex + ".position", "cues");
+    watchAdvancedValue(marker.getColor(), cueIndex + ".color", "cues");
+  }
 
   application = host.createApplication();
   project = host.getProject();
@@ -358,6 +385,10 @@ function isBridgeReadMethod(method) {
   return method === "ping" ||
     method === "bridge.identity" ||
     method === "target.inspect" ||
+    method === "transport.get_punch_status" ||
+    method === "transport.get_overdub_status" ||
+    method === "arranger.get_status" ||
+    method === "arranger.cues.list" ||
     method === "transport.getTempo" ||
     method === "transport.getPosition" ||
     method === "transport.getIsPlaying" ||
@@ -688,6 +719,89 @@ function inspectTrackWindow() {
 function invalidateInspection() {
   inspectionVersion += 1;
   inspectionSettledVersion = -1;
+}
+
+function watchAdvancedValue(value, key, group) {
+  value.markInterested();
+  value.addValueObserver(function () {
+    var state = advancedState[group];
+    state.seen[key] = true;
+    state.version += 1;
+    state.settledVersion = -1;
+  });
+}
+
+function requireObservedAdvanced(key, group) {
+  var state = advancedState[group];
+  if (state.seen[key] !== true || state.settledVersion !== state.version) throw bridgeError(-32004, "Requested " + group + " state is not observed and settled yet");
+}
+
+function observedBoolean(value, key, group) {
+  requireObservedAdvanced(key, group);
+  var current = value.get();
+  if (typeof current !== "boolean") throw bridgeError(-32004, "Boolean state is unavailable");
+  return current;
+}
+
+function invalidateAdvancedValue(key, group) {
+  var state = advancedState[group];
+  state.seen[key] = false;
+  state.version += 1;
+  state.settledVersion = -1;
+}
+
+function setObservedBoolean(value, key, group, next) {
+  var current = observedBoolean(value, key, group);
+  if (current === next) return;
+  invalidateAdvancedValue(key, group);
+  value.set(next);
+}
+
+function arrangerPanelValues() {
+  return { timeline: arranger.isTimelineVisible(), io: arranger.isIoSectionVisible(),
+    clip_launcher: arranger.isClipLauncherVisible(), effect_tracks: arranger.areEffectTracksVisible(),
+    double_row_height: arranger.hasDoubleRowTrackHeight(), cue_markers: arranger.areCueMarkersVisible(),
+    playback_follow: arranger.isPlaybackFollowEnabled() };
+}
+
+function requireArgumentCount(params, count) {
+  if (params === undefined && count === 0) return;
+  if (!Array.isArray(params) || params.length !== count) throw invalidParams("Expected exactly " + count + " parameters");
+}
+
+function requireBooleanArgument(value) {
+  if (typeof value !== "boolean") throw invalidParams("Expected boolean state");
+  return value;
+}
+
+function inspectCue(index) {
+  if (!isIntegerInRange(index, 0, 31)) throw invalidParams("Cue index must be an integer from 0 to 31");
+  requireObservedAdvanced(index + ".exists", "cues");
+  var marker = cueMarkerBank.getItemAt(index);
+  var exists = marker.exists().get();
+  if (typeof exists !== "boolean") throw bridgeError(-32004, "Cue existence is unavailable");
+  if (!exists) return null;
+  requireObservedAdvanced(index + ".name", "cues");
+  requireObservedAdvanced(index + ".position", "cues");
+  requireObservedAdvanced(index + ".color", "cues");
+  var name = marker.getName().get();
+  var position = marker.position().get();
+  var color = marker.getColor();
+  var rgb = { r: color.red(), g: color.green(), b: color.blue() };
+  if (typeof name !== "string" || typeof position !== "number" || !isFinite(position) || position < 0) throw bridgeError(-32004, "Cue metadata is unavailable");
+  for (var colorName in rgb) {
+    if (typeof rgb[colorName] !== "number" || !isFinite(rgb[colorName]) || rgb[colorName] < 0 || rgb[colorName] > 1) throw bridgeError(-32004, "Cue color is unavailable");
+  }
+  return { index: index, name: name, positionBeats: position, color: rgb };
+}
+
+function inspectCueWindow() {
+  requireObservedAdvanced("count", "cues");
+  requireObservedAdvanced("offset", "cues");
+  var count = cueMarkerBank.itemCount().get();
+  var offset = cueMarkerBank.scrollPosition().get();
+  if (!isIntegerInRange(count, 0, 2147483647) || !isIntegerInRange(offset, 0, Math.max(0, count - 1))) throw bridgeError(-32004, "Cue bank count or offset is unavailable");
+  return { bankSize: 32, scrollPosition: offset, projectMarkerCount: count, complete: offset === 0 && count <= 32 };
 }
 
 function readInspectionNotes(trackIndex, slotIndex) {
@@ -1070,6 +1184,121 @@ function handleRequest(request, connection, bridgeSession) {
         break;
       case "transport.getIsRecording":
         result = transport.isArrangerRecordEnabled().get();
+        break;
+
+      case "transport.toggle_metronome":
+        requireArgumentCount(request.params, 0);
+        observedBoolean(transport.isMetronomeEnabled(), "metronome", "transport");
+        invalidateAdvancedValue("metronome", "transport");
+        transport.isMetronomeEnabled().toggle();
+        result = constructionResult();
+        break;
+      case "transport.time_signature":
+        requireArgumentCount(request.params, 2);
+        if (!isIntegerInRange(request.params[0], 1, 32) || [1, 2, 4, 8, 16, 32].indexOf(request.params[1]) < 0) throw invalidParams("Time signature requires numerator 1-32 and denominator 1,2,4,8,16,32");
+        transport.timeSignature().set(request.params[0] + "/" + request.params[1]);
+        result = constructionResult();
+        break;
+      case "transport.tap_tempo":
+        requireArgumentCount(request.params, 0);
+        transport.tapTempo();
+        result = constructionResult();
+        break;
+      case "transport.toggle_punch_in":
+      case "transport.toggle_punch_out":
+        requireArgumentCount(request.params, 0);
+        var togglePunchIn = request.method === "transport.toggle_punch_in";
+        var punchToggle = togglePunchIn ? transport.isPunchInEnabled() : transport.isPunchOutEnabled();
+        observedBoolean(punchToggle, togglePunchIn ? "punchIn" : "punchOut", "transport");
+        invalidateAdvancedValue(togglePunchIn ? "punchIn" : "punchOut", "transport");
+        punchToggle.toggle();
+        result = constructionResult();
+        break;
+      case "transport.set_punch_in":
+      case "transport.set_punch_out":
+        requireArgumentCount(request.params, 1);
+        var punchState = requireBooleanArgument(request.params[0]);
+        var punchValue = request.method === "transport.set_punch_in" ? transport.isPunchInEnabled() : transport.isPunchOutEnabled();
+        setObservedBoolean(punchValue, request.method === "transport.set_punch_in" ? "punchIn" : "punchOut", "transport", punchState);
+        result = constructionResult();
+        break;
+      case "transport.get_punch_status":
+        requireArgumentCount(request.params, 0);
+        result = { punchIn: observedBoolean(transport.isPunchInEnabled(), "punchIn", "transport"),
+          punchOut: observedBoolean(transport.isPunchOutEnabled(), "punchOut", "transport") };
+        break;
+      case "transport.toggle_arranger_overdub":
+      case "transport.toggle_launcher_overdub":
+        requireArgumentCount(request.params, 0);
+        var arrangerOverdub = request.method === "transport.toggle_arranger_overdub";
+        var overdubValue = arrangerOverdub ? transport.isArrangerOverdubEnabled() : transport.isClipLauncherOverdubEnabled();
+        observedBoolean(overdubValue, arrangerOverdub ? "arrangerOverdub" : "launcherOverdub", "transport");
+        invalidateAdvancedValue(arrangerOverdub ? "arrangerOverdub" : "launcherOverdub", "transport");
+        overdubValue.toggle();
+        result = constructionResult();
+        break;
+      case "transport.get_overdub_status":
+        requireArgumentCount(request.params, 0);
+        result = { arranger: observedBoolean(transport.isArrangerOverdubEnabled(), "arrangerOverdub", "transport"),
+          launcher: observedBoolean(transport.isClipLauncherOverdubEnabled(), "launcherOverdub", "transport") };
+        break;
+      case "transport.continue_playback":
+      case "transport.return_to_zero":
+      case "transport.fast_forward":
+      case "transport.rewind":
+      case "transport.nudge_forward":
+      case "transport.nudge_backward":
+        requireArgumentCount(request.params, 0);
+        if (request.method === "transport.continue_playback") transport.continuePlayback();
+        else if (request.method === "transport.return_to_zero") transport.setPosition(0);
+        else if (request.method === "transport.fast_forward") transport.fastForward();
+        else if (request.method === "transport.rewind") transport.rewind();
+        else {
+          var nudge = request.method === "transport.nudge_forward" ? 1 : -1;
+          var currentPosition = transport.getPosition().get();
+          if (typeof currentPosition !== "number" || !isFinite(currentPosition) || currentPosition < 0 ||
+              currentPosition + nudge < 0 || currentPosition + nudge > 9007199254740991) throw bridgeError(-32004, "Nudge requires a known nonnegative destination position");
+          transport.incPosition(nudge, false);
+        }
+        result = constructionResult();
+        break;
+      case "arranger.get_status":
+        requireArgumentCount(request.params, 0);
+        var panels = arrangerPanelValues();
+        result = { isTimelineVisible: observedBoolean(panels.timeline, "timeline", "arranger"),
+          isIoSectionVisible: observedBoolean(panels.io, "io", "arranger"),
+          isClipLauncherVisible: observedBoolean(panels.clip_launcher, "clip_launcher", "arranger"),
+          areEffectTracksVisible: observedBoolean(panels.effect_tracks, "effect_tracks", "arranger"),
+          hasDoubleRowTrackHeight: observedBoolean(panels.double_row_height, "double_row_height", "arranger"),
+          areCueMarkersVisible: observedBoolean(panels.cue_markers, "cue_markers", "arranger"),
+          isPlaybackFollowEnabled: observedBoolean(panels.playback_follow, "playback_follow", "arranger") };
+        break;
+      case "arranger.set_panel_visibility":
+        requireArgumentCount(request.params, 2);
+        var panels = arrangerPanelValues();
+        var panel = request.params[0];
+        if (typeof panel !== "string" || !Object.prototype.hasOwnProperty.call(panels, panel)) throw invalidParams("Unknown arranger panel");
+        setObservedBoolean(panels[panel], panel, "arranger", requireBooleanArgument(request.params[1]));
+        result = constructionResult();
+        break;
+      case "arranger.cues.list":
+        requireArgumentCount(request.params, 0);
+        var coverage = inspectCueWindow();
+        var markers = [];
+        for (var cueIndex = 0; cueIndex < 32; cueIndex++) {
+          var cue = inspectCue(cueIndex);
+          if (cue !== null) { cue.absoluteIndex = coverage.scrollPosition + cueIndex; markers.push(cue); }
+        }
+        if (markers.length !== Math.min(32, Math.max(0, coverage.projectMarkerCount - coverage.scrollPosition))) throw bridgeError(-32004, "Cue bank observations are inconsistent");
+        result = { markers: markers, coverage: coverage };
+        break;
+      case "arranger.cues.jump":
+        requireArgumentCount(request.params, 1);
+        var cueWindow = inspectCueWindow();
+        var launchCue = inspectCue(request.params[0]);
+        if (launchCue === null || cueWindow.scrollPosition + request.params[0] >= cueWindow.projectMarkerCount) throw bridgeError(-32004, "Existing observed cue required");
+        cueMarkerBank.getItemAt(request.params[0]).launch(true);
+        result = constructionResult();
         break;
 
       case "clip.get_color":
@@ -1690,6 +1919,11 @@ function sendJSON(connection, data) {
 }
 
 function flush() {
+  for (var group in advancedState) {
+    var state = advancedState[group];
+    if (state.flushedVersion === state.version) state.settledVersion = state.version;
+    state.flushedVersion = state.version;
+  }
   if (constructionPending !== null && constructionPending.observed && !constructionPending.failed) {
     if (constructionMatches() && constructionPending.flushedVersion === constructionPending.version) {
       constructionPending = null;

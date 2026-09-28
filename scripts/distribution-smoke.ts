@@ -17,7 +17,7 @@ try {
   assert.equal(packed.length, 1);
   const paths = new Set(packed[0].files.map(file => file.path));
   for (const file of ["index.js", "index.ts", "bitwig-controller/BeatTwin/BeatTwin.control.js",
-    "bitwig-controller/BeatTwin/BeatTwin.control.ts", "scripts/mcp-diagnostics.js", "scripts/read-only-smoke.js", "docs/BITWIG_MCP_PORT.md", "docs/BITWIG_MCP_PARITY.md", "docs/BITWIG_MCP_CONSTRUCTION.md", "README.md", "package.json"]) {
+    "bitwig-controller/BeatTwin/BeatTwin.control.ts", "scripts/mcp-diagnostics.js", "scripts/read-only-smoke.js", "docs/BITWIG_MCP_PORT.md", "docs/BITWIG_MCP_PARITY.md", "docs/BITWIG_MCP_CONSTRUCTION.md", "docs/BITWIG_MCP_TRANSPORT.md", "README.md", "package.json"]) {
     assert.ok(paths.has(file), `Missing distribution artifact: ${file}`);
   }
   assert.ok(![...paths].some(path => /(^|\/)(?:node_modules|\.env|test-results)(?:\/|$)/.test(path)));
@@ -36,7 +36,7 @@ try {
     (async () => {
       await client.connect(transport!);
       const result = await client.listTools();
-      assert.equal(result.tools.length, 22);
+      assert.equal(result.tools.length, 26);
       assert.deepEqual(result.tools.map(tool => tool.name).sort(), [
         "bitwig_session_inspect", "bitwig_arrangement_plan", "transport_get_tempo", "transport_get_position",
         "transport_playing_status", "track_bank_get_status", "scene_list", "clip_get_info",
@@ -44,6 +44,7 @@ try {
         "browser_get_status", "browser_list_results",
         "project_get_summary", "track_list", "track_get_info", "clip_get_grid", "clip_get_status", "clip_get_notes",
         "clip_get_color", "transport_get_recording_status",
+        "transport_get_punch_status", "transport_get_overdub_status", "arranger_get_status", "arranger_cues_list",
       ].sort());
       assert.ok(result.tools.some(tool => tool.name === "bitwig_session_inspect"));
       // No tools/call: discovery never opens the controller connection.
