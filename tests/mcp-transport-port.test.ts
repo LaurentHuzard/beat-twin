@@ -33,11 +33,11 @@ const cases = [
 ];
 
 test("transport tranche retains its 21 tools and four reads; later API15 additions stay outside that prefix", () => {
-  assert.equal(TOOL_SPECS.length, 161);
-  assert.equal(new Set(TOOL_SPECS.map((tool) => tool.name)).size, 161);
+  assert.equal(TOOL_SPECS.length, 187);
+  assert.equal(new Set(TOOL_SPECS.map((tool) => tool.name)).size, 187);
   assert.deepEqual(TOOL_SPECS.slice(83, 104), TRANSPORT_TOOL_SPECS);
   const definitions = getToolDefinitions({ env: {} });
-  assert.equal(definitions.length, 37);
+  assert.equal(definitions.length, 42);
   assert.deepEqual(definitions.slice(22, 26).map((tool) => tool.name), [
     "transport_get_punch_status", "transport_get_overdub_status", "arranger_get_status", "arranger_cues_list",
   ]);

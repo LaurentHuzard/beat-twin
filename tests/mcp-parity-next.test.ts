@@ -37,12 +37,12 @@ const cases = [
 
 test("parity tranche appends 35 unique tools and five ordered default reads", () => {
   assert.equal(PARITY_TOOL_SPECS.length, 35);
-  assert.equal(TOOL_SPECS.length, 161);
-  assert.equal(new Set(TOOL_SPECS.map((tool) => tool.name)).size, 161);
+  assert.equal(TOOL_SPECS.length, 187);
+  assert.equal(new Set(TOOL_SPECS.map((tool) => tool.name)).size, 187);
   assert.deepEqual(TOOL_SPECS.slice(126, 161), PARITY_TOOL_SPECS);
   assert.deepEqual(PARITY_TOOL_SPECS.map((tool) => tool.name), cases.map((entry) => entry[0]));
   const definitions = getToolDefinitions({ env: {} });
-  assert.equal(definitions.length, 37);
+  assert.equal(definitions.length, 42);
   assert.deepEqual(definitions.slice(32, 37).map((tool) => tool.name), [
     "application_get_status", "arranger_get_cue_markers", "drumpad_get_status", "groove_get_status", "project_get_status",
   ]);

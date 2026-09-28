@@ -1,6 +1,6 @@
 # Bitwig MCP capability parity and port plan
 
-Audit dates: 2026-09-27 (tranche 1), 2026-09-28 (tranches 2–5). Historical source: `llm2Bitwig` advanced branch at
+Audit dates: 2026-09-27 (tranche 1), 2026-09-28 (tranches 2–6). Historical source: `llm2Bitwig` advanced branch at
 `52563e4be42da37abf589245dd9ce3862c9dd7e1`. This inventory follows each catalogue
 name through the Java dispatch and the modules initialized by `controller-mcp.ts`.
 A declaration, a dispatch branch, a handler body, and a successful live operation
@@ -17,7 +17,11 @@ added **13 historical names**, reaching **70 tools**. Tranche 2 adds **9 histori
 names and 4 new names**, reaching **83 tools**. Tranche 3 adds **21 historical
 names**, reaching **104 tools**. Tranche 4 adds **22 historical names**, reaching
 **126 tools**. Tranche 5 adds **33 historical names and 2 new reads**, reaching
-**161 tools**, with **37 reads** exposed under the default read-only policy. Optional discovery wrappers are counted separately.
+**161 tools**. Tranche 6 adds **26 tools**, reaching **187 tools / 42 default reads**.
+Four opt-in discovery wrappers are separate (191 total with all policies). Of the
+164 historical names, 161 are direct entries and two are discovery aliases.
+One direct entry uses an explicitly adapted filter contract, and six require the
+external Ear service. Cue color remains unsupported; these are not 163 live passes.
 These are source catalogue counts, not claims about an installed live controller.
 
 Each of the 164 historical names appears exactly once below. Categories are
@@ -30,11 +34,11 @@ historical incompleteness:
 - **Ported 3: 21** — historical name added in the transport/arranger tranche.
 - **Ported 4: 22** — historical name added in the mix/device/cursor/track tranche.
 - **Ported 5: 33** — application, cue, drum-pad, groove and native project commands.
-- **Equivalent: 3** — usable current replacement; historical alias is not registered.
-- **Next: 1** — browser filtering needs a supported replacement contract.
-- **Stub: 1** — historical cue color handler does not execute the requested operation.
-- **External: 6** — separate Ear service integration; outside the controller.
-- **Unwired: 8** — historical MIDI/NoteInput functions still need a routing contract.
+- **Ported 6: 9** — eight MIDI tools in an optional profile, plus clip-slot alias.
+- **Discovery alias: 2** — historical wrappers under the existing discovery opt-in.
+- **Adapted 6: 1** — browser filtering uses a new observed column/item contract.
+- **External adapter: 6** — client wiring exists; separate Ear service required.
+- **Stub: 1** — historical cue-color write lacks a public API setter.
 
 `clip_get_notes` is counted as Ported 1 because it now has a bounded implementation;
 its historical implementation was also a stub. The historical cue creation stub
@@ -119,12 +123,22 @@ groove use native observed proxies. Three project resets use native project
 operations rather than pretending an eight-track bank is the whole project.
 
 The two new reads, `application_get_status` and `project_get_status`, are outside
-the historical denominator. Source coverage is **145/164 historical names**, or
-**148/164 with three documented equivalents**. The remaining **16 names** are
+the historical denominator. At the end of tranche 5, source coverage was
+**145/164 historical names**, or **148/164 with three documented equivalents**.
+The then-remaining **16 names** were
 eight MIDI/NoteInput operations, six Ear service operations, browser filtering,
 and cue color. These have different integration or API boundaries; they are not
 sixteen proven impossible operations. See the [API opportunity inventory](BITWIG_CONTROLLER_API_COVERAGE.md)
 for supported alternatives and capabilities beyond the old catalogue.
+
+## Sixth tranche: routed MIDI and musical extensions
+
+See [musical contracts](BITWIG_MCP_MUSICAL.md). The normal zero-port profile remains;
+a distinct generated MIDI profile supplies NoteInput and bounded voice cleanup.
+Ear is an explicitly configured external service, never a controller-native DSP
+claim. Expressions, observed browser filters, remote pages and arranger-loop
+controls extend the historical surface. The new browser_set_filter schema is an
+intentional contract replacement, not compatibility with unsupported text search.
 
 ## Complete historical-name matrix
 
@@ -135,14 +149,14 @@ not source-compatible aliases. Historical module names refer to the archived
 
 | Historical unique name | Status | Current name or next action | Historical execution evidence / limits |
 | --- | --- | --- | --- |
-| `mcp_search_tools` | Equivalent | `search_tools (opt-in; schema differs)` | Java server discovery/dispatch |
-| `mcp_execute_advanced_tool` | Equivalent | `call_tool (opt-in; schema differs)` | Java server discovery/dispatch |
-| `ear_status` | External | `Deferred: Ear service` | Java → HTTP |
-| `ear_get_levels` | External | `Deferred: Ear service` | Java → HTTP |
-| `ear_list_devices` | External | `Deferred: Ear service` | Java → HTTP |
-| `ear_set_device` | External | `Deferred: Ear service` | Java → HTTP |
-| `ear_listen` | External | `Deferred: Ear service` | Java → HTTP |
-| `ear_analyze` | External | `Deferred: Ear service` | Java → HTTP |
+| `mcp_search_tools` | Discovery alias | `mcp_search_tools` | Opt-in discovery compatibility wrapper; same policy filtering/validation, all four wrappers excluded as recursive targets. |
+| `mcp_execute_advanced_tool` | Discovery alias | `mcp_execute_advanced_tool` | Opt-in discovery compatibility wrapper; same policy filtering/validation, all four wrappers excluded as recursive targets. |
+| `ear_status` | External adapter | `ear_status` | Optional explicitly configured local Ear HTTP service; audio_capture gate, bounded opaque JSON. Service/DSP/audio readiness unverified. |
+| `ear_get_levels` | External adapter | `ear_get_levels` | Optional explicitly configured local Ear HTTP service; audio_capture gate, bounded opaque JSON. Service/DSP/audio readiness unverified. |
+| `ear_list_devices` | External adapter | `ear_list_devices` | Optional explicitly configured local Ear HTTP service; audio_capture gate, bounded opaque JSON. Service/DSP/audio readiness unverified. |
+| `ear_set_device` | External adapter | `ear_set_device` | Optional explicitly configured local Ear HTTP service; audio_capture gate, bounded opaque JSON. Service/DSP/audio readiness unverified. |
+| `ear_listen` | External adapter | `ear_listen` | Optional explicitly configured local Ear HTTP service; audio_capture gate, bounded opaque JSON. Service/DSP/audio readiness unverified. |
+| `ear_analyze` | External adapter | `ear_analyze` | Optional explicitly configured local Ear HTTP service; audio_capture gate, bounded opaque JSON. Service/DSP/audio readiness unverified. |
 | `transport_play` | Current | `transport_play` | `transport.play` / Transport |
 | `transport_stop` | Current | `transport_stop` | `transport.stop` / Transport |
 | `transport_restart` | Current | `transport_restart` | `transport.restart` / Transport |
@@ -184,7 +198,7 @@ not source-compatible aliases. Historical module names refer to the archived
 | `scene_select` | Ported 2 | `scene_select` | `scene.select` / SceneBank |
 | `scene_create_from_playing` | Ported 2 | `scene_create_from_playing` | `scene.create_from_playing` / SceneBank |
 | `clip_duplicate` | Ported 2 | `clip_duplicate` | `clip.duplicate` / TrackBank — new explicit source/destination schema; copies into an observed empty slot. |
-| `clip_slot_select` | Equivalent | `clip_select_slot` | `clip.select_slot` / TrackBank |
+| `clip_slot_select` | Ported 6 | `clip_slot_select` | Alias to existing clip.select_slot, strict bank indices and clip_write. |
 | `clip_create` | Current | `clip_create` | `clip.create` / TrackBank |
 | `clip_delete` | Ported 2 | `clip_delete` | `clip.delete` / TrackBank |
 | `clip_browse_insert` | Ported 2 | `clip_browse_insert` | `clip.browse_insert` / TrackBank |
@@ -235,14 +249,14 @@ not source-compatible aliases. Historical module names refer to the archived
 | `arranger_zoom` | Ported 5 | `arranger_zoom` | Native Arranger lane-height zoom under explicit API 15; view operation, not clip-region editing. |
 | `arranger_get_cue_markers` | Ported 5 | `arranger_get_cue_markers` | Historical alias now dispatches the bounded cue list; schema follows current cue inspection. |
 | `arranger_jump_to_cue_marker` | Ported 5 | `arranger_jump_to_cue_marker` | Historical alias now dispatches cue launch; starts quantized playback. |
-| `midi_send_raw` | Unwired | `Deferred: implement/fix wiring` | `note_input.send_raw_midi` / no active handler — NoteInput.ts handler exists but module not initialized; zero MIDI ports. note_play only sends note-on. |
-| `note_on` | Unwired | `Deferred: implement/fix wiring` | `note_input.send_note_on` / no active handler — NoteInput.ts handler exists but module not initialized; zero MIDI ports. note_play only sends note-on. |
-| `note_off` | Unwired | `Deferred: implement/fix wiring` | `note_input.send_note_off` / no active handler — NoteInput.ts handler exists but module not initialized; zero MIDI ports. note_play only sends note-on. |
-| `note_play` | Unwired | `Deferred: implement/fix wiring` | `note_input.send_note_on` / no active handler — NoteInput.ts handler exists but module not initialized; zero MIDI ports. note_play only sends note-on. |
-| `note_input_assign_expression` | Unwired | `Deferred: implement/fix wiring` | `note_input.assign_poly_aftertouch_to_expression` / no active handler — No corresponding handler even in uninitialized NoteInput.ts. |
-| `note_input_set_mpe` | Unwired | `Deferred: implement/fix wiring` | `note_input.set_use_expressive_midi` / no active handler — No corresponding handler even in uninitialized NoteInput.ts. |
-| `note_input_set_key_translation` | Unwired | `Deferred: implement/fix wiring` | `note_input.set_key_translation_table` / no active handler — No corresponding handler even in uninitialized NoteInput.ts. |
-| `note_input_set_velocity_translation` | Unwired | `Deferred: implement/fix wiring` | `note_input.set_velocity_translation_table` / no active handler — No corresponding handler even in uninitialized NoteInput.ts. |
+| `midi_send_raw` | Ported 6 | `midi_send_raw` | Optional MIDI profile; API15 with real NoteInput, corrected channel/enum/table contracts and bounded scheduled note release. Historical module was unwired. |
+| `note_on` | Ported 6 | `note_on` | Optional MIDI profile; API15 with real NoteInput, corrected channel/enum/table contracts and bounded scheduled note release. Historical module was unwired. |
+| `note_off` | Ported 6 | `note_off` | Optional MIDI profile; API15 with real NoteInput, corrected channel/enum/table contracts and bounded scheduled note release. Historical module was unwired. |
+| `note_play` | Ported 6 | `note_play` | Optional MIDI profile; API15 with real NoteInput, corrected channel/enum/table contracts and bounded scheduled note release. Historical module was unwired. |
+| `note_input_assign_expression` | Ported 6 | `note_input_assign_expression` | Optional MIDI profile; API15 with real NoteInput, corrected channel/enum/table contracts and bounded scheduled note release. Historical module was unwired. |
+| `note_input_set_mpe` | Ported 6 | `note_input_set_mpe` | Optional MIDI profile; API15 with real NoteInput, corrected channel/enum/table contracts and bounded scheduled note release. Historical module was unwired. |
+| `note_input_set_key_translation` | Ported 6 | `note_input_set_key_translation` | Optional MIDI profile; API15 with real NoteInput, corrected channel/enum/table contracts and bounded scheduled note release. Historical module was unwired. |
+| `note_input_set_velocity_translation` | Ported 6 | `note_input_set_velocity_translation` | Optional MIDI profile; API15 with real NoteInput, corrected channel/enum/table contracts and bounded scheduled note release. Historical module was unwired. |
 | `drumpad_get_status` | Ported 5 | `drumpad_get_status` | Historical uninitialized functionality now uses a native bounded drum-pad bank on the selected device. |
 | `drumpad_select` | Ported 5 | `drumpad_select` | Historical uninitialized functionality now uses a native bounded drum-pad bank on the selected device. |
 | `drumpad_scroll_forward` | Ported 5 | `drumpad_scroll_forward` | Historical uninitialized functionality now uses a native bounded drum-pad bank on the selected device. |
@@ -258,7 +272,7 @@ not source-compatible aliases. Historical module names refer to the archived
 | `project_unarm_all` | Ported 5 | `project_unarm_all` | Historical missing handler replaced by native Project-wide operation; not restricted to the visible track bank. |
 | `arranger_cues_create` | Ported 5 | `arranger_cues_create` | Historical throwing stub replaced by API 15 cue creation at playback position. |
 | `browser_get_status` | Current | `browser_get_status` | `browser.get_status` / Browser |
-| `browser_set_filter` | Next | `Deferred: browser_set_filter` | `browser.set_filter` / Browser — Historical getWildcardFilter().set(text) does not match installed BrowserFilterColumn.getWildcardItem(); genuine text-search API remains unverified. |
+| `browser_set_filter` | Adapted 6 | `browser_set_filter` | Replaced invalid historical text-search API with observed column/item selection and snapshot; no global text-search claim. |
 | `browser_list_results` | Current | `browser_list_results` | `browser.list_results` / Browser |
 | `browser_select_result` | Current | `browser_select_result` | `browser.select_result` / Browser |
 | `browser_commit` | Current | `browser_commit` | `browser.commit` / Browser |
@@ -309,8 +323,9 @@ not source-compatible aliases. Historical module names refer to the archived
    destructive destinations and confirm the effective target before mutations.
 2. **Further sound and mix:** tranche 4 restores bounded device navigation,
    insertion-browser opening, sends/returns/master and effect-track creation.
-   Real text filtering, sound selection/loading, cross-bank completeness and
-   live audio verification remain separate. Browser opening is not a loaded
+   Tranche 6 adds observed filter-item selection and remote-page selection.
+   Global text search, cross-bank completeness and live audio verification
+   remain separate. Browser opening is not a loaded
    instrument or proof of successful replacement.
 3. **Further song form:** tranche 3 restores transport/overdub, arranger panel
    controls and bounded cue listing/launch. Tranche 5 adds cue creation/naming and zoom. Complete
@@ -318,8 +333,9 @@ not source-compatible aliases. Historical module names refer to the archived
    establish arbitrary timeline clip-region editing.
 4. **Separate feasibility work:** raw MIDI, expressive MIDI, drum pads, groove,
    project-wide bulk actions and Ear were originally missing wiring. Tranche 5
-   implements drum pads, groove and native project resets; MIDI routing and Ear
-   remain separate integrations.
+   implements drum pads, groove and native project resets. Tranche 6 implements
+   an optional MIDI profile and Ear HTTP adapter; actual routing and the external
+   audio service still require the later acceptance pass.
 
 ## API and correctness review
 
@@ -354,10 +370,9 @@ not source-compatible aliases. Historical module names refer to the archived
   implemented. The NoteInput route requires explicit port configuration, note-off guarantees,
   cleanup on failure and an instantiated module. The historical controller
   declared zero MIDI ports and never initialized `NoteInputModule`.
-- Historical browser filtering used a smart-collection wildcard setter. Verify
-  that API and intended search semantics before porting. Browser result
-  selection used first/next stepping, so selection must be read back after any
-  asynchronous result change.
+- Historical browser filtering used an unsupported wildcard text setter.
+  Tranche 6 replaces its schema with observed column/item filtering and selects
+  result proxies directly. Session and selection readback remain required.
 - The historical summary swallowed errors while combining modules. The new
   summary must report unavailable data honestly instead of implying a complete
   project from a single bank.

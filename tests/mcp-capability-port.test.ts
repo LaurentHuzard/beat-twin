@@ -28,8 +28,8 @@ const cases = [
 ];
 
 test("first port remains a stable additive prefix with six inspection reads", async () => {
-  assert.equal(TOOL_SPECS.length, 161);
-  assert.equal(new Set(TOOL_SPECS.map((tool) => tool.name)).size, 161);
+  assert.equal(TOOL_SPECS.length, 187);
+  assert.equal(new Set(TOOL_SPECS.map((tool) => tool.name)).size, 187);
   assert.equal(PORTED_TOOL_SPECS.length, 13);
   assert.deepEqual(TOOL_SPECS.slice(57, 70), PORTED_TOOL_SPECS);
   const visible = getToolDefinitions({ env: {} }).map((tool) => tool.name);

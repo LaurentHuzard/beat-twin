@@ -9,6 +9,7 @@
 // @ts-nocheck
 import net from "net";
 import { fileURLToPath } from "url";
+import { callEar, EarClientError } from "./lib/ear-client.js";
 
 const BITWIG_HOST = process.env.BITWIG_HOST ?? "127.0.0.1";
 const BITWIG_PORT = Number.parseInt(process.env.BITWIG_PORT ?? "8888", 10);
@@ -707,6 +708,8 @@ const WRITE_POLICIES = Object.freeze([
   "scene_write",
   "device_write",
   "application_write",
+  "midi_write",
+  "audio_capture",
 ]);
 
 const bankIndexSchema = { type: "integer", minimum: 0, maximum: 7 };
@@ -1269,6 +1272,115 @@ export const PARITY_TOOL_SPECS = Object.freeze([
     name: "project_get_status",
     description: "Read observed project-wide solo, mute and arm aggregate flags using Bitwig's native Project API. These aggregate flags cover the project rather than only the visible track bank; they do not identify individual affected tracks.",
     inputSchema: boundedToolSchema(), policy: "read", method: "project.get_status",
+  },
+].map((tool) => ({ ...tool, validateInput: true, partialResultIsError: true })));
+
+const midiChannelSchema = { type: "integer", const: 0 };
+const noteExpressionNames = ["NONE", "PITCH_DOWN", "PITCH_UP", "GAIN_DOWN", "GAIN_UP", "PAN_LEFT", "PAN_RIGHT", "TIMBRE_DOWN", "TIMBRE_UP"];
+const midiTranslationSchema = { type: "array", minItems: 128, maxItems: 128, items: { type: "integer", minimum: -1, maximum: 127 } };
+const midiNoteSchema = { channel: midiChannelSchema, pitch: pitchSchema, velocity: { type: "integer", minimum: 1, maximum: 127 } };
+const snapshotIdSchema = { type: "string", minLength: 1, maxLength: 256 };
+const browserColumnSchema = { type: "string", enum: ["smartCollection", "location", "device", "category", "tag", "deviceType", "fileType", "creator"] };
+const bipolarSchema = { type: "number", minimum: -1, maximum: 1 };
+const expressionPatchSchema = {
+  ...boundedToolSchema({ ...noteCoordinatesSchema, velocity: normalizedLevelSchema, releaseVelocity: normalizedLevelSchema, pan: bipolarSchema, timbre: bipolarSchema, pressure: normalizedLevelSchema, gain: normalizedLevelSchema, transpose: { type: "number", minimum: -96, maximum: 96 } }),
+  required: ["step", "pitch"], minProperties: 3,
+};
+const loopBeatSchema = { type: "number", minimum: 0, maximum: 1048576 };
+
+export const MUSICAL_TOOL_SPECS = Object.freeze([
+  {
+    name: "midi_send_raw",
+    description: "Inject a supported channel-0 MIDI message into the optional Beat Twin MIDI profile's NoteInput. NoteInput ignores the channel and bypasses translation tables; this does not send to hardware MIDI output. Only statuses 128/144/160/176/192/208/224 are accepted; data2 must be zero for 192/208. Note-on and sustain are bounded by a 10-second lease, with cleanup in best effort. Requires midi_write and the MIDI profile.",
+    inputSchema: boundedToolSchema({ status: { type: "integer", enum: [128, 144, 160, 176, 192, 208, 224] }, data1: pitchSchema, data2: pitchSchema }),
+    policy: "midi_write", method: "note_input.send_raw_midi", mapArgs: (args) => [args.status, args.data1, args.data2],
+    validateArgs: (args) => [192, 208].includes(args.status) && args.data2 !== 0 ? "data2 must be zero for Program Change and Channel Pressure." : null,
+  },
+  {
+    name: "note_on", description: "Start a note through the optional MIDI profile's NoteInput, with a maximum 10-second lease. Only channel=0 is accepted because NoteInput ignores channel bits; tables are bypassed. Repeated active pitches are rejected. Scheduled cleanup is best effort, not proof that audio stopped.",
+    inputSchema: boundedToolSchema(midiNoteSchema), policy: "midi_write", method: "note_input.send_note_on", mapArgs: (args) => [args.channel, args.pitch, args.velocity],
+  },
+  {
+    name: "note_off", description: "Stop an injected note through the optional MIDI profile and cancel its lease token. channel must be 0, pitch and release velocity 0-127. This dispatch does not prove silence or act on arbitrary hardware MIDI outputs.",
+    inputSchema: boundedToolSchema({ ...midiNoteSchema, velocity: pitchSchema }), policy: "midi_write", method: "note_input.send_note_off", mapArgs: (args) => [args.channel, args.pitch, args.velocity],
+  },
+  {
+    name: "note_play", description: "Play an injected channel-0 note through the optional MIDI profile for duration milliseconds (integer 1-10000), with an actual scheduled note-off. Repeated active pitches are rejected. NoteInput bypasses translation tables; cleanup is best effort.",
+    inputSchema: boundedToolSchema({ ...midiNoteSchema, duration: { type: "integer", minimum: 1, maximum: 10000 } }), policy: "midi_write", method: "note_input.play_note", mapArgs: (args) => [args.channel, args.pitch, args.velocity, args.duration],
+  },
+  {
+    name: "note_input_assign_expression", description: "Configure incoming polyphonic-aftertouch mapping for the MIDI profile's NoteInput. Uses the real directional NoteExpression enum, channel 0-15 and pitchRange 1-24 semitones. This configures input processing; raw injected messages bypass translation tables and do not promise per-channel expression delivery.",
+    inputSchema: boundedToolSchema({ channel: { type: "integer", minimum: 0, maximum: 15 }, expression: { type: "string", enum: noteExpressionNames }, pitchRange: { type: "integer", minimum: 1, maximum: 24 } }),
+    policy: "midi_write", method: "note_input.assign_poly_aftertouch_to_expression", mapArgs: (args) => [args.channel, args.expression, args.pitchRange],
+  },
+  {
+    name: "note_input_set_mpe", description: "Configure expressive MIDI input processing in the optional MIDI profile. baseChannel must be 0 or 15; pitchBendRange is bounded by this bridge to 1-96 semitones. This does not add multi-channel routing to raw injected notes.",
+    inputSchema: boundedToolSchema({ enabled: { type: "boolean" }, baseChannel: { type: "integer", enum: [0, 15] }, pitchBendRange: { type: "integer", minimum: 1, maximum: 96 } }),
+    policy: "midi_write", method: "note_input.set_use_expressive_midi", mapArgs: (args) => [args.enabled, args.baseChannel, args.pitchBendRange],
+  },
+  ...["key", "velocity"].map((kind) => ({
+    name: `note_input_set_${kind}_translation`, description: `Set the optional MIDI profile's incoming ${kind} translation table: exactly 128 integers from -1 (filter) to 127. Raw NoteInput injections bypass these tables; this configures input processing only.`,
+    inputSchema: boundedToolSchema({ table: midiTranslationSchema }), policy: "midi_write", method: `note_input.set_${kind}_translation_table`, mapArgs: (args) => [args.table],
+  })),
+  {
+    name: "midi_get_status", description: "Read the controller MIDI profile's availability and injected-note/lease state without producing sound. The normal zero-port profile explicitly reports unavailable; dispatch bookkeeping does not prove audio or hardware state.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "note_input.get_status",
+  },
+  {
+    name: "midi_all_notes_off", description: "Perform best-effort panic cleanup of the MIDI profile's NoteInput: cancel injected-note lease tokens and send release/reset events. This does not guarantee silence from arbitrary tracks or external hardware. Requires the MIDI profile and midi_write.",
+    inputSchema: boundedToolSchema(), policy: "midi_write", method: "note_input.all_notes_off",
+  },
+  {
+    name: "clip_get_note_expressions", description: "Read expressions for 1-256 explicit step/pitch note starts from the already selected matching launcher clip. trackIndex/sceneIndex are 0-7; steps 0-63, pitches 0-127, channel 0 only. Returns a bounded snapshot for later expression updates, not full MIDI export.",
+    inputSchema: boundedToolSchema({ ...clipTargetSchema, notes: noteBatchSchema(noteCoordinatesSchema) }), policy: "read", method: "clip.get_note_expressions", mapArgs: (args) => [args.trackIndex, args.sceneIndex, args.notes], validateArgs: (args) => validateNoteBatchArguments(args, false),
+  },
+  {
+    name: "clip_set_note_expressions", description: "Patch expressions on 1-256 explicit note starts using a current snapshotId from clip_get_note_expressions. Each item needs step, pitch and at least one expression: velocity/releaseVelocity/pressure/gain 0-1, pan/timbre -1..1, transpose -96..96 semitones. Same selected clip and channel-0 bounded grid are required; duration changes are not supported. Partial results are errors and must not be retried automatically.",
+    inputSchema: boundedToolSchema({ ...clipTargetSchema, snapshotId: snapshotIdSchema, notes: { type: "array", minItems: 1, maxItems: 256, items: expressionPatchSchema } }), policy: "clip_write", method: "clip.set_note_expressions", mapArgs: (args) => [args.trackIndex, args.sceneIndex, args.snapshotId, args.notes], validateArgs: (args) => validateNoteBatchArguments(args, false),
+  },
+  {
+    name: "browser_get_filter_items", description: "Read a bounded 16-item window for an observed popup-browser filter column, plus its wildcard and snapshotId. Columns are smartCollection/location/device/category/tag/deviceType/fileType/creator. This is filter-item enumeration, not text-search input or proof of a loaded instrument.",
+    inputSchema: boundedToolSchema({ column: browserColumnSchema }), policy: "read", method: "browser.get_filter_items", mapArgs: (args) => [args.column],
+  },
+  {
+    name: "browser_set_filter", description: "Select an observed popup-browser filter item using column, itemIndex and current snapshotId. itemIndex -1 selects the all-items wildcard; 0-15 identifies the current bank. This replaces the historical invalid text-search contract: no text argument is accepted. Does not commit a browser result.",
+    inputSchema: boundedToolSchema({ column: browserColumnSchema, itemIndex: { type: "integer", minimum: -1, maximum: 15 }, snapshotId: snapshotIdSchema }), policy: "device_write", method: "browser.set_filter", mapArgs: (args) => [args.column, args.itemIndex, args.snapshotId],
+  },
+  {
+    name: "browser_scroll_filter_items", description: "Scroll a popup-browser filter column one 16-item page forward or backward using the current snapshotId. Re-read filter items after navigation; prior bank-local item indices and snapshots become stale.",
+    inputSchema: boundedToolSchema({ column: browserColumnSchema, direction: { type: "string", enum: ["forward", "backward"] }, snapshotId: snapshotIdSchema }), policy: "device_write", method: "browser.scroll_filter_items", mapArgs: (args) => [args.column, args.direction, args.snapshotId],
+  },
+  {
+    name: "device_remote_pages_get", description: "Read observed remote-control page names and selected page for the current cursor device, with a snapshotId. This does not select a device; unavailable or unsettled observations fail.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "device.remote_pages_get",
+  },
+  {
+    name: "device_remote_page_select", description: "Select a remote-control page by index 0-1023 using the current device_remote_pages_get snapshotId. The controller checks observed page count and device identity; re-read remote controls after selection.",
+    inputSchema: boundedToolSchema({ index: { type: "integer", minimum: 0, maximum: 1023 }, snapshotId: snapshotIdSchema }), policy: "device_write", method: "device.remote_page_select", mapArgs: (args) => [args.index, args.snapshotId],
+  },
+  {
+    name: "transport_get_arranger_loop", description: "Read observed arranger-loop enabled state, start and duration in beats (quarter-notes), with a snapshotId for updates. Does not modify transport or clip loops.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "transport.get_arranger_loop",
+  },
+  {
+    name: "transport_set_arranger_loop", description: "Set the arranger-loop enabled state, startBeats and positive durationBeats using a current transport_get_arranger_loop snapshotId. Requires stopped transport and disabled arranger recording. Start plus duration must not exceed 1048576 beats. This changes arranger transport looping, not clip loop length; uncertain partial dispatch is an error.",
+    inputSchema: boundedToolSchema({ enabled: { type: "boolean" }, startBeats: loopBeatSchema, durationBeats: { type: "number", exclusiveMinimum: 0, maximum: 1048576 }, snapshotId: snapshotIdSchema }), policy: "transport", method: "transport.set_arranger_loop", mapArgs: (args) => [args.enabled, args.startBeats, args.durationBeats, args.snapshotId],
+    validateArgs: (args) => args.startBeats + args.durationBeats > 1048576 ? "Arranger loop end must not exceed 1048576 beats." : null,
+  },
+  ...[
+    ["ear_status", "Inspect the configured external Ear service via its levels endpoint. Without BITWIG_EAR_BASE_URL, reports configured=false without network access.", boundedToolSchema()],
+    ["ear_get_levels", "Request levels from the configured external Ear service; units and payload schema remain externally defined.", boundedToolSchema()],
+    ["ear_list_devices", "Request input-device metadata from the configured external Ear service.", boundedToolSchema()],
+    ["ear_set_device", "Change the external Ear service's active input device by its device-list index.", boundedToolSchema({ index: { type: "integer", minimum: 0, maximum: 2147483647 } })],
+    ["ear_listen", "Request a bounded 1-10-second capture from the external Ear service (default 5). Its returned JSON/audio encoding is opaque to this adapter.", { ...boundedToolSchema({ seconds: { type: "integer", minimum: 1, maximum: 10 } }), required: [] }],
+    ["ear_analyze", "Request analysis of 0.1-10 seconds from the external Ear service (default 1). The adapter does not implement or verify BPM, key or audio analysis.", { ...boundedToolSchema({ seconds: { type: "number", minimum: 0.1, maximum: 10 } }), required: [] }],
+  ].map(([name, description, inputSchema]) => ({
+    name, description: description + " Requires audio_capture policy even for metadata because the service may access audio inputs. Only an explicitly configured literal-loopback service is allowed; no service is installed or started. Responses are bounded opaque JSON and failures are never retried automatically.",
+    inputSchema, policy: "audio_capture", ear: true,
+  })),
+  {
+    name: "clip_slot_select", description: "Historical alias for clip_select_slot: select the bank-local launcher slot identified by trackIndex and slotIndex (integers 0-7). Selection changes subsequent cursor targets; inspect the selected clip before editing.",
+    inputSchema: boundedToolSchema({ trackIndex: bankIndexSchema, slotIndex: bankIndexSchema }), policy: "clip_write", method: "clip.select_slot", mapArgs: (args) => [args.trackIndex, args.slotIndex],
   },
 ].map((tool) => ({ ...tool, validateInput: true, partialResultIsError: true })));
 
@@ -1924,13 +2036,14 @@ export const TOOL_SPECS = Object.freeze([
   ...TRANSPORT_TOOL_SPECS,
   ...MIX_TOOL_SPECS,
   ...PARITY_TOOL_SPECS,
+  ...MUSICAL_TOOL_SPECS,
 ]);
 
 const TOOL_SPEC_MAP = new Map(TOOL_SPECS.map((tool) => [tool.name, tool]));
 
 // Additive opt-in surface; never insert these dispatchers into TOOL_SPECS.
 const DISCOVERY_ENV = "BITWIG_MCP_TOOL_DISCOVERY";
-const DISCOVERY_NAMES = new Set(["search_tools", "call_tool"]);
+const DISCOVERY_NAMES = new Set(["search_tools", "call_tool", "mcp_search_tools", "mcp_execute_advanced_tool"]);
 const DISCOVERY_DEFINITIONS = [
   {
     name: "search_tools",
@@ -1956,6 +2069,18 @@ const DISCOVERY_DEFINITIONS = [
       },
     },
     // Conservative even when the current policy enables only reads.
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+  },
+  {
+    name: "mcp_search_tools",
+    description: "Historical alias for search_tools. Searches the policy-enabled catalog locally and returns the modern paginated tools/total/nextOffset response. Does not contact Bitwig or Ear.",
+    inputSchema: { type: "object", additionalProperties: false, required: ["query"], properties: { query: { type: "string", maxLength: 200 }, limit: { type: "integer", minimum: 1, maximum: 20 }, offset: { type: "integer", minimum: 0, maximum: 10000 } } },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    name: "mcp_execute_advanced_tool",
+    description: "Historical alias for call_tool with tool_name and arguments. Rechecks target policy and strict input validation; never grants approval or bypasses authentication. All generic-dispatcher recursion is forbidden.",
+    inputSchema: { type: "object", additionalProperties: false, required: ["tool_name", "arguments"], properties: { tool_name: { type: "string", minLength: 1, maxLength: 128 }, arguments: { type: "object" } } },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
 ];
@@ -2026,7 +2151,7 @@ function snapshotJsonArguments(input) {
   return JSON.parse(encoded);
 }
 
-async function handleDiscoveryCall(name, input, { call, env }) {
+async function handleDiscoveryCall(name, input, { call, env, earCall }) {
   const fail = (error, message) => serializeToolError({ error, message });
   if (!discoveryEnabled(env)) return fail("tool_unavailable", "Tool discovery is not enabled.");
   // MCP arguments are JSON. Bound and detach them before asynchronous validation.
@@ -2042,7 +2167,7 @@ async function handleDiscoveryCall(name, input, { call, env }) {
   }
   if (!discoveryEnabled(env)) return fail("tool_unavailable", "Tool discovery is not enabled.");
 
-  if (name === "search_tools") {
+  if (name === "search_tools" || name === "mcp_search_tools") {
     const terms = (args.query ?? "").toLowerCase().trim().split(/\s+/).filter(Boolean);
     const matches = TOOL_SPECS.filter((tool) => isPolicyEnabled(tool.policy, env))
       .filter((tool) => {
@@ -2060,10 +2185,11 @@ async function handleDiscoveryCall(name, input, { call, env }) {
     });
   }
 
-  if (DISCOVERY_NAMES.has(args.name)) {
+  const targetName = name === "mcp_execute_advanced_tool" ? args.tool_name : args.name;
+  if (DISCOVERY_NAMES.has(targetName)) {
     return fail("recursive_tool_call", "Generic tools cannot dispatch generic tools.");
   }
-  const target = TOOL_SPEC_MAP.get(args.name);
+  const target = TOOL_SPEC_MAP.get(targetName);
   if (!target) return fail("unknown_tool", "Requested tool is not in the Bitwig registry.");
   if (!isPolicyEnabled(target.policy, env)) return serializeToolError(buildPolicyBlockedError(target));
   const targetArgs = args.arguments ?? {};
@@ -2073,7 +2199,7 @@ async function handleDiscoveryCall(name, input, { call, env }) {
   if (!discoveryEnabled(env)) return fail("tool_unavailable", "Tool discovery is not enabled.");
   // The canonical dispatcher rechecks current policy after every await above.
   // It also supplies requiresAuthentication and preserves target result/errors.
-  return handleToolCall({ params: { name: target.name, arguments: targetArgs } }, { call, env });
+  return handleToolCall({ params: { name: target.name, arguments: targetArgs } }, { call, env, earCall });
 }
 
 function parseEnabledWritePolicies(env = process.env) {
@@ -2210,12 +2336,12 @@ export function getMcpDiagnostics({ env = process.env, clientToolNames } = {}) {
 
 export async function handleToolCall(
   request,
-  { call = callBitwig, env = process.env } = {},
+  { call = callBitwig, env = process.env, earCall = callEar } = {},
 ) {
   try {
     const { name, arguments: input = {} } = request.params;
     let args = input;
-    if (DISCOVERY_NAMES.has(name)) return await handleDiscoveryCall(name, args, { call, env });
+    if (DISCOVERY_NAMES.has(name)) return await handleDiscoveryCall(name, args, { call, env, earCall });
     const tool = TOOL_SPEC_MAP.get(name);
 
     if (!tool) {
@@ -2247,6 +2373,12 @@ export async function handleToolCall(
       if (!isPolicyEnabled(tool.policy, env)) {
         return serializeToolError(buildPolicyBlockedError(tool));
       }
+    }
+
+    if (tool.ear) {
+      const result = await earCall(name, args, { env, authorize: () => isPolicyEnabled(tool.policy, env) });
+      if (!isPolicyEnabled(tool.policy, env)) return serializeToolError(buildPolicyBlockedError(tool));
+      return serializeToolResult({ tool: name, policy: tool.policy, result });
     }
 
     if (tool.execute) {
@@ -2281,13 +2413,13 @@ export async function handleToolCall(
     });
   } catch (error) {
     return serializeToolError({
-      error: "tool_call_failed",
+      error: error instanceof EarClientError ? error.code : "tool_call_failed",
       message: error.message,
     });
   }
 }
 
-export async function createMcpServer({ env = process.env, call = callBitwig } = {}) {
+export async function createMcpServer({ env = process.env, call = callBitwig, earCall = callEar } = {}) {
   const [
     { Server },
     { StdioServerTransport },
@@ -2314,7 +2446,7 @@ export async function createMcpServer({ env = process.env, call = callBitwig } =
     tools: getToolDefinitions({ env }),
   }));
   server.setRequestHandler(CallToolRequestSchema, (request) =>
-    handleToolCall(request, { call, env }),
+    handleToolCall(request, { call, env, earCall }),
   );
 
   return { server, StdioServerTransport };

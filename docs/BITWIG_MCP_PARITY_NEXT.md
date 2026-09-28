@@ -1,5 +1,8 @@
 # Bitwig MCP parity continuation: application, cues, pads and groove
 
+Historical tranche-5 contract. See [tranche 6](BITWIG_MCP_MUSICAL.md) for current
+counts and subsequent capabilities. The controller minimum remains API15.
+
 Date: 2026-09-28. Tranche 5 adds **35 tools: 33 historical names and 2 new
 reads**, taking the source catalogue to **161 tools / 37 default reads**.
 Optional discovery wrappers are counted separately. The controller now selects

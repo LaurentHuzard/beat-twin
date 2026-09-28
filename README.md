@@ -95,7 +95,7 @@ apps/playground
   -> localStorage JSON save/load
 ```
 
-The 161-tool Bitwig MCP bridge (including the original 57 tools) is maintained in `index.ts`; `index.js` is its
+The 187-tool Bitwig MCP bridge (including the original 57 tools) is maintained in `index.ts`; `index.js` is its
 committed, generated runtime entry point for the npm package and MCP clients. The portable `BitwigAdapter` lives separately under
 `packages/adapters/bitwig` and receives the shared authenticated RPC primitive
 through an injected port. The capability guides cover
@@ -103,7 +103,8 @@ through an injected port. The capability guides cover
 [launcher construction](docs/BITWIG_MCP_CONSTRUCTION.md),
 [transport and cues](docs/BITWIG_MCP_TRANSPORT.md), and
 [sound and mix](docs/BITWIG_MCP_MIX.md), and
-[API 15 parity](docs/BITWIG_MCP_PARITY_NEXT.md), including controller upgrades and
+[API 15 parity](docs/BITWIG_MCP_PARITY_NEXT.md), and
+[musical extensions and MIDI](docs/BITWIG_MCP_MUSICAL.md), including controller upgrades and
 readback limits. The [historical parity inventory](docs/BITWIG_MCP_PARITY.md)
 tracks remaining work.
 Browser audition is local Web Audio preview, not a
@@ -151,7 +152,7 @@ NanoDAW Agent mode
 
 Gemma may only list targets, inspect the selected session, and propose a
 bounded `SongPatchV1`. Confirmation and execution are gateway/UI operations;
-they are never model tools. The `TOOL_SPECS` registry preserves the original 57 tools and adds 104
+they are never model tools. The `TOOL_SPECS` registry preserves the original 57 tools and adds 130
 inspection, construction, transport, arranger, sound and mix tools. This registry is separate from the portable agent language. See
 [`docs/LOCAL-LLM-TOOL-ORCHESTRATION.md`](docs/LOCAL-LLM-TOOL-ORCHESTRATION.md).
 
@@ -294,6 +295,11 @@ To enable every write class for disposable test sessions only:
 ```bash
 BITWIG_MCP_ENABLE_WRITES=1 node index.js
 ```
+
+This includes the new `midi_write` and `audio_capture` policies. MIDI requires the
+separate optional MIDI controller profile; Ear requires an explicitly configured
+local service. See [musical extensions](docs/BITWIG_MCP_MUSICAL.md) and the
+[deferred live acceptance plan](docs/BITWIG_LIVE_ACCEPTANCE.md).
 
 Use write mode only in a disposable Bitwig project or a copy of real work.
 

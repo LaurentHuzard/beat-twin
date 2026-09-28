@@ -15,44 +15,53 @@ are separate kinds of evidence. The [historical matrix](BITWIG_MCP_PARITY.md)
 counts names; this inventory compares musical capabilities. One MCP tool need
 not correspond to one API method.
 
+## Tranche 6 implementation update
+
+[Musical extensions](BITWIG_MCP_MUSICAL.md) now implement bounded note-expression
+read/update, observed browser filter-item selection/paging, remote-page read/select
+and arranger-loop read/write. Historical MIDI uses an optional input profile with
+actual scheduled release; Ear has an optional external HTTP adapter. The missing
+capability column below records the remaining API opportunities after that slice.
+Cue position stays deferred because bank reordering needs a stronger identity.
+
 ## Coverage by musical domain
 
 | Domain | Current source coverage | Useful missing capability | API evidence / boundary |
 | --- | --- | --- | --- |
-| Notes and expressions | Selected launcher cursor, channel 0, 64 steps at 0.25 beats; bounded note insertion/removal/readback | Expression read/update, velocity and duration edits, wider channels/windows | `Clip.getStep` and `NoteStep` API 10. Existing observation is not a full MIDI export. |
+| Notes and expressions | Selected launcher cursor, channel 0, 64 steps at 0.25 beats; bounded note insertion/removal/readback and snapshot-guarded expressions | Duration edits, wider channels/windows | `Clip.getStep` and `NoteStep` API 10. Existing observation is not a full MIDI export. |
 | Generative variation | Explicit note patterns | Chance, occurrence, recurrence, repeat, mute, velocity spread | `NoteStep` API 14; eligible under API 15, with ranges and observed note identity. |
 | Clip transformations | Name/color, duplication into an observed empty slot, loop extension | Transpose, quantize, duplicate content, play bounds, loop toggle/start, shuffle/accent | `Clip.transpose(int)`, `quantize(double)`, `duplicateContent()` and value proxies API 1. Whole-clip operations exceed the current read window. |
 | Launch behavior | Launch/stop/record, scenes and transport | Per-clip quantization/mode, legato reference; launcher post-record action/time | `Clip.launchQuantization()` API 8, `launchMode()` API 9; transport post-record values API 1/2. |
-| Sound loading | Browser opening, results selection/commit/cancel | Observed filter columns, content-type selection, audition state, direct known-device/file insertion | `PopupBrowser` API 2; `InsertionPoint` class API 7. Opening/dispatch is not proof of insertion. |
-| Device controls | Bypass/delete/navigation, eight remote controls, previous/next page | Page list/index selection, reset/touch/restore automation, direct parameter discovery | `CursorRemoteControlsPage` API 2/7; `Parameter` API 1/2; direct parameter observers/setters on `Device` API 1. |
+| Sound loading | Observed browser sessions, filter columns/items/paging and result selection/commit/cancel | Content-type selection, audition state, direct known-device/file insertion | `PopupBrowser` API 2; `InsertionPoint` class API 7. Opening/dispatch is not proof of insertion. |
+| Device controls | Bypass/delete/navigation, eight remote controls, page names/count/index read and selection | Reset/touch/restore automation, direct parameter discovery | `CursorRemoteControlsPage` API 2/7; `Parameter` API 1/2; direct parameter observers/setters on `Device` API 1. |
 | Nested instruments | Selected-device drum-pad bank in tranche 5 | Layers, slots, parent navigation, explicit child chain/device selection | `Device.createLayerBank/createDrumPadBank` and `CursorDevice` selection API 1. Different chains need distinct observed identity. |
 | Mixing and routing | Bounded track/send/return/master values and native project resets | Cue mix/volume, crossfader, activation, monitor state, broader banks | `Project.cueMix/cueVolume` API 10; `Channel.isActivated` API 1; `Track.monitorMode` API 14. Input routing is not implied by monitor control. |
 | Groove | Enabled/shuffle amount read/write | Shuffle rate, accent amount/rate/phase | `Groove` Parameter getters API 1; normalized parameter values are not automatically musical divisions. |
-| Arrangement | Transport, panels, cue list/launch/create/name, zoom | Cue position, arranger loop range, follow/height controls, selected arranger-clip edits | `CueMarker.position` API 10; loop range API 15; `createArrangerCursorClip` API 1. No arbitrary region bank identified. |
+| Arrangement | Transport, panels, cue list/launch/create/name, zoom and arranger loop range | Cue position, follow/height controls, selected arranger-clip edits | `CueMarker.position` API 10; loop range API 15; `createArrangerCursorClip` API 1. No arbitrary region bank identified. |
 | Automation | Remote parameter values and transport overdub | Write mode/enable, reset overrides, parameter touch lifecycle | `Transport` write-state values API 2 and override operations API 1; not arbitrary envelope-point editing. |
-| Audio observation | No audio analysis claimed | VU meters and currently playing notes from controller | `Channel.addVuMeterObserver` API 1, `playingNotes` API 2. These do not replace capture/listening/analysis by Ear. |
-| Notes played live | Historical MIDI tools remain unwired | Explicit-track `playNote/startNote/stopNote` route | `Track` API 1. Default duration of `playNote` is unspecified; sustained notes need guaranteed release and voice tracking. |
+| Audio observation | Optional external Ear adapter; no capture/DSP result claimed | VU meters and currently playing notes from controller | `Channel.addVuMeterObserver` API 1, `playingNotes` API 2. These do not replace capture/listening/analysis by Ear. |
+| Notes played live | Optional NoteInput MIDI profile with leases/release cleanup | Explicit-track `playNote/startNote/stopNote` route | `Track` API 1. Default duration of `playNote` is unspecified; sustained notes need guaranteed release and voice tracking. |
 
-## Concrete next slices
+## Further opportunities after tranche 6
 
-1. **Expression-aware notes.** Add a bounded expression reader and batch update
-   for existing `NoteOn` steps. Preserve cursor identity, reject overlaps and
-   stale snapshots, validate every update before dispatch and retain partial
-   mutation evidence. API 10 ranges: velocity/release/pressure 0–1, pan/timbre
+1. **Expression-aware notes.** Tranche 6 implements a bounded expression reader
+   and batch update for existing `NoteOn` steps, with stale-snapshot rejection,
+   whole-batch validation and partial setter evidence. Extend coverage and duration
+   editing only with explicit overlap/sustain rules. API 10 ranges: velocity/release/pressure 0–1, pan/timbre
    -1–1, gain 0–1 (0.5 means 0 dB), transpose -96–96 semitones, duration in beats.
    Probability and repeats can follow under API 14 once their specific limits
    and enable flags are modeled.
-2. **Deterministic sound selection.** Expose browser content types, filter columns
-   and their bounded item banks. Select an observed item, await changed results,
-   then select/commit an observed result. Add direct insertion only with a
+2. **Deterministic sound selection.** Filter columns and bounded item selection
+   are now implemented. Establish their real-session result/commit behavior and
+   add explicit content-type/audition control. Add direct insertion only with a
    verified device ID or explicit file path and post-insertion identity. API
    insertion methods can silently do nothing; command return is insufficient.
-3. **Useful parameter targeting.** Read page names/count/index, select a page and
-   wait for its parameter observations. Add reset and direct parameter IDs tied
+3. **Useful parameter targeting.** Page names/count/index and explicit selection
+   are implemented. Add reset and direct parameter IDs tied
    to the selected device. A parameter ID from one plugin/device must never
    silently target another. Separate gesture/touch lifecycle from value writes.
 4. **Clip and song form.** Add explicit whole-clip transpose/quantize/duplicate
-   content, launcher settings, cue position and arranger loop range. Mark the
+   content, launcher settings and cue position. Arranger-loop range is implemented. Mark the
    effect scope honestly when readback covers only part of a clip. Selected
    arranger-cursor editing requires its own target contract.
 5. **Performance and evidence.** Add cue bus controls, native VU/playing-note
@@ -96,10 +105,12 @@ requirements and record remaining uncertainty.
   hardware-device delivery. It is not established as an interchangeable route
   for `NoteInput.sendRawMidiEvent`. NoteInput mapping/MPE requires an instantiated
   MIDI input, configured ports, routing and release cleanup. Track note methods
-  offer a separate explicitly targeted musical contract.
+  offer a separate explicitly targeted musical contract. Tranche 6 supplies an
+  optional NoteInput profile; raw injection still ignores channels and translations.
 - **Ear:** six historical tools belong to a separate service. VU meters can
   provide controller-native levels; device selection, capture, listening and
-  DSP analysis still require that service or an explicit replacement integration.
+  DSP analysis still require that service. The tranche-6 client adapts fixed local
+  endpoints without starting a service or inventing an unverified payload schema.
 
 ## What should not become one MCP tool per API symbol
 

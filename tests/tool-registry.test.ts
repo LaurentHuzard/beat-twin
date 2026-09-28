@@ -19,7 +19,7 @@ test("preserves every historical tool schema and policy as a stable prefix", () 
   }));
   const digest = createHash("sha256").update(JSON.stringify(schemas)).digest("hex");
 
-  assert.equal(TOOL_SPECS.length, 161);
+  assert.equal(TOOL_SPECS.length, 187);
   assert.equal(new Set(TOOL_SPECS.map(({ name }) => name)).size, TOOL_SPECS.length);
   assert.deepEqual(tools, snapshot.tools);
   assert.equal(digest, snapshot.schemaDigest);
@@ -33,12 +33,12 @@ const noDaw = () => { throw new Error("discovery/validation must not contact a D
 test("discovery is additive and explicitly opt-in; annotations do not imply safe writes", async () => {
   const legacy = getToolDefinitions({ env: {} });
   const tools = getToolDefinitions({ env: enabled() });
-  assert.deepEqual(tools.slice(0, -2), legacy);
-  assert.deepEqual(tools.slice(-2).map((tool) => tool.name), ["search_tools", "call_tool"]);
-  assert.equal(tools.at(-1).annotations.readOnlyHint, false);
-  assert.equal(tools.at(-1).annotations.destructiveHint, true);
-  tools.at(-1).inputSchema.required.push("tampered");
-  assert.deepEqual(getToolDefinitions({ env: enabled() }).at(-1).inputSchema.required, ["name"]);
+  assert.deepEqual(tools.slice(0, -4), legacy);
+  assert.deepEqual(tools.slice(-4).map((tool) => tool.name), ["search_tools", "call_tool", "mcp_search_tools", "mcp_execute_advanced_tool"]);
+  assert.equal(tools.find((tool) => tool.name === "call_tool").annotations.readOnlyHint, false);
+  assert.equal(tools.find((tool) => tool.name === "call_tool").annotations.destructiveHint, true);
+  tools.find((tool) => tool.name === "call_tool").inputSchema.required.push("tampered");
+  assert.deepEqual(getToolDefinitions({ env: enabled() }).find((tool) => tool.name === "call_tool").inputSchema.required, ["name"]);
   for (const name of ["search_tools", "call_tool"]) {
     const result = await handleToolCall(request(name), { env: {}, call: noDaw });
     assert.equal(result.isError, true);
