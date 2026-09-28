@@ -32,13 +32,18 @@ const readNames = [
   "mixer_get_master_volume",
   "mixer_get_send_level",
   "mixer_return_list",
+  "application_get_status",
+  "arranger_get_cue_markers",
+  "drumpad_get_status",
+  "groove_get_status",
+  "project_get_status",
 ];
-const applicationNames = ["application_create_instrument_track", "application_create_audio_track", "arranger_set_panel_visibility", "application_create_effect_track"];
+const applicationNames = ["application_create_instrument_track", "application_create_audio_track", "arranger_set_panel_visibility", "application_create_effect_track", "application_undo", "application_redo", "application_cut", "application_copy", "application_paste", "application_delete", "application_duplicate", "application_select_all", "application_select_none", "application_arrow_key", "application_enter", "application_escape", "application_zoom_in", "application_zoom_out", "arranger_zoom", "transport_add_cue_marker", "arranger_cues_create", "arranger_cues_rename"];
 const writePolicies = ["transport", "mixer_write", "clip_write", "scene_write", "device_write", "application_write"];
 const modes = [
-  { label: "read-only", env: {}, policies: ["read"], count: 32 },
-  { label: "selective-writes", env: { BITWIG_MCP_WRITE_POLICY: "application_write" }, policies: ["read", "application_write"], count: 36 },
-  { label: "all-writes", env: { BITWIG_MCP_ENABLE_WRITES: "1" }, policies: ["read", ...writePolicies], count: 126 },
+  { label: "read-only", env: {}, policies: ["read"], count: 37 },
+  { label: "selective-writes", env: { BITWIG_MCP_WRITE_POLICY: "application_write" }, policies: ["read", "application_write"], count: 59 },
+  { label: "all-writes", env: { BITWIG_MCP_ENABLE_WRITES: "1" }, policies: ["read", ...writePolicies], count: 161 },
 ];
 const parseToolText = (response) => JSON.parse(response.content[0].text);
 
@@ -127,7 +132,7 @@ test("policy normalization, ignored entries and all-writes precedence reuse cano
   for (const enabled of ["1", "true", " YES ", "On", "all"]) {
     const report = bridge.getMcpDiagnostics({ env: { BITWIG_MCP_ENABLE_WRITES: enabled, BITWIG_MCP_WRITE_POLICY: "application_write" } });
     assert.equal(report.mode, "all-writes");
-    assert.equal(report.tool_count, 126);
+    assert.equal(report.tool_count, 161);
   }
   const env = { BITWIG_MCP_ENABLE_WRITES: "false", BITWIG_MCP_WRITE_POLICY: " APPLICATION_WRITE ,invalid,application_write ", BITWIG_MCP_TOOL_DISCOVERY: "true" };
   const report = bridge.getMcpDiagnostics({ env });

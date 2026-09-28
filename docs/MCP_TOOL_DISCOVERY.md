@@ -18,9 +18,9 @@ restart/reload that server and refresh its tool list. Only the exact value
 Pairing or restarting a NanoDAW Gateway does not enable these Bitwig wrappers.
 
 The registry preserves the schemas/policies of the original 57 tools and now
-adds 69 port/construction tools (126 total; 32 read-only by default). See
+adds 104 port/construction tools (161 total; 37 read-only by default). See
 [inspection](BITWIG_MCP_PORT.md), [construction](BITWIG_MCP_CONSTRUCTION.md),
-[transport](BITWIG_MCP_TRANSPORT.md), and [mix](BITWIG_MCP_MIX.md) guides.
+[transport](BITWIG_MCP_TRANSPORT.md), and [mix](BITWIG_MCP_MIX.md), and [API 15 parity](BITWIG_MCP_PARITY_NEXT.md) guides.
 With discovery enabled, the policy-filtered direct tool list gains two tools:
 `search_tools` and `call_tool`. Direct calls remain available.
 

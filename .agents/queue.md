@@ -18,7 +18,9 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-- No implementation item active. BT-MCP-PORT-004 is locally complete with 363 offline tests, typecheck, architecture and distribution passing; authorized publication is in progress. Live tests remain deferred. See current-plan.md and its report. The 18 remaining source-level candidates are recorded in docs/BITWIG_MCP_PARITY.md.
+- No implementation item active. BT-MCP-PORT-005 locally complete:386 tests, typecheck, architecture and distribution passed; authorized publication in progress. Live acceptance deferred. See current-plan.md.
+
+BT-MCP-PORT-004 merged through PR #97 as 6543c69bce4aee0466173ba4a26b7117ef885820; 363 offline tests passed. Continuing parity work is explicitly authorized.
 
 ### Previous readiness (historical)
 

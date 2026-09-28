@@ -1148,6 +1148,129 @@ export const MIX_TOOL_SPECS = Object.freeze([
   },
 ].map((tool) => ({ ...tool, validateInput: true, partialResultIsError: true })));
 
+const drumPadIndexSchema = { type: "integer", minimum: 0, maximum: 15 };
+const cueIndexSchema = { type: "integer", minimum: 0, maximum: 31 };
+const applicationFocusContract = " Requires stopped transport and disabled arranger recording. Uses Bitwig's current global focus, selection, clipboard or undo history; the bridge cannot verify that target. Returns dispatch acknowledgement, not proof of the effect. Invalidates prior target bindings; inspect again before another targeted edit. Never automatically retry an uncertain action.";
+
+export const PARITY_TOOL_SPECS = Object.freeze([
+  ...[
+    ["undo", "Undo the latest operation in Bitwig's global edit history."],
+    ["redo", "Redo the next operation in Bitwig's global edit history."],
+    ["cut", "Cut the currently focused selection to the clipboard."],
+    ["copy", "Copy the currently focused selection to the clipboard."],
+    ["paste", "Paste clipboard contents at the currently focused selection."],
+    ["delete", "Delete the currently focused selection using Application.remove()."],
+    ["duplicate", "Duplicate the currently focused selection."],
+    ["select_all", "Select all items in the currently focused editor."],
+    ["select_none", "Deselect items in the currently focused editor."],
+    ["arrow_key", "Send one directional arrow command to the currently focused editor."],
+    ["enter", "Send Enter to Bitwig's current keyboard focus."],
+    ["escape", "Send Escape to Bitwig's current keyboard focus."],
+    ["zoom_in", "Zoom in one step in the currently focused editor."],
+    ["zoom_out", "Zoom out one step in the currently focused editor."],
+  ].map(([action, description]) => ({
+    name: `application_${action}`, description: description + applicationFocusContract,
+    inputSchema: action === "arrow_key"
+      ? boundedToolSchema({ direction: { type: "string", enum: ["left", "right", "up", "down"] } })
+      : boundedToolSchema(),
+    policy: "application_write", method: `application.${action}`,
+    mapArgs: (args) => action === "arrow_key" ? [args.direction] : [],
+  })),
+  {
+    name: "application_get_status",
+    description: "Read observed application state including undo/redo availability. Keyboard focus, active selection and clipboard contents remain unknown; this read does not establish a safe target for global editor commands.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "application.get_status",
+  },
+  {
+    name: "arranger_zoom",
+    description: "Zoom arranger lane heights, for all or selected lanes: in_all, out_all, in_selected or out_selected. Requires stopped transport and disabled arranger recording. The operation applies when the arranger is visible; current selection and visual effect are not verified. Acknowledgement reports dispatch only.",
+    inputSchema: boundedToolSchema({ action: { type: "string", enum: ["in_all", "out_all", "in_selected", "out_selected"] } }),
+    policy: "application_write", method: "arranger.zoom", mapArgs: (args) => [args.action],
+  },
+  {
+    name: "transport_add_cue_marker",
+    description: "Create a cue marker at the observed playback position using API 15. Requires stopped transport, disabled arranger recording and settled cue observations. Re-read cue markers to verify creation; acknowledgement does not prove it occurred. Never automatically replay uncertain creation.",
+    inputSchema: boundedToolSchema(), policy: "application_write", method: "transport.add_cue_marker",
+  },
+  {
+    name: "arranger_cues_create",
+    description: "Create a cue marker at the observed playback position; same operation as transport_add_cue_marker. Requires stopped transport, disabled arranger recording and settled cue observations. Re-read markers after creation; dispatch acknowledgement is not verified creation. Never automatically replay uncertainty.",
+    inputSchema: boundedToolSchema(), policy: "application_write", method: "arranger.cues.create",
+  },
+  {
+    name: "arranger_cues_rename",
+    description: "Rename an existing cue marker in the current 32-marker bank, index 0-31. Name must be nonblank, at most 128 characters, without control characters. Requires stopped transport, disabled arranger recording and settled identity; re-read markers after dispatch.",
+    inputSchema: boundedToolSchema({ index: cueIndexSchema, name: displayNameSchema }),
+    policy: "application_write", method: "arranger.cues.rename", mapArgs: (args) => [args.index, args.name],
+  },
+  {
+    name: "arranger_get_cue_markers",
+    description: "Historical alias for arranger_cues_list: read observed cue markers in the current bounded 32-marker bank. Inspect coverage metadata; this is not necessarily every project marker. Does not navigate or start playback.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "arranger.cues.list",
+  },
+  {
+    name: "arranger_jump_to_cue_marker",
+    description: "Historical alias for arranger_cues_jump: launch quantized playback at an existing marker in the current 32-marker bank, index 0-31. This starts playback; it is not a silent position seek. Requires a settled observed marker.",
+    inputSchema: boundedToolSchema({ index: cueIndexSchema }), policy: "transport", method: "arranger.cues.jump",
+    mapArgs: (args) => [args.index],
+  },
+  {
+    name: "drumpad_get_status",
+    description: "Read existing drum pads for the selected device in a bounded 16-pad bank, including observed identity, normalized volume, mute and solo. The selected device must support drum pads. Inspect coverage and re-read after scrolling; unknown or unsettled observations are errors.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "drumpad.get_status",
+  },
+  {
+    name: "drumpad_select",
+    description: "Select an existing drum pad at index 0-15 in the selected device's current pad bank. Requires settled pad/device observations. Selection changes subsequent cursor targets; re-inspect before editing.",
+    inputSchema: boundedToolSchema({ index: drumPadIndexSchema }), policy: "device_write", method: "drumpad.select",
+    mapArgs: (args) => [args.index],
+  },
+  ...["forward", "backward"].map((direction) => ({
+    name: `drumpad_scroll_${direction}`,
+    description: `Scroll the selected device's drum-pad bank ${direction}. Changes bank-local index identities; wait for settled drumpad_get_status before selecting or editing a pad. Requires a device that supports drum pads.`,
+    inputSchema: boundedToolSchema(), policy: "device_write", method: `drumpad.scroll_${direction}`,
+  })),
+  {
+    name: "drumpad_set_volume",
+    description: "Set an existing pad's normalized volume, 0-1 (not decibels), in the selected device's current 16-pad bank. index is 0-15. Requires settled observations; read status afterward to verify the level.",
+    inputSchema: boundedToolSchema({ index: drumPadIndexSchema, value: normalizedLevelSchema }),
+    policy: "device_write", method: "drumpad.set_volume", mapArgs: (args) => [args.index, args.value],
+  },
+  ...["mute", "solo"].map((control) => ({
+    name: `drumpad_set_${control}`,
+    description: `Set ${control} for an existing pad in the selected device's current 16-pad bank, index 0-15. Requires settled observations; read status afterward to verify the dispatched state.`,
+    inputSchema: boundedToolSchema({ index: drumPadIndexSchema, state: { type: "boolean" } }),
+    policy: "device_write", method: `drumpad.set_${control}`, mapArgs: (args) => [args.index, args.state],
+  })),
+  {
+    name: "groove_get_status",
+    description: "Read observed global groove settings. Groove parameters are normalized 0-1; unavailable observations are errors, not default zero values.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "groove.get_status",
+  },
+  {
+    name: "groove_set_enabled",
+    description: "Enable or disable the project's global groove. This changes musical playback. Read groove_get_status afterward to verify the dispatched change.",
+    inputSchema: boundedToolSchema({ state: { type: "boolean" } }), policy: "transport", method: "groove.set_enabled",
+    mapArgs: (args) => [args.state],
+  },
+  {
+    name: "groove_set_shuffle_amount",
+    description: "Set the global groove shuffle amount to a finite normalized value from 0 to 1. Read groove_get_status afterward to verify the dispatched change.",
+    inputSchema: boundedToolSchema({ value: normalizedLevelSchema }), policy: "transport", method: "groove.set_shuffle_amount",
+    mapArgs: (args) => [args.value],
+  },
+  ...["unsolo", "unmute", "unarm"].map((action) => ({
+    name: `project_${action}_all`,
+    description: `Use Bitwig's native project-wide ${action} operation on all tracks, including tracks outside visible banks. Requires stopped transport and disabled arranger recording. This is a global mix/recording-state mutation. Read project_get_status afterward; dispatch acknowledgement is not proof of completion.`,
+    inputSchema: boundedToolSchema(), policy: "mixer_write", method: `project.${action}_all`,
+  })),
+  {
+    name: "project_get_status",
+    description: "Read observed project-wide solo, mute and arm aggregate flags using Bitwig's native Project API. These aggregate flags cover the project rather than only the visible track bank; they do not identify individual affected tracks.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "project.get_status",
+  },
+].map((tool) => ({ ...tool, validateInput: true, partialResultIsError: true })));
+
 export const TOOL_SPECS = Object.freeze([
   {
     name: "bitwig_session_inspect",
@@ -1799,6 +1922,7 @@ export const TOOL_SPECS = Object.freeze([
   ...CONSTRUCTION_TOOL_SPECS,
   ...TRANSPORT_TOOL_SPECS,
   ...MIX_TOOL_SPECS,
+  ...PARITY_TOOL_SPECS,
 ]);
 
 const TOOL_SPEC_MAP = new Map(TOOL_SPECS.map((tool) => [tool.name, tool]));
