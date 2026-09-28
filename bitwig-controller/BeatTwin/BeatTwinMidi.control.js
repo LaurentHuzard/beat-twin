@@ -57,6 +57,7 @@ var groove;
 var drumPadBank;
 var drumPadSelected = [];
 var globalUiPending = 0;
+var mixValueObservations = {};
 
 var BRIDGE_PROTOCOL_VERSION = "beat-twin-bitwig-v2";
 var TARGET_GRID_STEPS = 64;
@@ -896,8 +897,31 @@ function watchMixValue(value, key, group) {
     // Automation changes current levels continuously; it must not invalidate
     // settled proxy identity or unrelated reads on every frame.
     if (!advancedState[group]) advancedState[group] = { version: 0, flushedVersion: -1, settledVersion: -1, seen: {} };
+    var observation = { numericCallbackReceived: false, awaitingNumericCallback: false, displayReceived: false };
+    mixValueObservations[group + "." + key] = observation;
+    advancedState[group].seen[key] = false;
     value.markInterested();
-    value.addValueObserver(function () { advancedState[group].seen[key] = true; });
+    value.addValueObserver(function () {
+      observation.numericCallbackReceived = true;
+      observation.awaitingNumericCallback = false;
+      advancedState[group].seen[key] = true;
+    });
+    // Bitwig 6.1's ranged-value proxy suppresses the initial numeric callback
+    // when its subscribed value is the default zero. Value.markInterested/get
+    // still provides the current host cache (API 2). A real display callback
+    // supplies initialization evidence; it is NOT a numeric observation.
+    if (typeof value.displayedValue === "function") {
+      var display = value.displayedValue();
+      display.markInterested();
+      display.addValueObserver(function (text) {
+        var received = typeof text === "string" && text.length > 0;
+        if (observation.displayReceived !== received) {
+          observation.displayReceived = received;
+          advancedState[group].version += 1;
+          advancedState[group].settledVersion = -1;
+        }
+      });
+    }
   } else {
     watchAdvancedValue(value, key, group);
     value.addValueObserver(observeConstructionChange);
@@ -924,9 +948,37 @@ function mixObserved(value, key, group, type) {
 }
 
 function mixNormalized(value, key, group) {
-  var result = mixObserved(value, key, group, "number");
-  if (result < 0 || result > 1) throw bridgeError(-32004, "Normalized mixer state unavailable");
+  var state = advancedState[group];
+  var observation = mixValueObservations[group + "." + key];
+  var initialCurrent = observation && !observation.numericCallbackReceived &&
+    !observation.awaitingNumericCallback && observation.displayReceived;
+  if (!state || state.settledVersion !== state.version || (state.seen[key] !== true && !initialCurrent)) {
+    throw bridgeError(-32004, "Requested " + group + " state is not observed and settled yet");
+  }
+  var result = value.get();
+  if (typeof result !== "number" || !isFinite(result) || result < 0 || result > 1) throw bridgeError(-32004, "Normalized mixer state unavailable");
+  // Only the known suppressed initial zero uses the current-value contract.
+  // Changed nonzero values still require their numeric callback.
+  if (state.seen[key] !== true && result !== 0) throw bridgeError(-32004, "Normalized numeric callback is pending");
   return result;
+}
+
+function invalidateMixNormalized(key, group) {
+  advancedState[group].seen[key] = false;
+  var observation = mixValueObservations[group + "." + key];
+  if (observation) observation.awaitingNumericCallback = true;
+}
+
+function mixObservationDiagnostics() {
+  var initialCurrent = [], pending = [];
+  for (var id in mixValueObservations) {
+    var observation = mixValueObservations[id];
+    if (observation.awaitingNumericCallback) pending.push(id);
+    else if (!observation.numericCallbackReceived && observation.displayReceived) initialCurrent.push(id);
+  }
+  return { valueSource: "interested_host_cached_getter", initialZeroReadiness: "nonempty_display_callback_and_settled_identity",
+    initialZeroWithoutNumericCallback: initialCurrent, awaitingNumericCallback: pending,
+    mutationConfirmation: "numeric_callback_required" };
 }
 
 function setMixNormalized(value, key, group, next, cursorKey, cursorMatches) {
@@ -934,9 +986,9 @@ function setMixNormalized(value, key, group, next, cursorKey, cursorMatches) {
   var current = mixNormalized(value, key, group);
   if (current === next) return;
   if (cursorKey && mixObserved(cursorMatches, "cursorMatch", group, "boolean")) {
-    advancedState.cursorTrack.seen[cursorKey] = false;
+    invalidateMixNormalized(cursorKey, "cursorTrack");
   }
-  advancedState[group].seen[key] = false;
+  invalidateMixNormalized(key, group);
   targetGeneration += 1;
   // An absolute MCP command has no physical fader to cross a takeover point.
   // Preserve observation/readback guards while bypassing hardware takeover.
@@ -1150,7 +1202,7 @@ function invalidateLegacyBankField(index, key, next) {
   var track = requireExistingTrack(index);
   if (channelValue(track, key).get() === next) return;
   invalidateProjectAggregate(key);
-  if (mixObserved(mainCursorMatches[index], "cursorMatch", "mainTrack" + index, "boolean")) advancedState.cursorTrack.seen[key] = false;
+  if (mixObserved(mainCursorMatches[index], "cursorMatch", "mainTrack" + index, "boolean")) invalidateMixNormalized(key, "cursorTrack");
 }
 
 function invalidateProjectAggregate(key) {
@@ -1158,7 +1210,8 @@ function invalidateProjectAggregate(key) {
 }
 
 function invalidateLegacySelectedField(key, next) {
-  requireObservedAdvanced(key, "cursorTrack");
+  if (key === "volume" || key === "pan") mixNormalized(channelValue(cursorTrack, key), key, "cursorTrack");
+  else requireObservedAdvanced(key, "cursorTrack");
   if (channelValue(cursorTrack, key).get() === next) return;
   var affected = [];
   if (key === "volume" && mixObserved(masterCursorMatches, "cursorMatch", "master", "boolean")) affected.push(["master", "level"]);
@@ -1167,8 +1220,8 @@ function invalidateLegacySelectedField(key, next) {
       if (mixObserved(returnCursorMatches[i], "cursorMatch", "return" + i, "boolean")) affected.push(["return" + i, key]);
     }
   }
-  advancedState.cursorTrack.seen[key] = false;
-  for (var i = 0; i < affected.length; i++) advancedState[affected[i][0]].seen[affected[i][1]] = false;
+  invalidateMixNormalized(key, "cursorTrack");
+  for (var i = 0; i < affected.length; i++) invalidateMixNormalized(affected[i][1], affected[i][0]);
 }
 
 function readInspectionNotes(trackIndex, slotIndex) {
@@ -1838,6 +1891,8 @@ function handleRequest(request, connection, bridgeSession) {
         requireArgumentCount(request.params, setSend ? 3 : 2);
         if (setSend) requireNormalized(request.params[2]);
         var sendTrack = requireExistingTrack(request.params[0]);
+        requireObservedAdvanced("exists", "mainTrack" + request.params[0]);
+        requireObservedAdvanced("position", "mainTrack" + request.params[0]);
         requireBankIndex(request.params[1], "Send index");
         var sendGroup = "send" + request.params[0] + ":" + request.params[1];
         var send = sendTrack.sendBank().getItemAt(request.params[1]);
@@ -2093,6 +2148,8 @@ function handleRequest(request, connection, bridgeSession) {
           tracks: inspectTracks(), scenes: inspectScenes() };
         var creativeMutation = typeof creativeMutationStatus === "function" ? creativeMutationStatus() : null;
         if (creativeMutation !== null) result.creativeMutation = creativeMutation;
+        result.observation = { mixer: mixObservationDiagnostics() };
+        if (typeof creativeObservationDiagnostics === "function") result.observation.creative = creativeObservationDiagnostics();
         break;
       case "track.list":
         result = inspectTracks();
@@ -2896,7 +2953,7 @@ var creativeMutationTimeoutMs = 10000;
 var creativeColumns = ["smartCollection", "location", "device", "category", "tag", "deviceType", "fileType", "creator"];
 var creativeExpressionLimits = { velocity: [0, 1], releaseVelocity: [0, 1], pan: [-1, 1], timbre: [-1, 1], pressure: [0, 1], gain: [0, 1], transpose: [-96, 96] };
 
-function creativeGroup() { return { version: 0, flushed: -1, settled: -1, seen: {}, callbacks: 0 }; }
+function creativeGroup() { return { version: 0, flushed: -1, settled: -1, seen: {}, interested: {}, callbacks: 0 }; }
 function creativeChanged(group, key, identityChange) {
   var state = creativeState[group];
   state.seen[key] = true; state.callbacks += 1;
@@ -2904,6 +2961,7 @@ function creativeChanged(group, key, identityChange) {
 }
 function creativeWatch(value, group, key, identityChange) {
   value.markInterested();
+  creativeState[group].interested[key] = true;
   value.addValueObserver(function () { creativeChanged(group, key, identityChange); });
 }
 function creativeWatchItem(item, prefix, filter) {
@@ -2912,29 +2970,59 @@ function creativeWatchItem(item, prefix, filter) {
   creativeWatch(item.isSelected(), "browser", prefix + ".selected");
   if (filter) {
     creativeWatch(item.hitCount(), "browser", prefix + ".hits");
-    creativeObserveChange(item.isSelected(), function () { creativeInvalidateResults(); });
+    creativeState.filterItemEpochs[prefix] = 0;
+    var identityChanged = function () { creativeState.filterItemEpochs[prefix] += 1; };
+    creativeObserveChange(item.exists(), identityChanged);
+    creativeObserveChange(item.name(), identityChanged);
+    creativeObserveChange(item.isSelected(), function () { creativeBrowserQueryChanged(); creativeInvalidateResults(); });
+  } else {
+    creativeObserveChange(item.exists(), creativeBrowserResultsChanged);
+    creativeObserveChange(item.name(), creativeBrowserResultsChanged);
   }
+}
+function creativeBrowserResultsChanged() { creativeState.browserResultsEpoch += 1; }
+function creativeBrowserQueryChanged() { creativeState.browserQueryEpoch += 1; creativeBrowserResultsChanged(); }
+function creativeWatchRemoteParameterIdentity(index) {
+  var parameter = remoteControlsBank.getParameter(index);
+  var changed = function () { creativeState.remoteParameterEpochs[index] += 1; };
+  creativeObserveChange(parameter.exists(), changed);
+  creativeObserveChange(parameter.name(), changed);
 }
 function creativeObserveChange(value, changed) {
   var initialized = false, previous;
+  // All callers have already registered interest. Seed the change detector
+  // from the same current getter used by reads: a first callback may arrive
+  // only after a mutation, and must not erase an actual identity transition.
+  // This seed is NOT callback evidence and never sets the seen[] flags.
+  try { previous = value.get(); initialized = true; } catch (unavailableInitialValue) { /* The first callback establishes the baseline below. */ }
   value.addValueObserver(function () {
     var current = value.get();
-    if (initialized && current !== previous) changed();
+    if (initialized ? current !== previous : !!creativeState.pending) changed();
     previous = current; initialized = true;
   });
 }
 function creativeInvalidateFilterItems(name) {
   for (var i = 0; i < 16; i++) creativeInvalidate("browser", [name + "." + i + ".exists", name + "." + i + ".name", name + "." + i + ".selected", name + "." + i + ".hits"]);
 }
-function creativeWatchFilterOffset(bank, name) { creativeObserveChange(bank.scrollPosition(), function () { creativeInvalidateFilterItems(name); }); }
+function creativeWatchFilterBinding(column, bank, name) {
+  creativeState.filterColumnEpochs[name] = 0;
+  var identityChanged = function () { creativeState.filterColumnEpochs[name] += 1; creativeInvalidateFilterItems(name); };
+  creativeObserveChange(bank.scrollPosition(), identityChanged);
+  creativeObserveChange(column.exists(), identityChanged);
+  creativeObserveChange(column.name(), identityChanged);
+}
 function initCreative() {
-  creativeState = { browser: creativeGroup(), remote: creativeGroup(), loop: creativeGroup(), notes: creativeGroup(), columns: {}, pending: null, session: 0, projectEpoch: 0, lastBrowserExists: null, initialized: true };
+  creativeState = { browser: creativeGroup(), remote: creativeGroup(), loop: creativeGroup(), notes: creativeGroup(), columns: {}, filterColumnEpochs: {}, filterItemEpochs: {}, pending: null, session: 0, projectEpoch: 0, remoteBindingEpoch: 0, remoteParameterEpochs: [0, 0, 0, 0, 0, 0, 0, 0], browserResultsEpoch: 0, browserQueryEpoch: 0, lastBrowserExists: null, initialized: true };
+  creativeState.hostVersion = null;
+  try { if (typeof host !== "undefined" && typeof host.getHostVersion === "function") creativeState.hostVersion = String(host.getHostVersion()); } catch (unavailableVersion) { /* Unknown hosts retain the public API contract and mutation timeout. */ }
   var browserValues = { exists: popupBrowser.exists(), title: popupBrowser.title(), contentTypes: popupBrowser.contentTypeNames(), contentIndex: popupBrowser.selectedContentTypeIndex(), contentName: popupBrowser.selectedContentTypeName() };
   for (var key in browserValues) creativeWatch(browserValues[key], "browser", key);
   popupBrowser.exists().addValueObserver(function (exists) {
     // Read the same interested proxy: JavaScript callback signatures vary by host.
     var current = popupBrowser.exists().get();
     if (current !== creativeState.lastBrowserExists) {
+      // Callback flags describe evidence, not whether an interested getter can
+      // be read. Unchanged fields do not necessarily emit again on reopening.
       if (creativeState.lastBrowserExists !== null) { creativeState.browser.seen = { exists: true }; }
       creativeState.session += 1; creativeState.lastBrowserExists = current;
     }
@@ -2945,19 +3033,20 @@ function initCreative() {
     creativeWatch(column.exists(), "browser", name + ".exists");
     creativeWatch(column.name(), "browser", name + ".name");
     creativeWatch(column.entryCount(), "browser", name + ".count");
+    creativeWatch(bank.itemCount(), "browser", name + ".bankCount");
     creativeWatch(bank.scrollPosition(), "browser", name + ".offset");
     creativeWatch(bank.canScrollForwards(), "browser", name + ".forward");
     creativeWatch(bank.canScrollBackwards(), "browser", name + ".backward");
-    creativeWatchFilterOffset(bank, name);
+    creativeWatchFilterBinding(column, bank, name);
     creativeWatchItem(column.getWildcardItem(), name + ".wildcard", true);
     for (var i = 0; i < 16; i++) creativeWatchItem(bank.getItemAt(i), name + "." + i, true);
   }
   creativeWatch(popupBrowser.resultsColumn().entryCount(), "browser", "results.count");
-  creativeObserveChange(popupBrowser.resultsColumn().entryCount(), creativeInvalidateResults);
+  creativeObserveChange(popupBrowser.resultsColumn().entryCount(), function () { creativeBrowserQueryChanged(); creativeInvalidateResults(); });
   creativeWatch(browserResultBank.scrollPosition(), "browser", "results.offset");
   browserResultBank.scrollPosition().addValueObserver(function () { creativeState.observedResultOffset = browserResultBank.scrollPosition().get(); });
-  creativeObserveChange(browserResultBank.scrollPosition(), creativeInvalidateResults);
-  creativeObserveChange(popupBrowser.selectedContentTypeIndex(), function () { creativeState.browser.seen = { exists: true, contentIndex: true }; });
+  creativeObserveChange(browserResultBank.scrollPosition(), function () { creativeBrowserResultsChanged(); creativeInvalidateResults(); });
+  creativeObserveChange(popupBrowser.selectedContentTypeIndex(), function () { creativeBrowserQueryChanged(); creativeState.browser.seen = { exists: true, contentIndex: true }; });
   for (var r = 0; r < 32; r++) creativeWatchItem(browserResultBank.getItemAt(r), "result." + r, false);
   creativeWatch(remoteControlsBank.pageNames(), "remote", "names");
   creativeWatch(remoteControlsBank.pageCount(), "remote", "count");
@@ -2965,7 +3054,12 @@ function initCreative() {
   var lastRemotePage = null;
   remoteControlsBank.selectedPageIndex().addValueObserver(function () {
     var current = remoteControlsBank.selectedPageIndex().get();
-    if (lastRemotePage !== null && current !== lastRemotePage) creativeInvalidateRemoteControls();
+    if (lastRemotePage !== null && current !== lastRemotePage) {
+      // A parameter target is scoped to the mapping page, even if switching
+      // away and back leaves the final page/name/value tuple unchanged.
+      for (var parameterIndex = 0; parameterIndex < 8; parameterIndex++) creativeState.remoteParameterEpochs[parameterIndex] += 1;
+      creativeInvalidateRemoteControls();
+    }
     lastRemotePage = current;
   });
   creativeWatch(cursorDevice.exists(), "remote", "deviceExists");
@@ -2973,10 +3067,17 @@ function initCreative() {
   creativeWatch(cursorDevice.name(), "remote", "deviceName");
   creativeWatch(cursorTrack.position(), "remote", "trackPosition");
   var deviceBindingValues = [cursorDevice.exists(), cursorDevice.position(), cursorDevice.name(), cursorTrack.position()];
-  for (var d = 0; d < deviceBindingValues.length; d++) creativeObserveChange(deviceBindingValues[d], function () { creativeInvalidate("remote", ["names", "count", "index"]); creativeInvalidateRemoteControls(); });
+  for (var d = 0; d < deviceBindingValues.length; d++) creativeObserveChange(deviceBindingValues[d], function () {
+    // Retargeting away and back cannot rehabilitate an in-flight operation,
+    // even if the final position/name tuple matches the original target.
+    creativeState.remoteBindingEpoch += 1;
+    creativeInvalidate("remote", ["names", "count", "index"]); creativeInvalidateRemoteControls();
+  });
   for (var p = 0; p < 8; p++) {
+    creativeWatch(remoteControlsBank.getParameter(p).exists(), "remote", p + ".exists");
     creativeWatch(remoteControlsBank.getParameter(p).name(), "remote", p + ".name");
     creativeWatch(remoteControlsBank.getParameter(p).value(), "remote", p + ".value", false);
+    creativeWatchRemoteParameterIdentity(p);
   }
   creativeWatch(transport.isArrangerLoopEnabled(), "loop", "enabled");
   creativeWatch(transport.arrangerLoopStart(), "loop", "start");
@@ -2997,10 +3098,42 @@ function creativeKeys(value, allowed) {
 }
 function creativeObserved(group, key, value, type) {
   var state = creativeState[group];
-  if (state.seen[key] !== true || state.settled !== state.version) throw creativeError("Creative " + group + " observations are unavailable or settling");
+  if (!creativeReadable(group, [key]) || state.settled !== state.version) throw creativeError("Creative " + group + " observations are unavailable or settling");
   var current = value.get();
   if (typeof current !== type || (type === "number" && !isFinite(current))) throw creativeError("Creative value is unavailable: " + key);
   return current;
+}
+function creativeReadable(group, keys) {
+  var state = creativeState[group], currentBinding = false;
+  // Value.markInterested()/get() is the API's current-value contract. An
+  // observer only reports changes, so demanding a second identical callback
+  // after every bank/session change permanently loses unchanged zero values.
+  // Binding callbacks and settling remain mandatory, and this read path NEVER
+  // changes seen[]: mutation completion still requires fresh field callbacks.
+  if (group === "browser") currentBinding = creativeState.lastBrowserExists !== null && state.seen.exists === true;
+  if (group === "remote") currentBinding = creativeSeen("remote", ["deviceExists", "devicePosition", "deviceName", "trackPosition"]);
+  for (var i = 0; i < keys.length; i++) if (state.seen[keys[i]] !== true && !(currentBinding && state.interested[keys[i]] === true)) return false;
+  return true;
+}
+function creativeReadProvenance(group) {
+  var state = creativeState && creativeState[group];
+  var bindingObserved = !!state && (group === "browser" ? creativeState.lastBrowserExists !== null && state.seen.exists === true : creativeSeen("remote", ["deviceExists", "devicePosition", "deviceName", "trackPosition"]));
+  return { source: "interested_host_cache", binding: group === "browser" ? "browser_session" : "cursor_device", bindingObserved: bindingObserved,
+    settled: !!state && state.settled === state.version, mutationConfirmation: "changed_field_callback_required" };
+}
+function creativeExpressionCapabilities() {
+  var version = creativeState && creativeState.hostVersion;
+  // Bitwig 6.1.1's NoteStep hydration and equality comparison both omit
+  // pressure (timbre is read twice). setPressure updates its own local cache;
+  // that echo cannot establish a host postcondition or the previous value.
+  // Limit this workaround to the inspected host release, not the API version.
+  var pressureDefect = typeof version === "string" && /(^|[^0-9])6\.1\.1([^0-9.]|$)/.test(version);
+  return { hostVersion: version, pressure: { readable: !pressureDefect, writable: !pressureDefect,
+    reason: pressureDefect ? "host_note_step_pressure_readback_unreliable" : null,
+    observation: pressureDefect ? "unavailable" : "note_step_api_with_callback_confirmation" } };
+}
+function creativeObservationDiagnostics() {
+  return { browser: creativeReadProvenance("browser"), remote: creativeReadProvenance("remote"), expressions: creativeExpressionCapabilities() };
 }
 function creativeInvalidate(group, keys) {
   for (var i = 0; i < keys.length; i++) creativeState[group].seen[keys[i]] = false;
@@ -3130,6 +3263,7 @@ function creativeReadNote(coordinate) {
   var result = { step: coordinate.step, pitch: coordinate.pitch, durationBeats: step.duration() };
   if (typeof result.durationBeats !== "number" || !isFinite(result.durationBeats) || result.durationBeats <= 0) throw creativeError("Note duration is unavailable");
   for (var key in creativeExpressionLimits) {
+    if (key === "pressure" && !creativeExpressionCapabilities().pressure.readable) { result.pressure = null; continue; }
     var range = creativeExpressionLimits[key], value = step[key]();
     if (!creativeNumber(value, range[0], range[1])) throw creativeError("Note expression is unavailable: " + key);
     result[key] = value;
@@ -3142,8 +3276,11 @@ function creativeExpressions(params, writing) {
   var notes = params[writing ? 3 : 2]; creativeCoordinates(notes, writing);
   var context = creativeNoteContext(params[0], params[1]), observations = [];
   for (var n = 0; n < notes.length; n++) observations.push(creativeReadNote(notes[n]));
-  if (!writing) return { trackIndex: params[0], sceneIndex: params[1], trackPosition: context.trackPosition, slotSceneIndex: context.slotSceneIndex, snapshotId: context.snapshotId, coverage: context.coverage, notes: observations };
+  if (!writing) return { trackIndex: params[0], sceneIndex: params[1], trackPosition: context.trackPosition, slotSceneIndex: context.slotSceneIndex, snapshotId: context.snapshotId, coverage: context.coverage, expressionCapabilities: creativeExpressionCapabilities(), notes: observations };
   creativeRequireToken(params[2], context.snapshotId);
+  if (!creativeExpressionCapabilities().pressure.writable) for (var unsupported = 0; unsupported < notes.length; unsupported++) {
+    if (creativeHas(notes[unsupported], "pressure")) throw creativeError("Pressure mutation unavailable: Bitwig " + creativeState.hostVersion + " NoteStep pressure readback is unreliable; no expression setter was dispatched");
+  }
   var identity = cursorConstructionIdentity(), operations = [], expected = [];
   for (var i = 0; i < notes.length; i++) for (var key in creativeExpressionLimits) {
     if (creativeHas(notes[i], key) && notes[i][key] !== observations[i][key]) {
@@ -3169,10 +3306,10 @@ function creativeBrowserIdentity() {
 function creativeBrowserItem(item, prefix, index, filter) {
   var fields = [prefix + ".name", prefix + ".selected"];
   if (filter) fields.push(prefix + ".hits");
-  var knownExists = creativeSeen("browser", [prefix + ".exists"]);
+  var knownExists = creativeReadable("browser", [prefix + ".exists"]);
   var exists = knownExists ? creativeObserved("browser", prefix + ".exists", item.exists(), "boolean") : null;
-  var ready = knownExists && (exists === false || creativeSeen("browser", fields));
-  var result = { index: index, exists: exists, name: null, selected: null, available: ready };
+  var ready = knownExists && (exists === false || creativeReadable("browser", fields));
+  var result = { index: index, exists: exists, name: null, selected: null, available: ready, observation: creativeReadProvenance("browser") };
   if (filter) result.hitCount = null;
   if (!ready || !exists) return result;
   result.name = creativeObserved("browser", prefix + ".name", item.name(), "string");
@@ -3188,19 +3325,23 @@ function creativeFilterState(columnName) {
   creativeBrowserOpen();
   var entry = creativeState.columns[columnName], column = entry.column, bank = entry.bank;
   var exists = creativeObserved("browser", columnName + ".exists", column.exists(), "boolean");
-  var result = { column: columnName, exists: exists, sessionId: "browser:" + controllerInstanceId + ":" + creativeState.session, snapshotId: creativeToken("browser", columnName), items: [], wildcard: null, coverage: null };
+  var result = { column: columnName, exists: exists, sessionId: "browser:" + controllerInstanceId + ":" + creativeState.session, snapshotId: creativeToken("browser", columnName), items: [], wildcard: null, coverage: null, observation: creativeReadProvenance("browser") };
   if (!exists) return result;
   result.name = creativeObserved("browser", columnName + ".name", column.name(), "string");
   var count = creativeObserved("browser", columnName + ".count", column.entryCount(), "number");
+  // Filter columns can count only concrete entries while their item bank also
+  // contains the wildcard. Folder columns can have another layout entirely.
+  // Use the bank's own total for bank coordinates, never infer count + 1.
+  var bankCount = creativeObserved("browser", columnName + ".bankCount", bank.itemCount(), "number");
   var offset = creativeObserved("browser", columnName + ".offset", bank.scrollPosition(), "number");
-  if (!isIntegerInRange(count, 0, 2147483647) || !isIntegerInRange(offset, count === 0 ? -1 : 0, Math.max(0, count - 1))) throw creativeError("Browser column coverage is unavailable");
-  result.coverage = { bankSize: 16, scrollPosition: offset, entryCount: count, complete: count <= 16 && offset <= 0 };
+  if (!isIntegerInRange(count, 0, 2147483647) || !isIntegerInRange(bankCount, 0, 2147483647) || !isIntegerInRange(offset, bankCount === 0 ? -1 : 0, Math.max(0, bankCount - 1))) throw creativeError("Browser column coverage is unavailable");
+  result.coverage = { bankSize: 16, scrollPosition: offset, entryCount: count, bankItemCount: bankCount, countSource: "bank.itemCount", complete: bankCount <= 16 && offset <= 0 };
   result.canScrollForward = creativeObserved("browser", columnName + ".forward", bank.canScrollForwards(), "boolean");
   result.canScrollBackward = creativeObserved("browser", columnName + ".backward", bank.canScrollBackwards(), "boolean");
   result.wildcard = creativeBrowserItem(entry.wildcard, columnName + ".wildcard", -1, true);
   for (var i = 0; i < 16; i++) {
     var item = creativeBrowserItem(bank.getItemAt(i), columnName + "." + i, i, true);
-    if (item.exists === true && (offset < 0 || offset + i >= count)) throw creativeError("Browser item existence contradicts column coverage");
+    if (item.exists === true && (offset < 0 || offset + i >= bankCount)) throw creativeError("Browser item existence contradicts bank coverage: offset=" + offset + ", index=" + i + ", bankItemCount=" + bankCount + ", columnEntryCount=" + count);
     if (!item.available) result.coverage.complete = false;
     result.items.push(item);
   }
@@ -3210,7 +3351,7 @@ function creativeInvalidateResults() {
   for (var i = 0; i < 32; i++) creativeInvalidate("browser", ["result." + i + ".exists", "result." + i + ".name", "result." + i + ".selected"]);
 }
 function creativeInvalidateRemoteControls() {
-  for (var i = 0; i < 8; i++) creativeInvalidate("remote", [i + ".name", i + ".value"]);
+  for (var i = 0; i < 8; i++) creativeInvalidate("remote", [i + ".exists", i + ".name", i + ".value"]);
 }
 function creativeSetValue(value, next) { return function () { value.set(next); }; }
 function creativeFilterWrite(params, scroll) {
@@ -3226,12 +3367,16 @@ function creativeFilterWrite(params, scroll) {
     return creativeDispatch([function () { if (forward) entry.bank.scrollPageForwards(); else entry.bank.scrollPageBackwards(); }], "browser", function () { return creativeSeen("browser", [offsetKey]) && entry.bank.scrollPosition().get() !== offset; }, identity);
   }
   var selected = params[1] === -1 ? before.wildcard : before.items[params[1]];
-  if (!selected.available || !selected.exists) throw creativeError("Existing filter item with fresh observed identity required");
+  if (!selected.available || !selected.exists) throw creativeError("Existing filter item in a settled browser binding required");
   if (selected.selected) return creativeDispatch([], "browser", function () { return true; });
-  var value = (params[1] === -1 ? entry.wildcard : entry.bank.getItemAt(params[1])).isSelected();
-  var selectedKey = params[0] + "." + (params[1] === -1 ? "wildcard" : params[1]) + ".selected";
+  var targetItem = params[1] === -1 ? entry.wildcard : entry.bank.getItemAt(params[1]), value = targetItem.isSelected();
+  var targetPrefix = params[0] + "." + (params[1] === -1 ? "wildcard" : params[1]), selectedKey = targetPrefix + ".selected";
+  var columnName = params[0], columnEpoch = creativeState.filterColumnEpochs[columnName], itemEpoch = creativeState.filterItemEpochs[targetPrefix], itemName = selected.name;
   creativeInvalidate("browser", [selectedKey]); creativeInvalidateResults();
-  return creativeDispatch([creativeSetValue(value, true)], "browser", function () { return creativeSeen("browser", [selectedKey]) && value.get() === true; }, identity);
+  return creativeDispatch([creativeSetValue(value, true)], "browser", function () { return creativeSeen("browser", [selectedKey]) && value.get() === true; }, function () {
+    return identity() && creativeState.filterColumnEpochs[columnName] === columnEpoch && creativeState.filterItemEpochs[targetPrefix] === itemEpoch &&
+      entry.column.exists().get() === true && entry.column.name().get() === before.name && targetItem.exists().get() === true && targetItem.name().get() === itemName && entry.bank.scrollPosition().get() === before.coverage.scrollPosition;
+  });
 }
 function creativeRemoteState() {
   requireSettledBank(); var device = cursorDeviceStatus();
@@ -3241,14 +3386,15 @@ function creativeRemoteState() {
   var index = creativeObserved("remote", "index", remoteControlsBank.selectedPageIndex(), "number");
   if (!isIntegerInRange(count, 0, 1024) || names.length !== count || !isIntegerInRange(index, count === 0 ? -1 : 0, Math.max(-1, count - 1))) throw creativeError("Remote page observations are unavailable or inconsistent");
   for (var n = 0; n < names.length; n++) if (typeof names[n] !== "string") throw creativeError("Remote page name is unavailable");
-  return { deviceName: device.name, devicePosition: device.position, trackPosition: device.trackPosition, pageNames: names.slice(), pageCount: count, selectedPageIndex: index, snapshotId: creativeToken("remote") };
+  return { deviceName: device.name, devicePosition: device.position, trackPosition: device.trackPosition, pageNames: names.slice(), pageCount: count, selectedPageIndex: index, snapshotId: creativeToken("remote"), observation: creativeReadProvenance("remote") };
 }
 function creativeRemoteSelect(index, token) {
   if (!isIntegerInRange(index, 0, 1023)) throw invalidParams("Remote page index must be 0..1023");
   var before = creativeRemoteState(); creativeRequireToken(token, before.snapshotId);
   if (index >= before.pageCount) throw invalidParams("Remote page index exceeds observed page count");
   if (index === before.selectedPageIndex) return creativeDispatch([], "remote", function () { return true; });
-  var identity = function () { return cursorTrack.position().get() === before.trackPosition && cursorDevice.position().get() === before.devicePosition && cursorDevice.exists().get() === true; };
+  var bindingEpoch = creativeState.remoteBindingEpoch;
+  var identity = function () { return creativeState.remoteBindingEpoch === bindingEpoch && cursorTrack.position().get() === before.trackPosition && cursorDevice.position().get() === before.devicePosition && cursorDevice.name().get() === before.deviceName && cursorDevice.exists().get() === true; };
   creativeInvalidate("remote", ["index"]); creativeInvalidateRemoteControls();
   return creativeDispatch([creativeSetValue(remoteControlsBank.selectedPageIndex(), index)], "remote", function () { return creativeSeen("remote", ["index"]) && remoteControlsBank.selectedPageIndex().get() === index; }, identity);
 }
@@ -3273,7 +3419,7 @@ function creativeLoopWrite(params) {
 function creativeResultWindow() {
   var count = creativeObserved("browser", "results.count", popupBrowser.resultsColumn().entryCount(), "number");
   var offset = creativeObserved("browser", "results.offset", browserResultBank.scrollPosition(), "number");
-  if (offset !== creativeState.observedResultOffset || !isIntegerInRange(count, 0, 2147483647) || !isIntegerInRange(offset, count === 0 ? -1 : 0, Math.max(0, count - 1))) throw creativeError("Browser result coverage is unavailable");
+  if ((creativeSeen("browser", ["results.offset"]) && offset !== creativeState.observedResultOffset) || !isIntegerInRange(count, 0, 2147483647) || !isIntegerInRange(offset, count === 0 ? -1 : 0, Math.max(0, count - 1))) throw creativeError("Browser result coverage is unavailable");
   return { count: count, offset: offset };
 }
 function creativeLegacyBrowser(method, params) {
@@ -3284,7 +3430,7 @@ function creativeLegacyBrowser(method, params) {
       contentTypeNames: exists ? creativeStringArray(creativeObserved("browser", "contentTypes", popupBrowser.contentTypeNames(), "object"), 64) : [],
       selectedContentTypeIndex: exists ? creativeObserved("browser", "contentIndex", popupBrowser.selectedContentTypeIndex(), "number") : null,
       selectedContentTypeName: exists ? creativeObserved("browser", "contentName", popupBrowser.selectedContentTypeName(), "string") : null,
-      sessionId: "browser:" + controllerInstanceId + ":" + creativeState.session };
+      sessionId: "browser:" + controllerInstanceId + ":" + creativeState.session, observation: creativeReadProvenance("browser") };
   }
   creativeBrowserOpen();
   if (method === "browser.cancel") {
@@ -3303,18 +3449,27 @@ function creativeLegacyBrowser(method, params) {
   if (method === "browser.select_result") {
     if (!isIntegerInRange(params[0], 0, 31)) throw invalidParams("Browser result index must be 0..31");
     var selected = creativeBrowserItem(browserResultBank.getItemAt(params[0]), "result." + params[0], params[0], false);
-    if (!selected.available || !selected.exists) throw creativeError("Existing browser result with fresh observed identity required");
+    if (!selected.available || !selected.exists) throw creativeError("Existing browser result in a settled browser binding required");
     if (selected.selected) return creativeDispatch([], "browser", function () { return true; });
     var selectedValue = browserResultBank.getItemAt(params[0]).isSelected(), selectedKey = "result." + params[0] + ".selected";
+    var resultEpoch = creativeState.browserResultsEpoch, resultName = selected.name, resultIndex = params[0], resultOffset = window.offset;
+    var selectedIdentity = function () {
+      return identity() && creativeState.browserResultsEpoch === resultEpoch && browserResultBank.scrollPosition().get() === resultOffset &&
+        browserResultBank.getItemAt(resultIndex).exists().get() === true && browserResultBank.getItemAt(resultIndex).name().get() === resultName;
+    };
     creativeInvalidate("browser", [selectedKey]);
-    return creativeDispatch([creativeSetValue(selectedValue, true)], "browser", function () { return creativeSeen("browser", [selectedKey]) && selectedValue.get() === true; }, identity);
+    return creativeDispatch([creativeSetValue(selectedValue, true)], "browser", function () { return creativeSeen("browser", [selectedKey]) && selectedValue.get() === true; }, selectedIdentity);
   }
   if (method === "browser.commit") {
     var selectedCount = 0;
     for (i = 0; i < items.length; i++) if (items[i].available && items[i].exists && items[i].selected) selectedCount += 1;
     if (selectedCount !== 1) throw creativeError("Exactly one observed browser result must be selected before commit");
     var session = creativeState.session;
-    return creativeDispatch([function () { popupBrowser.commit(); }], "browser", function () { return popupBrowser.exists().get() === false; }, function () { return creativeState.session === session + 1 && popupBrowser.exists().get() === false; });
+    var committed = creativeDispatch([function () { popupBrowser.commit(); }], "browser", function () { return popupBrowser.exists().get() === false; }, function () { return creativeState.session === session + 1 && popupBrowser.exists().get() === false; });
+    // A closed browser confirms neither which device was inserted nor sound.
+    // The caller must inspect the resulting track/device separately.
+    committed.postcondition = "browser_closed_only"; committed.insertionVerified = false;
+    return committed;
   }
   var selectedIndex = -1;
   for (i = 0; i < items.length; i++) if (items[i].available && items[i].selected) {
@@ -3330,12 +3485,13 @@ function creativeLegacyBrowser(method, params) {
   // Selection is the intended observed effect; bank-local indices can stay the
   // same while the window scrolls, so compare absolute positions instead.
   for (i = 0; i < 32; i++) creativeInvalidate("browser", ["result." + i + ".selected"]);
+  var queryEpoch = creativeState.browserQueryEpoch;
   return creativeDispatch([function () { popupBrowser[nativeName](); }], "browser", function () {
     var offset = browserResultBank.scrollPosition().get();
-    if (offset !== creativeState.observedResultOffset) return false;
+    if (offset !== window.offset && offset !== creativeState.observedResultOffset) return false;
     for (var index = 0; index < 32; index++) if (creativeSeen("browser", ["result." + index + ".exists", "result." + index + ".selected"]) && browserResultBank.getItemAt(index).exists().get() === true && browserResultBank.getItemAt(index).isSelected().get() === true && offset + index === desired) return true;
     return false;
-  }, identity);
+  }, function () { return identity() && creativeState.browserQueryEpoch === queryEpoch; });
 }
 function creativeLegacyRemote(method, params) {
   requireArgumentCount(params, method === "device.set_remote_control" ? 2 : 0);
@@ -3347,20 +3503,23 @@ function creativeLegacyRemote(method, params) {
   }
   var controls = [];
   for (var i = 0; i < 8; i++) {
-    var param = remoteControlsBank.getParameter(i), ready = creativeSeen("remote", [i + ".name", i + ".value"]);
+    var param = remoteControlsBank.getParameter(i), ready = creativeReadable("remote", [i + ".exists", i + ".name", i + ".value"]);
+    var exists = ready ? creativeObserved("remote", i + ".exists", param.exists(), "boolean") : null;
+    ready = ready && exists === true;
     var name = ready ? creativeObserved("remote", i + ".name", param.name(), "string") : null;
     var value = ready ? creativeObserved("remote", i + ".value", param.value(), "number") : null;
     if (ready && !creativeNumber(value, 0, 1)) throw creativeError("Remote parameter value is unavailable");
-    controls.push({ index: i, name: name, value: value, available: ready });
+    controls.push({ index: i, exists: exists, name: name, value: value, available: ready, observation: creativeReadProvenance("remote") });
   }
   if (method === "device.get_remote_controls") return controls;
   if (!isIntegerInRange(params[0], 0, 7) || !creativeNumber(params[1], 0, 1)) throw invalidParams("Remote control requires index 0..7 and normalized value 0..1");
-  if (!controls[params[0]].available) throw creativeError("Target remote control is not freshly observed after page selection");
+  if (!controls[params[0]].available) throw creativeError("Target remote control does not exist or its interested host value is unavailable");
   var parameter = remoteControlsBank.getParameter(params[0]).value(), next = params[1];
   if (controls[params[0]].value === next) return creativeDispatch([], "remote", function () { return true; });
-  var valueKey = params[0] + ".value"; creativeInvalidate("remote", [valueKey]);
+  var parameterIndex = params[0], valueKey = parameterIndex + ".value", bindingEpoch = creativeState.remoteBindingEpoch;
+  var parameterEpoch = creativeState.remoteParameterEpochs[parameterIndex], parameterName = controls[parameterIndex].name; creativeInvalidate("remote", [valueKey]);
   // Remote knobs are absolute normalized commands, independent of host takeover.
-  return creativeDispatch([function () { parameter.setImmediately(next); }], "remote", function () { return creativeSeen("remote", [valueKey]) && Math.abs(parameter.get() - next) <= 0.000001; }, function () { return remoteControlsBank.selectedPageIndex().get() === pages.selectedPageIndex && cursorTrack.position().get() === pages.trackPosition && cursorDevice.position().get() === pages.devicePosition; });
+  return creativeDispatch([function () { parameter.setImmediately(next); }], "remote", function () { return creativeSeen("remote", [valueKey]) && Math.abs(parameter.get() - next) <= 0.000001; }, function () { return creativeState.remoteBindingEpoch === bindingEpoch && creativeState.remoteParameterEpochs[parameterIndex] === parameterEpoch && remoteControlsBank.getParameter(parameterIndex).exists().get() === true && remoteControlsBank.getParameter(parameterIndex).name().get() === parameterName && remoteControlsBank.selectedPageIndex().get() === pages.selectedPageIndex && cursorTrack.position().get() === pages.trackPosition && cursorDevice.position().get() === pages.devicePosition && cursorDevice.name().get() === pages.deviceName && cursorDevice.exists().get() === true; });
 }
 function handleCreativeRequest(method, params) {
   var newMethod = isCreativeReadMethod(method) || method === "clip.set_note_expressions" || method === "browser.set_filter" || method === "browser.scroll_filter_items" || method === "device.remote_page_select" || method === "transport.set_arranger_loop";
