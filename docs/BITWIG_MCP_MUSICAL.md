@@ -35,13 +35,22 @@ readiness. `midi_get_status` is read-only and available on either profile.
 | `note_on`, `note_off`, `note_play` | Channel0 only; pitch0–127; note-on velocity1–127, off velocity0–127. `note_play.duration` is1–10000ms; held notes have a bounded lease. |
 | `note_input_assign_expression` | Real NoteExpression enum: NONE, PITCH_DOWN/UP, GAIN_DOWN/UP, PAN_LEFT/RIGHT, TIMBRE_DOWN/UP. Channel0–15, pitchRange1–24. |
 | `note_input_set_mpe` | Explicit boolean, baseChannel0 or15, pitchBendRange1–96 (bridge bound). |
-| `note_input_set_key_translation`, `note_input_set_velocity_translation` | Exactly128 entries, each integer−1..127; −1 suppresses an incoming value. |
+| `note_input_set_key_translation` | Exactly128 entries, each integer−1..127; −1 suppresses an incoming key. |
+| `note_input_set_velocity_translation` | Exactly128 entries, each integer0..127. Negative values are rejected; velocity filtering with−1 is unsupported. |
 | `midi_get_status`, `midi_all_notes_off` | Inspect profile/voice capability; explicit cleanup/panic under midi_write. |
 
 NoteInput raw injection ignores the MIDI channel and bypasses key/velocity
 translation. Raw/note schemas therefore reject nonzero channel claims. Translation
 and MPE tools configure routed incoming MIDI; they do not transform raw injected
 notes. This corrects unsupported historical assumptions rather than imitating them.
+
+Bitwig6.1.1 live tests with routed incoming MIDI confirmed key−1 filtering, but
+velocity−1 did not suppress notes (including when all128 entries were−1). The
+bridge therefore rejects negative velocity entries before any host setter, even
+though the API documentation permits−1. Mapping to0 produced silence in that
+test; it maps velocity to zero and does not promise to drop the MIDI event. No
+automatic substitution of−1 with0 is performed. Identity tables restore normal
+input translation. Raw injected notes continue to bypass both tables.
 
 Note-offs are actually scheduled. Per-pitch generation tokens stop stale timers
 from releasing a newer voice; duplicate held pitches are rejected. Cleanup runs on
@@ -66,6 +75,21 @@ Snapshots become stale after relevant identity/content changes. Readback require
 observer evidence. Partial results count setters, including failure halfway through
 one note; no automatic replay or fictional rollback is supplied.
 
+A creative mutation that has not reached its observed outcome within ten seconds
+becomes explicitly uncertain. This deadline does not prove success, failure or
+rollback. Writes stay blocked until controller reload, even if a late callback
+matches. Independent read-only diagnostics remain available;
+`project_get_summary.creativeMutation` exposes the pending/uncertain state when
+present. Object-shaped creative reads also include `mutation`; existing array
+responses keep their shape. Same-target expression readback after timeout still
+requires the original identity and settled observations. Stop, note-off and panic
+remain available. Do not retry an uncertain mutation automatically.
+
+On the tested Bitwig 6.1.1 host, pressure writes did not reach a callback-confirmed
+outcome. Getter values also differed across reloads; a matching cached getter
+alone is not confirmation. The bounded diagnostic recovery handles this condition;
+it does not repair or synthesize pressure readback.
+
 ## Observed browser filters
 
 `browser_get_filter_items` reads one explicit column and a16-item window, with
@@ -85,6 +109,10 @@ selection uses the result item's boolean selection proxy rather than an inferred
 count of Next presses. Browser transitions must settle before dependent actions.
 Opening/selecting/committing still requires a later real-session check of the loaded
 instrument and sound; dispatch alone is not evidence of successful insertion.
+
+`browser_cancel` only requires an observed, settled open session. It does not
+require results to be available or selected. Commit retains the stricter result
+identity requirements.
 
 Filter changes invalidate result fields separately from the filter transition.
 An item without fresh identity callbacks is returned with `available:false` and

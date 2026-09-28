@@ -11,7 +11,8 @@ function baseHarness() {
     let current = initial;
     const observers: (() => void)[] = [];
     const val: any = { get: () => current, update(next: any) { current = next; },
-      set(next: any) { calls.push([name + ".set", next]); }, markInterested() {},
+      set(next: any) { calls.push([name + ".set", next]); },
+      setImmediately(next: any) { calls.push([name + ".setImmediately", next]); }, markInterested() {},
       addValueObserver(fn: () => void) { observers.push(fn); }, notify() { observers.forEach((fn) => fn()); } };
     values.push(val); return val;
   }
@@ -197,17 +198,17 @@ test("project reset uses native whole-project actions and invalidates aggregate 
 });
 
 test("groove parameters are normalized numeric values and false writes zero", () => {
-  const h = harness(); assert.ok(h.rpc("groove.set_enabled", [false]).result); assert.deepEqual(h.calls, [["groove.getEnabled.set", 0]]);
+  const h = harness(); assert.ok(h.rpc("groove.set_enabled", [false]).result); assert.deepEqual(h.calls, [["groove.getEnabled.setImmediately", 0]]);
   assert.equal(h.rpc("groove.get_status").error.code, -32004);
   h.groove.getEnabled().update(0); h.groove.getEnabled().notify(); h.settle(); assert.equal(h.rpc("groove.get_status").result.enabled, false);
-  assert.ok(h.rpc("groove.set_shuffle_amount", [0]).result); assert.deepEqual(h.calls.at(-1), ["groove.getShuffleAmount.set", 0]);
+  assert.ok(h.rpc("groove.set_shuffle_amount", [0]).result); assert.deepEqual(h.calls.at(-1), ["groove.getShuffleAmount.setImmediately", 0]);
   for (const bad of [-1, 1.01, Infinity, NaN, "0"]) assert.equal(h.rpc("groove.set_shuffle_amount", [bad]).error.code, -32602);
   assert.equal(h.rpc("groove.set_enabled", [0]).error.code, -32602);
 });
 
 test("drum writes preserve zero and false, reject bounds and missing devices", () => {
   for (const [method, next, suffix] of [["volume", 0, "volume"], ["mute", true, "mute"], ["solo", true, "solo"]]) {
-    const h = harness(); assert.ok(h.rpc(`drumpad.set_${method}`, [15, next]).result); assert.deepEqual(h.calls, [[`pad15.${suffix}.set`, next]]);
+    const h = harness(); assert.ok(h.rpc(`drumpad.set_${method}`, [15, next]).result); assert.deepEqual(h.calls, [[`pad15.${suffix}.${method === "volume" ? "setImmediately" : "set"}`, next]]);
     assert.equal(h.rpc("drumpad.get_status").error.code, -32004);
   }
   for (const index of [-1, 16, 0.5, "0"]) { const h = harness(); assert.equal(h.rpc("drumpad.set_volume", [index, 0.5]).error.code, -32602); assert.deepEqual(h.calls, []); }

@@ -1277,6 +1277,7 @@ export const PARITY_TOOL_SPECS = Object.freeze([
 const midiChannelSchema = { type: "integer", const: 0 };
 const noteExpressionNames = ["NONE", "PITCH_DOWN", "PITCH_UP", "GAIN_DOWN", "GAIN_UP", "PAN_LEFT", "PAN_RIGHT", "TIMBRE_DOWN", "TIMBRE_UP"];
 const midiTranslationSchema = { type: "array", minItems: 128, maxItems: 128, items: { type: "integer", minimum: -1, maximum: 127 } };
+const midiVelocityTranslationSchema = { ...midiTranslationSchema, items: { type: "integer", minimum: 0, maximum: 127 } };
 const midiNoteSchema = { channel: midiChannelSchema, pitch: pitchSchema, velocity: { type: "integer", minimum: 1, maximum: 127 } };
 const snapshotIdSchema = { type: "string", minLength: 1, maxLength: 256 };
 const browserColumnSchema = { type: "string", enum: ["smartCollection", "location", "device", "category", "tag", "deviceType", "fileType", "creator"] };
@@ -1317,10 +1318,14 @@ export const MUSICAL_TOOL_SPECS = Object.freeze([
     inputSchema: boundedToolSchema({ enabled: { type: "boolean" }, baseChannel: { type: "integer", enum: [0, 15] }, pitchBendRange: { type: "integer", minimum: 1, maximum: 96 } }),
     policy: "midi_write", method: "note_input.set_use_expressive_midi", mapArgs: (args) => [args.enabled, args.baseChannel, args.pitchBendRange],
   },
-  ...["key", "velocity"].map((kind) => ({
-    name: `note_input_set_${kind}_translation`, description: `Set the optional MIDI profile's incoming ${kind} translation table: exactly 128 integers from -1 (filter) to 127. Raw NoteInput injections bypass these tables; this configures input processing only.`,
-    inputSchema: boundedToolSchema({ table: midiTranslationSchema }), policy: "midi_write", method: `note_input.set_${kind}_translation_table`, mapArgs: (args) => [args.table],
-  })),
+  {
+    name: "note_input_set_key_translation", description: "Set the optional MIDI profile's incoming key translation table: exactly 128 integers from -1 (filter a key) to 127. Raw NoteInput injections bypass this table; this configures input processing only.",
+    inputSchema: boundedToolSchema({ table: midiTranslationSchema }), policy: "midi_write", method: "note_input.set_key_translation_table", mapArgs: (args) => [args.table],
+  },
+  {
+    name: "note_input_set_velocity_translation", description: "Set the optional MIDI profile's incoming velocity translation table: exactly 128 integers from 0 to 127. Negative velocity filtering is unsupported and rejected: -1 did not suppress incoming notes in Bitwig 6.1.1 live tests. Zero maps to velocity zero; it is not an event-drop guarantee. Raw NoteInput injections bypass this table; this configures input processing only.",
+    inputSchema: boundedToolSchema({ table: midiVelocityTranslationSchema }), policy: "midi_write", method: "note_input.set_velocity_translation_table", mapArgs: (args) => [args.table],
+  },
   {
     name: "midi_get_status", description: "Read the controller MIDI profile's availability and injected-note/lease state without producing sound. The normal zero-port profile explicitly reports unavailable; dispatch bookkeeping does not prove audio or hardware state.",
     inputSchema: boundedToolSchema(), policy: "read", method: "note_input.get_status",

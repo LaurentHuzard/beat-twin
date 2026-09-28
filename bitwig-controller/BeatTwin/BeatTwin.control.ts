@@ -280,8 +280,7 @@ function init() {
   
   // Create Scene Bank (8 scenes)
   sceneBank = host.createSceneBank(8);
-  sceneBank.itemCount().markInterested();
-  sceneBank.itemCount().addValueObserver(observeConstructionChange);
+  watchMixValue(sceneBank.itemCount(), "count", "scenes");
   for (var i = 0; i < 8; i++) {
      var scene = sceneBank.getScene(i);
      scene.exists().markInterested();
@@ -938,7 +937,9 @@ function setMixNormalized(value, key, group, next, cursorKey, cursorMatches) {
   }
   advancedState[group].seen[key] = false;
   targetGeneration += 1;
-  value.set(next);
+  // An absolute MCP command has no physical fader to cross a takeover point.
+  // Preserve observation/readback guards while bypassing hardware takeover.
+  value.setImmediately(next);
 }
 
 function observedColor(color, key, group) {
@@ -1075,10 +1076,10 @@ function beginParityObserved(matches, identity) {
 }
 
 function invalidateProjectChannels(key) {
-  if (cursorTrack[key]().get() === true) advancedState.cursorTrack.seen[key] = false;
+  if (channelValue(cursorTrack, key).get() === true) advancedState.cursorTrack.seen[key] = false;
   if (key !== "arm") {
     for (var i = 0; i < 8; i++) {
-      if (effectTrackBank.getItemAt(i)[key]().get() === true) advancedState["return" + i].seen[key] = false;
+      if (channelValue(effectTrackBank.getItemAt(i), key).get() === true) advancedState["return" + i].seen[key] = false;
     }
   }
 }
@@ -1131,9 +1132,22 @@ function cursorTrackIdentity(position) {
   return function () { return cursorTrack.exists().get() === true && cursorTrack.position().get() === position; };
 }
 
+function channelValue(track, key) {
+  // Computed member lookup can resolve Java bean properties to their values
+  // rather than callable methods in the host's JavaScript interop.
+  switch (key) {
+    case "volume": return track.volume();
+    case "pan": return track.pan();
+    case "mute": return track.mute();
+    case "solo": return track.solo();
+    case "arm": return track.arm();
+    default: throw invalidParams("Unknown channel value");
+  }
+}
+
 function invalidateLegacyBankField(index, key, next) {
   var track = requireExistingTrack(index);
-  if (track[key]().get() === next) return;
+  if (channelValue(track, key).get() === next) return;
   invalidateProjectAggregate(key);
   if (mixObserved(mainCursorMatches[index], "cursorMatch", "mainTrack" + index, "boolean")) advancedState.cursorTrack.seen[key] = false;
 }
@@ -1144,7 +1158,7 @@ function invalidateProjectAggregate(key) {
 
 function invalidateLegacySelectedField(key, next) {
   requireObservedAdvanced(key, "cursorTrack");
-  if (cursorTrack[key]().get() === next) return;
+  if (channelValue(cursorTrack, key).get() === next) return;
   var affected = [];
   if (key === "volume" && mixObserved(masterCursorMatches, "cursorMatch", "master", "boolean")) affected.push(["master", "level"]);
   if (["volume", "pan", "mute", "solo"].indexOf(key) >= 0) {
@@ -2076,6 +2090,8 @@ function handleRequest(request, connection, bridgeSession) {
           transport: { tempoBpm: transport.tempo().value().getRaw(), positionBeats: transport.getPosition().get(),
             isPlaying: transport.isPlaying().get(), isRecording: transport.isArrangerRecordEnabled().get() },
           tracks: inspectTracks(), scenes: inspectScenes() };
+        var creativeMutation = typeof creativeMutationStatus === "function" ? creativeMutationStatus() : null;
+        if (creativeMutation !== null) result.creativeMutation = creativeMutation;
         break;
       case "track.list":
         result = inspectTracks();
@@ -2169,16 +2185,18 @@ function handleRequest(request, connection, bridgeSession) {
 
       case "track.bank.volume":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          requireNormalized(request.params[1]);
           invalidateLegacyBankField(request.params[0], "volume", request.params[1]);
-          trackBank.getItemAt(request.params[0]).volume().set(request.params[1]);
+          trackBank.getItemAt(request.params[0]).volume().setImmediately(request.params[1]);
           result = "OK";
         } else throw invalidParams("Missing parameters");
         break;
 
       case "track.bank.pan":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          requireNormalized(request.params[1]);
           invalidateLegacyBankField(request.params[0], "pan", request.params[1]);
-          trackBank.getItemAt(request.params[0]).pan().set(request.params[1]);
+          trackBank.getItemAt(request.params[0]).pan().setImmediately(request.params[1]);
           result = "OK";
         } else throw invalidParams("Missing parameters");
         break;
@@ -2251,8 +2269,15 @@ function handleRequest(request, connection, bridgeSession) {
         break;
 
       case "scene.create":
-        sceneBank.createScene();
-        result = "OK";
+        requireArgumentCount(request.params, 0);
+        requireSettledBank();
+        if (transport.isPlaying().get() !== false || transport.isArrangerRecordEnabled().get() !== false) throw bridgeError(-32004, "Stop transport and recording before creating a scene");
+        var sceneCountBeforeCreate = observedCount(sceneBank, "scenes");
+        if (!isIntegerInRange(sceneCountBeforeCreate, 0, 2147483646)) throw bridgeError(-32004, "Scene count unavailable");
+        beginConstruction(function () { return advancedState.scenes.seen.count === true && sceneBank.itemCount().get() === sceneCountBeforeCreate + 1; });
+        invalidateAdvancedValue("count", "scenes");
+        project.createScene();
+        result = constructionResult();
         break;
 
       case "clip.create":
@@ -2335,16 +2360,18 @@ function handleRequest(request, connection, bridgeSession) {
 
       case "track.selected.volume":
         if (request.params && request.params[0] !== undefined) {
+          requireNormalized(request.params[0]);
           invalidateLegacySelectedField("volume", request.params[0]);
-          cursorTrack.volume().set(request.params[0]);
+          cursorTrack.volume().setImmediately(request.params[0]);
           result = "OK";
         } else throw invalidParams("Missing parameter");
         break;
 
       case "track.selected.pan":
         if (request.params && request.params[0] !== undefined) {
+          requireNormalized(request.params[0]);
           invalidateLegacySelectedField("pan", request.params[0]);
-          cursorTrack.pan().set(request.params[0]);
+          cursorTrack.pan().setImmediately(request.params[0]);
           result = "OK";
         } else throw invalidParams("Missing parameter");
         break;

@@ -144,10 +144,12 @@ function requireMidiConfigurationIdle() {
   if (midiNoteCount() > 0 || midiSustain) throw bridgeError(-32004, "Release injected notes and sustain before changing MIDI input configuration");
 }
 
-function midiTranslationTable(table) {
+function midiTranslationTable(table, isKeyTable) {
   if (!Array.isArray(table) || table.length !== 128) throw invalidParams("Translation table must contain exactly 128 entries");
   var copied = [];
-  for (var i = 0; i < 128; i++) copied.push(midiInteger(table[i], -1, 127, "Translation value"));
+  // Bitwig 6.1.1 did not filter incoming notes for velocity -1 in live tests.
+  // Keep the documented key filter, but never advertise an ineffective velocity filter.
+  for (var i = 0; i < 128; i++) copied.push(midiInteger(table[i], isKeyTable ? -1 : 0, 127, isKeyTable ? "Key translation value" : "Velocity translation value (negative filtering is unsupported)"));
   return copied;
 }
 
@@ -201,8 +203,9 @@ function handleMidiRequest(method, params) {
     requireMidiConfigurationIdle(); midiNoteInput.setUseExpressiveMidi(enabled, base, bend);
   } else {
     requireArgumentCount(params, 1);
-    var table = midiTranslationTable(params[0]); requireMidiConfigurationIdle();
-    if (method === "note_input.set_key_translation_table") midiNoteInput.setKeyTranslationTable(table);
+    var isKeyTable = method === "note_input.set_key_translation_table";
+    var table = midiTranslationTable(params[0], isKeyTable); requireMidiConfigurationIdle();
+    if (isKeyTable) midiNoteInput.setKeyTranslationTable(table);
     else midiNoteInput.setVelocityTranslationTable(table);
   }
   return { handled: true, result: result };

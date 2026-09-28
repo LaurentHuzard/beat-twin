@@ -86,6 +86,18 @@ test("read port reports absolute identities, empty slots, and nonexistent bank r
   assert.deepEqual(h.writes, []);
 });
 
+test("project diagnostics expose a creative mutation lock only when one exists", () => {
+  const h = harness();
+  assert.equal("creativeMutation" in h.rpc("project.get_summary").result, false);
+  h.context.creativeMutationStatus = () => null;
+  assert.equal("creativeMutation" in h.rpc("project.get_summary").result, false);
+  const status = { status: "uncertain", group: "notes", verified: false, writesBlocked: true,
+    reason: "Expected note state was not observed", recovery: "readback_then_reload_controller" };
+  h.context.creativeMutationStatus = () => status;
+  assert.deepEqual(h.rpc("project.get_summary").result.creativeMutation, status);
+  assert.deepEqual(h.writes, []);
+});
+
 test("invalid bank indices, names, colors and positions fail before mutation", () => {
   const h = harness();
   for (const index of [-1, 8, 0.5, NaN, Infinity, "0", null, undefined]) {

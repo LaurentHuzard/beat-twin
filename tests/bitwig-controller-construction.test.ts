@@ -63,9 +63,10 @@ function harness() {
     cursorClipTrack: tracks[0], cursorClipSlot: tracks[0].slots[0],
     inspectionTrack: tracks[0], inspectionSlot: tracks[0].slots[0], inspectionClip: cursor,
     sceneBank: { getScene: (i: number) => scenes[i], itemCount: () => sceneCount },
-    application: { projectName: () => value("Test") }, project: { createSceneFromPlayingLauncherClips() { calls.push(["capture"]); } },
+    application: { projectName: () => value("Test") }, project: { createScene() { calls.push(["createScene"]); }, createSceneFromPlayingLauncherClips() { calls.push(["capture"]); } },
     popupBrowser: { exists: () => browser },
     transport: { isPlaying: () => playing, isArrangerRecordEnabled: () => value(false) } });
+  context.watchMixValue(sceneCount, "count", "scenes"); sceneCount.notify();
   context.flush(); context.flush();
   function rpc(method: string, params: unknown[] = [], authenticated = true) {
     let reply: any;
@@ -77,6 +78,30 @@ function harness() {
     failAt(index: number) { throwAt = index; } };
 }
 const n = (step = 0, pitch = 36, durationBeats = 0.25) => ({ step, pitch, velocity: 100, durationBeats });
+
+test("scene creation calls the project API and waits for an observed count increment", () => {
+  const h = harness();
+  assert.equal(h.rpc("scene.create", [], false).error.code, -32001);
+  assert.equal(h.rpc("scene.create", [1]).error.code, -32602);
+  h.playing.update(true);
+  assert.equal(h.rpc("scene.create").error.code, -32004);
+  h.playing.update(false);
+  h.context.advancedState.scenes.seen.count = false;
+  h.sceneCount.update(0);
+  assert.equal(h.rpc("scene.create").error.code, -32004);
+  assert.deepEqual(h.calls, []);
+  h.sceneCount.notify(); h.settle();
+  assert.equal(h.rpc("scene.create").result.requiresReadback, true);
+  assert.deepEqual(h.calls, [["createScene"]]);
+  h.context.flush(); h.context.flush();
+  assert.equal(h.rpc("scene.list").error.code, -32004);
+  h.sceneCount.update(1);
+  h.context.observeConstructionChange(); // unrelated callback cannot acknowledge the new count
+  h.context.flush(); h.context.flush();
+  assert.equal(h.rpc("scene.list").error.code, -32004);
+  h.sceneCount.notify(); h.settle();
+  assert.ok(h.rpc("scene.list").result);
+});
 
 test("clip colors are read without mutations and color writes validate bounds", () => {
   const h = harness();

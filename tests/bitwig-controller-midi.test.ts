@@ -128,11 +128,42 @@ test("MPE and poly-aftertouch use real API enums and bounded channels", () => {
 
 test("translation tables are exact bounded copies; changing configuration requires no active voice", () => {
   for (const method of ["note_input.set_key_translation_table", "note_input.set_velocity_translation_table"]) {
-    const h = harness(), table = Array.from({ length: 128 }, (_, i) => i); table[0] = -1;
+    const h = harness(), table = Array.from({ length: 128 }, (_, i) => i);
+    if (method === "note_input.set_key_translation_table") table[0] = -1;
     assert.ok(h.rpc(method, [table]).result); const emitted = h.calls[0][1]; assert.notEqual(emitted, table); assert.deepEqual(Array.from(emitted), table);
     for (const bad of [[], table.slice(1), [...table, 0], Array(128), Array(128).fill(128), Array(128).fill(-2)]) assert.equal(h.rpc(method, [bad]).error.code, -32602);
     h.rpc("note_input.send_note_on", [0, 60, 100]); assert.equal(h.rpc(method, [table]).error.code, -32004);
   }
+});
+
+test("velocity negative filtering is rejected atomically while key -1 remains supported", () => {
+  for (const index of [0, 45, 127]) {
+    const h = harness(), table = Array.from({ length: 128 }, (_, i) => i); table[index] = -1;
+    const rejected = h.rpc("note_input.set_velocity_translation_table", [table]);
+    assert.equal(rejected.error.code, -32602);
+    assert.match(rejected.error.message, /negative filtering is unsupported/);
+    assert.deepEqual(h.calls, []);
+    assert.ok(h.rpc("note_input.set_key_translation_table", [table]).result);
+    assert.equal(h.calls[0][0], "keys");
+    assert.deepEqual(Array.from(h.calls[0][1]), table);
+  }
+  const h = harness();
+  assert.equal(h.rpc("note_input.set_velocity_translation_table", [Array(128).fill(-1)]).error.code, -32602);
+  assert.deepEqual(h.calls, []);
+  for (const value of [0, 127]) {
+    assert.ok(h.rpc("note_input.set_velocity_translation_table", [Array(128).fill(value)]).result);
+    assert.equal(h.calls.at(-1)[0], "velocities");
+    assert.deepEqual(Array.from(h.calls.at(-1)[1]), Array(128).fill(value));
+  }
+});
+
+test("raw injection is dispatched unchanged with key filtering and zero velocity translation configured", () => {
+  const h = harness();
+  assert.ok(h.rpc("note_input.set_key_translation_table", [Array(128).fill(-1)]).result);
+  assert.ok(h.rpc("note_input.set_velocity_translation_table", [Array(128).fill(0)]).result);
+  assert.ok(h.rpc("note_input.send_raw_midi", [144, 48, 45]).result);
+  assert.deepEqual(h.calls.at(-1), [144, 48, 45]);
+  assert.equal(h.rpc("note_input.get_status").result.translationTablesApplyToInjectedMidi, false);
 });
 
 test("bridge disconnect invokes cleanup without permission checks", () => {

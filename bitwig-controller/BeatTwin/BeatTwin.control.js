@@ -281,8 +281,7 @@ function init() {
 
   // Create Scene Bank (8 scenes)
   sceneBank = host.createSceneBank(8);
-  sceneBank.itemCount().markInterested();
-  sceneBank.itemCount().addValueObserver(observeConstructionChange);
+  watchMixValue(sceneBank.itemCount(), "count", "scenes");
   for (var i = 0; i < 8; i++) {
      var scene = sceneBank.getScene(i);
      scene.exists().markInterested();
@@ -939,7 +938,9 @@ function setMixNormalized(value, key, group, next, cursorKey, cursorMatches) {
   }
   advancedState[group].seen[key] = false;
   targetGeneration += 1;
-  value.set(next);
+  // An absolute MCP command has no physical fader to cross a takeover point.
+  // Preserve observation/readback guards while bypassing hardware takeover.
+  value.setImmediately(next);
 }
 
 function observedColor(color, key, group) {
@@ -1076,10 +1077,10 @@ function beginParityObserved(matches, identity) {
 }
 
 function invalidateProjectChannels(key) {
-  if (cursorTrack[key]().get() === true) advancedState.cursorTrack.seen[key] = false;
+  if (channelValue(cursorTrack, key).get() === true) advancedState.cursorTrack.seen[key] = false;
   if (key !== "arm") {
     for (var i = 0; i < 8; i++) {
-      if (effectTrackBank.getItemAt(i)[key]().get() === true) advancedState["return" + i].seen[key] = false;
+      if (channelValue(effectTrackBank.getItemAt(i), key).get() === true) advancedState["return" + i].seen[key] = false;
     }
   }
 }
@@ -1132,9 +1133,22 @@ function cursorTrackIdentity(position) {
   return function () { return cursorTrack.exists().get() === true && cursorTrack.position().get() === position; };
 }
 
+function channelValue(track, key) {
+  // Computed member lookup can resolve Java bean properties to their values
+  // rather than callable methods in the host's JavaScript interop.
+  switch (key) {
+    case "volume": return track.volume();
+    case "pan": return track.pan();
+    case "mute": return track.mute();
+    case "solo": return track.solo();
+    case "arm": return track.arm();
+    default: throw invalidParams("Unknown channel value");
+  }
+}
+
 function invalidateLegacyBankField(index, key, next) {
   var track = requireExistingTrack(index);
-  if (track[key]().get() === next) return;
+  if (channelValue(track, key).get() === next) return;
   invalidateProjectAggregate(key);
   if (mixObserved(mainCursorMatches[index], "cursorMatch", "mainTrack" + index, "boolean")) advancedState.cursorTrack.seen[key] = false;
 }
@@ -1145,7 +1159,7 @@ function invalidateProjectAggregate(key) {
 
 function invalidateLegacySelectedField(key, next) {
   requireObservedAdvanced(key, "cursorTrack");
-  if (cursorTrack[key]().get() === next) return;
+  if (channelValue(cursorTrack, key).get() === next) return;
   var affected = [];
   if (key === "volume" && mixObserved(masterCursorMatches, "cursorMatch", "master", "boolean")) affected.push(["master", "level"]);
   if (["volume", "pan", "mute", "solo"].indexOf(key) >= 0) {
@@ -2077,6 +2091,8 @@ function handleRequest(request, connection, bridgeSession) {
           transport: { tempoBpm: transport.tempo().value().getRaw(), positionBeats: transport.getPosition().get(),
             isPlaying: transport.isPlaying().get(), isRecording: transport.isArrangerRecordEnabled().get() },
           tracks: inspectTracks(), scenes: inspectScenes() };
+        var creativeMutation = typeof creativeMutationStatus === "function" ? creativeMutationStatus() : null;
+        if (creativeMutation !== null) result.creativeMutation = creativeMutation;
         break;
       case "track.list":
         result = inspectTracks();
@@ -2170,16 +2186,18 @@ function handleRequest(request, connection, bridgeSession) {
 
       case "track.bank.volume":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          requireNormalized(request.params[1]);
           invalidateLegacyBankField(request.params[0], "volume", request.params[1]);
-          trackBank.getItemAt(request.params[0]).volume().set(request.params[1]);
+          trackBank.getItemAt(request.params[0]).volume().setImmediately(request.params[1]);
           result = "OK";
         } else throw invalidParams("Missing parameters");
         break;
 
       case "track.bank.pan":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          requireNormalized(request.params[1]);
           invalidateLegacyBankField(request.params[0], "pan", request.params[1]);
-          trackBank.getItemAt(request.params[0]).pan().set(request.params[1]);
+          trackBank.getItemAt(request.params[0]).pan().setImmediately(request.params[1]);
           result = "OK";
         } else throw invalidParams("Missing parameters");
         break;
@@ -2252,8 +2270,15 @@ function handleRequest(request, connection, bridgeSession) {
         break;
 
       case "scene.create":
-        sceneBank.createScene();
-        result = "OK";
+        requireArgumentCount(request.params, 0);
+        requireSettledBank();
+        if (transport.isPlaying().get() !== false || transport.isArrangerRecordEnabled().get() !== false) throw bridgeError(-32004, "Stop transport and recording before creating a scene");
+        var sceneCountBeforeCreate = observedCount(sceneBank, "scenes");
+        if (!isIntegerInRange(sceneCountBeforeCreate, 0, 2147483646)) throw bridgeError(-32004, "Scene count unavailable");
+        beginConstruction(function () { return advancedState.scenes.seen.count === true && sceneBank.itemCount().get() === sceneCountBeforeCreate + 1; });
+        invalidateAdvancedValue("count", "scenes");
+        project.createScene();
+        result = constructionResult();
         break;
 
       case "clip.create":
@@ -2336,16 +2361,18 @@ function handleRequest(request, connection, bridgeSession) {
 
       case "track.selected.volume":
         if (request.params && request.params[0] !== undefined) {
+          requireNormalized(request.params[0]);
           invalidateLegacySelectedField("volume", request.params[0]);
-          cursorTrack.volume().set(request.params[0]);
+          cursorTrack.volume().setImmediately(request.params[0]);
           result = "OK";
         } else throw invalidParams("Missing parameter");
         break;
 
       case "track.selected.pan":
         if (request.params && request.params[0] !== undefined) {
+          requireNormalized(request.params[0]);
           invalidateLegacySelectedField("pan", request.params[0]);
-          cursorTrack.pan().set(request.params[0]);
+          cursorTrack.pan().setImmediately(request.params[0]);
           result = "OK";
         } else throw invalidParams("Missing parameter");
         break;
@@ -2794,10 +2821,12 @@ function requireMidiConfigurationIdle() {
   if (midiNoteCount() > 0 || midiSustain) throw bridgeError(-32004, "Release injected notes and sustain before changing MIDI input configuration");
 }
 
-function midiTranslationTable(table) {
+function midiTranslationTable(table, isKeyTable) {
   if (!Array.isArray(table) || table.length !== 128) throw invalidParams("Translation table must contain exactly 128 entries");
   var copied = [];
-  for (var i = 0; i < 128; i++) copied.push(midiInteger(table[i], -1, 127, "Translation value"));
+  // Bitwig 6.1.1 did not filter incoming notes for velocity -1 in live tests.
+  // Keep the documented key filter, but never advertise an ineffective velocity filter.
+  for (var i = 0; i < 128; i++) copied.push(midiInteger(table[i], isKeyTable ? -1 : 0, 127, isKeyTable ? "Key translation value" : "Velocity translation value (negative filtering is unsupported)"));
   return copied;
 }
 
@@ -2851,8 +2880,9 @@ function handleMidiRequest(method, params) {
     requireMidiConfigurationIdle(); midiNoteInput.setUseExpressiveMidi(enabled, base, bend);
   } else {
     requireArgumentCount(params, 1);
-    var table = midiTranslationTable(params[0]); requireMidiConfigurationIdle();
-    if (method === "note_input.set_key_translation_table") midiNoteInput.setKeyTranslationTable(table);
+    var isKeyTable = method === "note_input.set_key_translation_table";
+    var table = midiTranslationTable(params[0], isKeyTable); requireMidiConfigurationIdle();
+    if (isKeyTable) midiNoteInput.setKeyTranslationTable(table);
     else midiNoteInput.setVelocityTranslationTable(table);
   }
   return { handled: true, result: result };
@@ -2862,6 +2892,7 @@ function handleMidiRequest(method, params) {
 // @ts-nocheck
 // Concatenated with BeatTwin.control.ts. Runtime syntax intentionally stays ES5.
 var creativeState = null;
+var creativeMutationTimeoutMs = 10000;
 var creativeColumns = ["smartCollection", "location", "device", "category", "tag", "deviceType", "fileType", "creator"];
 var creativeExpressionLimits = { velocity: [0, 1], releaseVelocity: [0, 1], pan: [-1, 1], timbre: [-1, 1], pressure: [0, 1], gain: [0, 1], transpose: [-96, 96] };
 
@@ -2998,16 +3029,34 @@ function creativeDispatch(operations, group, matches, identity) {
   var state = creativeState[group];
   targetGeneration += 1; invalidateInspection();
   var operationIdentity = identity || function () { return true; }, projectEpoch = creativeState.projectEpoch;
-  creativeState.pending = { group: group, beforeCallbacks: state.callbacks, matches: matches, identity: function () { return creativeState.projectEpoch === projectEpoch && operationIdentity(); }, failed: false };
+  creativeState.pending = { group: group, beforeCallbacks: state.callbacks, matches: matches, identity: function () { return creativeState.projectEpoch === projectEpoch && operationIdentity(); }, failed: false, failureReason: null, startedAt: Date.now() };
   state.version += 1; state.settled = -1;
   var dispatched = 0;
   try {
     for (var i = 0; i < operations.length; i++) { operations[i](); dispatched += 1; }
   } catch (error) {
     creativeState.pending.failed = true;
+    creativeState.pending.failureReason = "host_setter_failed";
     return { status: "partial", dispatchedCount: dispatched, totalCount: operations.length, verified: false, requiresReadback: true, uncertain: true, recovery: "readback_then_reload_controller", error: safeHostError(error) };
   }
   return { status: "dispatched", dispatchedCount: dispatched, totalCount: operations.length, verified: false, requiresReadback: true };
+}
+function creativeExpirePending() {
+  var pending = creativeState && creativeState.pending;
+  if (pending && !pending.failed && Date.now() - pending.startedAt >= creativeMutationTimeoutMs) {
+    // A deadline is not evidence that a setter failed, succeeded or was undone.
+    // Keep the write barrier until controller reload; release only diagnostics.
+    pending.failed = true;
+    pending.failureReason = "observation_timeout";
+  }
+}
+function creativeMutationStatus() {
+  creativeExpirePending();
+  var pending = creativeState && creativeState.pending;
+  if (!pending) return null;
+  return { status: pending.failed ? "uncertain" : "awaiting_observation", group: pending.group,
+    reason: pending.failureReason, verified: false, writesBlocked: true,
+    recovery: pending.failed ? "readback_then_reload_controller" : "wait_for_controller_updates" };
 }
 function flushCreative() {
   if (!creativeState || !creativeState.initialized) return;
@@ -3016,6 +3065,7 @@ function flushCreative() {
     if (state.flushed === state.version) state.settled = state.version;
     state.flushed = state.version;
   }
+  creativeExpirePending();
   var pending = creativeState.pending;
   if (pending && !pending.failed) {
     var group = creativeState[pending.group];
@@ -3027,15 +3077,26 @@ function flushCreative() {
 function isCreativeReadMethod(method) {
   return method === "clip.get_note_expressions" || method === "browser.get_filter_items" || method === "device.remote_pages_get" || method === "transport.get_arranger_loop";
 }
+function creativeReadGroup(method) {
+  if (method === "clip.get_note_expressions") return "notes";
+  if (method === "browser.get_filter_items" || method === "browser.get_status" || method === "browser.list_results") return "browser";
+  if (method === "device.remote_pages_get" || method === "device.get_remote_controls") return "remote";
+  if (method === "transport.get_arranger_loop") return "loop";
+  return null;
+}
 function guardCreativeLegacyRequest(method, params) {
   if (!creativeState || !creativeState.pending) return;
+  creativeExpirePending();
   if (method === "ping" || method.indexOf("bridge.") === 0 || method === "transport.stop" || method === "note_input.get_status" || method === "note_input.send_note_off" || method === "note_input.all_notes_off") return;
-  var pending = creativeState.pending;
-  if (pending.failed && (isCreativeReadMethod(method) || method === "browser.get_status" || method === "browser.list_results" || method === "device.get_remote_controls")) {
+  var pending = creativeState.pending, readGroup = creativeReadGroup(method);
+  // Independent diagnostics still enforce their own observation/identity guards.
+  // Never permit a write merely because a timed-out getter did not converge.
+  if (readGroup !== pending.group && (readGroup !== null || (typeof isBridgeReadMethod === "function" && isBridgeReadMethod(method)))) return;
+  if (pending.failed && readGroup === pending.group) {
     if (creativeState[pending.group].settled !== creativeState[pending.group].version || !pending.identity()) throw creativeError("Uncertain mutation diagnostics require the original identity and settled observations");
     return;
   }
-  throw creativeError(pending.failed ? "Uncertain creative mutation; read back then reload controller before further writes" : "Creative mutation awaiting observed outcome; wait for controller updates");
+  throw creativeError(pending.failed ? "Uncertain creative mutation (" + pending.failureReason + "); read back then reload controller before further writes" : "Creative mutation awaiting observed outcome; wait for controller updates");
 }
 function creativeCoordinates(notes, writing) {
   if (!Array.isArray(notes) || notes.length < 1 || notes.length > 256) throw invalidParams("notes must contain 1 to 256 entries");
@@ -3226,6 +3287,11 @@ function creativeLegacyBrowser(method, params) {
       sessionId: "browser:" + controllerInstanceId + ":" + creativeState.session };
   }
   creativeBrowserOpen();
+  if (method === "browser.cancel") {
+    // Cancelling never needs a selected result, result count, or item identity.
+    var cancelSession = creativeState.session;
+    return creativeDispatch([function () { popupBrowser.cancel(); }], "browser", function () { return popupBrowser.exists().get() === false; }, function () { return creativeState.session === cancelSession + 1 && popupBrowser.exists().get() === false; });
+  }
   var items = [], i, window = creativeResultWindow();
   for (i = 0; i < 32; i++) {
     var observed = creativeBrowserItem(browserResultBank.getItemAt(i), "result." + i, i, false);
@@ -3243,14 +3309,12 @@ function creativeLegacyBrowser(method, params) {
     creativeInvalidate("browser", [selectedKey]);
     return creativeDispatch([creativeSetValue(selectedValue, true)], "browser", function () { return creativeSeen("browser", [selectedKey]) && selectedValue.get() === true; }, identity);
   }
-  if (method === "browser.commit" || method === "browser.cancel") {
-    if (method === "browser.commit") {
-      var selectedCount = 0;
-      for (i = 0; i < items.length; i++) if (items[i].available && items[i].exists && items[i].selected) selectedCount += 1;
-      if (selectedCount !== 1) throw creativeError("Exactly one observed browser result must be selected before commit");
-    }
-    var session = creativeState.session, command = method === "browser.commit" ? "commit" : "cancel";
-    return creativeDispatch([function () { popupBrowser[command](); }], "browser", function () { return popupBrowser.exists().get() === false; }, function () { return creativeState.session === session + 1 && popupBrowser.exists().get() === false; });
+  if (method === "browser.commit") {
+    var selectedCount = 0;
+    for (i = 0; i < items.length; i++) if (items[i].available && items[i].exists && items[i].selected) selectedCount += 1;
+    if (selectedCount !== 1) throw creativeError("Exactly one observed browser result must be selected before commit");
+    var session = creativeState.session;
+    return creativeDispatch([function () { popupBrowser.commit(); }], "browser", function () { return popupBrowser.exists().get() === false; }, function () { return creativeState.session === session + 1 && popupBrowser.exists().get() === false; });
   }
   var selectedIndex = -1;
   for (i = 0; i < items.length; i++) if (items[i].available && items[i].selected) {
@@ -3295,7 +3359,8 @@ function creativeLegacyRemote(method, params) {
   var parameter = remoteControlsBank.getParameter(params[0]).value(), next = params[1];
   if (controls[params[0]].value === next) return creativeDispatch([], "remote", function () { return true; });
   var valueKey = params[0] + ".value"; creativeInvalidate("remote", [valueKey]);
-  return creativeDispatch([creativeSetValue(parameter, next)], "remote", function () { return creativeSeen("remote", [valueKey]) && Math.abs(parameter.get() - next) <= 0.000001; }, function () { return remoteControlsBank.selectedPageIndex().get() === pages.selectedPageIndex && cursorTrack.position().get() === pages.trackPosition && cursorDevice.position().get() === pages.devicePosition; });
+  // Remote knobs are absolute normalized commands, independent of host takeover.
+  return creativeDispatch([function () { parameter.setImmediately(next); }], "remote", function () { return creativeSeen("remote", [valueKey]) && Math.abs(parameter.get() - next) <= 0.000001; }, function () { return remoteControlsBank.selectedPageIndex().get() === pages.selectedPageIndex && cursorTrack.position().get() === pages.trackPosition && cursorDevice.position().get() === pages.devicePosition; });
 }
 function handleCreativeRequest(method, params) {
   var newMethod = isCreativeReadMethod(method) || method === "clip.set_note_expressions" || method === "browser.set_filter" || method === "browser.scroll_filter_items" || method === "device.remote_page_select" || method === "transport.set_arranger_loop";
@@ -3315,5 +3380,9 @@ function handleCreativeRequest(method, params) {
   else if (["browser.get_status", "browser.list_results", "browser.select_result", "browser.select_first_file", "browser.select_next_file", "browser.select_previous_file", "browser.commit", "browser.cancel"].indexOf(method) >= 0) result = creativeLegacyBrowser(method, params);
   else if (["device.get_remote_controls", "device.set_remote_control", "device.page_next", "device.page_previous"].indexOf(method) >= 0) result = creativeLegacyRemote(method, params);
   else return { handled: false };
+  if (creativeObject(result) && creativeReadGroup(method) !== null) {
+    var mutation = creativeMutationStatus();
+    if (mutation) result.mutation = mutation;
+  }
   return { handled: true, result: result };
 }

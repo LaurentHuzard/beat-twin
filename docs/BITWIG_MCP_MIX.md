@@ -24,6 +24,13 @@ controller translates it to `isEnabled = !bypass`.
 Cursor clip time fields use beats (quarter-notes), within the selected launcher
 clip; they do not describe arranger regions or export note contents.
 
+Absolute normalized MCP writes use the API's `setImmediately` (available since
+API 4). These software commands do not have a physical fader to cross a hardware
+takeover threshold. Track volume/pan, master, sends, returns, groove parameters,
+drum-pad volume and remote parameters therefore apply the requested absolute
+value without waiting for takeover. This changes dispatch semantics only:
+identity guards and required observed readback remain in place.
+
 | Tool | Arguments | Policy | Scope |
 | --- | --- | --- | --- |
 | `track_delete` | `index` | mixer_write | Deletes an observed individual Instrument/Audio/Hybrid main-bank track and its material; transport must be stopped. |

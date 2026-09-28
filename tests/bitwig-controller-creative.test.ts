@@ -4,8 +4,11 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 const source = await readFile(new URL("../bitwig-controller/BeatTwin/creative.ts", import.meta.url), "utf8");
 function harness(options: { initialize?: boolean; observe?: boolean } = {}) {
+  let now = 1000;
   const calls: unknown[][] = [], values: any[] = [], noteObservers: Array<() => void> = [];
-  const ctx: any = { controllerInstanceId: "creative-test", targetGeneration: 0, inspectionVersion: 0,
+  const ctx: any = { Date: { now: () => now },
+    isBridgeReadMethod: (method: string) => ["transport.getIsPlaying", "project.get_status", "cursor_track.get_status"].includes(method),
+    controllerInstanceId: "creative-test", targetGeneration: 0, inspectionVersion: 0,
     bridgeError: (code: number, message: string) => Object.assign(new Error(message), { jsonrpcCode: code }),
     invalidParams: (message: string) => Object.assign(new Error(message), { jsonrpcCode: -32602 }),
     isIntegerInRange: (v: any, min: number, max: number) => Number.isInteger(v) && v >= min && v <= max,
@@ -21,6 +24,7 @@ function harness(options: { initialize?: boolean; observe?: boolean } = {}) {
     let current = initial; const observers: Array<(v: any) => void> = [];
     const result: any = { get: () => current, markInterested() {}, addValueObserver(fn: (v: any) => void) { observers.push(fn); },
       set(next: any) { calls.push([name, next]); if (result.throwSet) throw new Error("host setter failure"); },
+      setImmediately(next: any) { calls.push([name + ".setImmediately", next]); if (result.throwSet) throw new Error("host setter failure"); },
       update(next: any) { current = next; }, notify() { observers.forEach((fn) => fn(current)); },
       emit(next: any) { current = next; result.notify(); } };
     values.push(result); return result;
@@ -67,7 +71,7 @@ function harness(options: { initialize?: boolean; observe?: boolean } = {}) {
   if (options.initialize !== false) { ctx.initCreative(); if (options.observe !== false) { values.forEach((v) => v.notify()); noteObservers.forEach((fn) => fn()); settle(); } }
   function rpc(method: string, params: any[] = []) { return ctx.handleCreativeRequest(method, params).result; }
   function throws(method: string, params: any[] = [], code = -32004) { assert.throws(() => rpc(method, params), (error: any) => error.jsonrpcCode === code); }
-  return { ctx, calls, values, browser, columns, resultItems, resultBank, remote, parameters, device, track, transport, project, note, noteValues, settle, rpc, throws,
+  return { advance(ms: number) { now += ms; }, ctx, calls, values, browser, columns, resultItems, resultBank, remote, parameters, device, track, transport, project, note, noteValues, settle, rpc, throws,
     noteNotify() { ctx.inspectionVersion += 1; noteObservers.forEach((fn) => fn()); }, setNoteState(next: string) { noteState = next; }, deselectClip() { clipSelected = false; } };
 }
 const coordinate = { step: 0, pitch: 36 };
@@ -159,7 +163,7 @@ test("remote page selection validates count and snapshot and blocks writes to ol
   h.throws("device.remote_page_select", [0, pages.snapshotId]);
   assert.equal(h.rpc("device.get_remote_controls")[0].available, false); h.throws("device.set_remote_control", [0, 0.9]);
   h.parameters[0].name().notify(); h.parameters[0].value().notify(); h.settle();
-  assert.equal(h.rpc("device.get_remote_controls")[1].available, false); h.rpc("device.set_remote_control", [0, 0.9]); assert.deepEqual(h.calls[1], ["param0.value", 0.9]);
+  assert.equal(h.rpc("device.get_remote_controls")[1].available, false); h.rpc("device.set_remote_control", [0, 0.9]); assert.deepEqual(h.calls[1], ["param0.value.setImmediately", 0.9]);
   h.parameters[0].value().emit(0.9); h.settle(); assert.equal(h.rpc("device.get_remote_controls")[0].value, 0.9);
 });
 test("remote legacy next/previous use observed bounded pages and unchanged state is a no-op", () => {
@@ -242,4 +246,67 @@ test("browser navigation cannot release on an unobserved offset getter change", 
   h.rpc("browser.select_next_file"); h.resultBank.scrollPosition().update(1); h.resultItems[0].isSelected().notify(); h.settle();
   assert.notEqual(h.ctx.creativeState.pending, null); h.resultBank.scrollPosition().notify();
   h.resultItems[0].exists().notify(); h.resultItems[0].isSelected().notify(); h.settle(); assert.equal(h.ctx.creativeState.pending, null);
+});
+
+
+test("silent expression host becomes explicitly uncertain after ten seconds without releasing writes", () => {
+  const h = harness(), read = h.rpc("clip.get_note_expressions", [0, 0, [coordinate]]);
+  h.rpc("clip.set_note_expressions", [0, 0, read.snapshotId, [{ ...coordinate, pan: -0.25, pressure: 0.2 }]]);
+  h.noteValues.pan = -0.25; h.noteNotify(); h.settle();
+  h.advance(9999); h.settle(); h.throws("clip.get_note_expressions", [0, 0, [coordinate]]);
+  assert.equal(h.ctx.creativeMutationStatus().status, "awaiting_observation");
+  assert.doesNotThrow(() => h.ctx.guardCreativeLegacyRequest("transport.getIsPlaying", []));
+  assert.equal(h.rpc("browser.get_status").mutation.group, "notes");
+  h.advance(1); h.settle();
+  const diagnostics = h.rpc("clip.get_note_expressions", [0, 0, [coordinate]]);
+  assert.equal(diagnostics.notes[0].pan, -0.25); assert.equal(diagnostics.notes[0].pressure, 0);
+  assert.equal(diagnostics.mutation.status, "uncertain");
+  assert.equal(diagnostics.mutation.reason, "observation_timeout");
+  assert.equal(diagnostics.mutation.verified, false); assert.equal(diagnostics.mutation.writesBlocked, true);
+  h.throws("clip.set_note_expressions", [0, 0, diagnostics.snapshotId, [{ ...coordinate, pressure: 0.2 }]]);
+  h.throws("device.remote_page_select", [1, "anything"]);
+  h.throws("application.undo"); h.throws("browser.commit");
+  // A late matching callback cannot silently reopen a failed mutation barrier.
+  h.noteValues.pressure = 0.2; h.noteNotify(); h.settle();
+  assert.equal(h.ctx.creativeMutationStatus().status, "uncertain"); assert.equal(h.calls.length, 2);
+  h.deselectClip(); h.throws("clip.get_note_expressions", [0, 0, [coordinate]]);
+  assert.doesNotThrow(() => h.ctx.guardCreativeLegacyRequest("project.get_status", []));
+});
+
+test("timeout also expires on a request when no further flush or host callback arrives", () => {
+  const h = harness(), pages = h.rpc("device.remote_pages_get");
+  h.rpc("device.remote_page_select", [1, pages.snapshotId]);
+  h.advance(10000);
+  assert.throws(() => h.ctx.guardCreativeLegacyRequest("device.set_remote_control", [0, 0.4]), /observation_timeout/);
+  assert.equal(h.ctx.creativeMutationStatus().writesBlocked, true);
+  assert.doesNotThrow(() => h.ctx.guardCreativeLegacyRequest("transport.stop", []));
+  assert.doesNotThrow(() => h.ctx.guardCreativeLegacyRequest("note_input.all_notes_off", []));
+});
+
+test("browser cancel requires observed session only, with unavailable result metadata", () => {
+  const h = harness();
+  h.ctx.creativeInvalidate("browser", ["results.count", "results.offset", "title", "contentTypes", "contentName"]);
+  h.ctx.creativeInvalidateResults();
+  h.throws("browser.get_status"); h.throws("browser.list_results"); h.throws("browser.commit");
+  assert.equal(h.rpc("browser.cancel").status, "dispatched");
+  assert.deepEqual(h.calls, [["browser.cancel"]]);
+  h.browser.exists().emit(false); h.settle();
+  assert.equal(h.ctx.creativeState.pending, null);
+  assert.equal(h.rpc("browser.get_status").exists, false);
+  const unknown = harness({ observe: false }); unknown.settle(); unknown.throws("browser.cancel"); assert.deepEqual(unknown.calls, []);
+});
+
+
+test("remote absolute parameter writes bypass takeover but still require observed readback", () => {
+  const h = harness();
+  // Normal set() can be pickup-gated; this mock records a distinct immediate path.
+  const result = h.rpc("device.set_remote_control", [0, 0.7]);
+  assert.equal(result.status, "dispatched"); assert.equal(result.verified, false);
+  assert.deepEqual(h.calls, [["param0.value.setImmediately", 0.7]]);
+  h.parameters[0].value().update(0.7); h.settle(); h.throws("device.get_remote_controls");
+  h.parameters[0].value().notify(); h.settle();
+  assert.equal(h.rpc("device.get_remote_controls")[0].value, 0.7);
+  assert.equal(h.ctx.creativeState.pending, null);
+  const invalid = harness(); invalid.throws("device.set_remote_control", [0, 1.1], -32602);
+  assert.deepEqual(invalid.calls, []);
 });
