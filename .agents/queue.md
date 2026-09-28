@@ -18,10 +18,7 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-None. BT-AUD-01–03 is integrated through PR #92 at `413238b2` on
-2026-09-25; publication rechecked 2026-09-27. No successor is activated.
-
-34 App unit tests, three isolated browser viewports, frontend build and npm distribution smoke pass. Packed executable initializes and lists14 read-policy tools without tools/call. BT-AUD-03 is a corrected audit false positive: existing SVG icon decodes; original404 was optional MCP plans. No DAW writes.
+- **BT-MCP-PORT-001 — Bitwig capability port, tranche 1** (Done locally; review and live acceptance pending). Explicitly authorized 2026-09-27. Historical inventory complete; 13 tools added; 294 offline tests pass. Not installed or published. See current-plan.md and `.agents/reports/feature-20260927-bitwig-capability-port.md`.
 
 ### Previous readiness (historical)
 

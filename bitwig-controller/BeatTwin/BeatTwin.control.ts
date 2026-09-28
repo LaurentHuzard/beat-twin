@@ -12,6 +12,12 @@ var cursorTrack;
 var cursorDevice;
 var cursorClip;
 var boundedCursorClip;
+var inspectionClip;
+var inspectionTrack;
+var inspectionSlot;
+var inspectionVersion = 0;
+var inspectionSettledVersion = -1;
+var inspectionFlushedVersion = -1;
 var remoteControlsBank;
 var deviceBanks = [];
 var targetTracks = [];
@@ -25,6 +31,7 @@ var cursorClipTrack;
 var cursorClipSlot;
 var targetGeneration = 0;
 var lastTargetSignature = null;
+var bankNavigation = null;
 
 var BRIDGE_PROTOCOL_VERSION = "beat-twin-bitwig-v2";
 var TARGET_GRID_STEPS = 64;
@@ -68,6 +75,23 @@ function init() {
   cursorClip.getPlayStart().markInterested();
   cursorClip.getPlayStop().markInterested();
   cursorClip.playingStep().markInterested();
+
+  // This private read cursor is anchored once. Read requests never move a
+  // viewport or selection, so getStep cannot accidentally read a previous page.
+  inspectionClip = host.createLauncherCursorClip(TARGET_GRID_STEPS, 128);
+  inspectionClip.setStepSize(TARGET_STEP_SIZE_BEATS);
+  inspectionClip.scrollToStep(0);
+  inspectionClip.scrollToKey(0);
+  inspectionTrack = inspectionClip.getTrack();
+  inspectionSlot = inspectionClip.clipLauncherSlot();
+  var inspectionValues = [inspectionClip.exists(), inspectionClip.getLoopLength(),
+    inspectionTrack.exists(), inspectionTrack.position(), inspectionSlot.exists(),
+    inspectionSlot.sceneIndex(), inspectionSlot.hasContent(), application.projectName()];
+  for (var readIndex = 0; readIndex < inspectionValues.length; readIndex++) {
+    inspectionValues[readIndex].markInterested();
+    inspectionValues[readIndex].addValueObserver(invalidateInspection);
+  }
+  inspectionClip.addNoteStepObserver(invalidateInspection);
 
   // Agent-mode writes use a dedicated cursor clip so the historical MCP note
   // tools cannot shift its step/key viewport behind the adapter's back.
@@ -124,6 +148,11 @@ function init() {
 
   // Create Main Track Bank (8 tracks, 0 sends, 8 scenes)
   trackBank = host.createMainTrackBank(8, 0, 8);
+  trackBank.itemCount().markInterested();
+  trackBank.scrollPosition().markInterested();
+  trackBank.scrollPosition().addValueObserver(observeBankNavigationPosition);
+  trackBank.canScrollForwards().markInterested();
+  trackBank.canScrollBackwards().markInterested();
 
   // Mark interested for Track Bank
   for (var i = 0; i < 8; i++) {
@@ -174,6 +203,7 @@ function init() {
   sceneBank = host.createSceneBank(8);
   for (var i = 0; i < 8; i++) {
      var scene = sceneBank.getScene(i);
+     scene.exists().markInterested();
      scene.name().markInterested();
      scene.sceneIndex().markInterested();
   }
@@ -314,6 +344,12 @@ function isBridgeReadMethod(method) {
     method === "transport.getPosition" ||
     method === "transport.getIsPlaying" ||
     method === "transport.getIsRecording" ||
+    method === "project.get_summary" ||
+    method === "track.list" ||
+    method === "track.get_info" ||
+    method === "clip.get_grid" ||
+    method === "clip.get_status" ||
+    method === "clip.get_notes" ||
     method === "track.bank.get_status" ||
     method === "scene.list" ||
     method === "clip.get_info" ||
@@ -347,6 +383,9 @@ function selectedBankTarget() {
 }
 
 function currentTargetState() {
+  if (bankNavigation !== null) {
+    return { available: false, track: null, slot: null, trackPosition: -1, slotSceneIndex: -1 };
+  }
   var selected = selectedBankTarget();
   if (selected && selected.ambiguous) {
     return {
@@ -400,6 +439,7 @@ function targetSignature() {
 }
 
 function refreshTargetGeneration() {
+  if (bankNavigation !== null) bankNavigation.version += 1;
   var nextSignature = targetSignature();
   if (lastTargetSignature !== null && nextSignature !== lastTargetSignature) {
     targetGeneration += 1;
@@ -413,6 +453,7 @@ function anchorBoundedGrid() {
 }
 
 function currentTargetBinding() {
+  requireSettledBank();
   refreshTargetGeneration();
   var target = currentTargetState();
   return {
@@ -514,6 +555,162 @@ function isValidTrackIndex(index) {
   return typeof index === "number" && index >= 0 && index < 8 && Math.floor(index) === index;
 }
 
+function requireSettledBank() {
+  if (bankNavigation !== null) throw bridgeError(-32004, "Track bank navigation is synchronizing; retry after controller updates");
+}
+
+function beginBankNavigation(position, destination) {
+  requireSettledBank();
+  // Revoke confirmed bindings before touching any retargetable host proxy.
+  targetGeneration += 1;
+  bankNavigation = { from: position, destination: destination, observed: false,
+    version: 0, flushedVersion: -1 };
+  invalidateInspection();
+}
+
+function observeBankNavigationPosition(position) {
+  if (bankNavigation === null) return;
+  bankNavigation.version += 1;
+  bankNavigation.observed = isIntegerInRange(position, 0, 2147483647) &&
+    (bankNavigation.destination === null ? position !== bankNavigation.from : position === bankNavigation.destination);
+}
+
+function requireBankIndex(index, label) {
+  if (!isIntegerInRange(index, 0, 7)) throw invalidParams(label + " must be an integer from 0 to 7");
+  return index;
+}
+
+function requireExistingTrack(index) {
+  requireSettledBank();
+  var track = trackBank.getItemAt(requireBankIndex(index, "Track index"));
+  if (track.exists().get() !== true || !isIntegerInRange(track.position().get(), 0, 2147483647)) {
+    throw bridgeError(-32004, "Track is unavailable in the current bank window");
+  }
+  return track;
+}
+
+function requirePortName(name) {
+  if (typeof name !== "string" || name.length < 1 || name.length > 128 ||
+      name.trim().length === 0 || /[\x00-\x1f\x7f-\x9f]/.test(name)) {
+    throw invalidParams("Name must contain 1 to 128 characters without control characters");
+  }
+  return name;
+}
+
+function inspectTrack(index) {
+  requireSettledBank();
+  var track = trackBank.getItemAt(requireBankIndex(index, "Track index"));
+  var exists = track.exists().get();
+  if (typeof exists !== "boolean") throw bridgeError(-32004, "Track state is unavailable");
+  var position = track.position().get();
+  if (exists && !isIntegerInRange(position, 0, 2147483647)) throw bridgeError(-32004, "Track identity is unavailable");
+  return { index: index, exists: exists, position: exists ? position : null,
+    name: exists ? track.name().get() : null,
+    volume: exists ? track.volume().get() : null, pan: exists ? track.pan().get() : null,
+    mute: exists ? track.mute().get() : null, solo: exists ? track.solo().get() : null,
+    arm: exists ? track.arm().get() : null,
+    color: exists ? { red: track.color().red(), green: track.color().green(), blue: track.color().blue() } : null };
+}
+
+function inspectTracks() {
+  var tracks = [];
+  for (var index = 0; index < 8; index++) tracks.push(inspectTrack(index));
+  return tracks;
+}
+
+function inspectSlot(trackIndex, slotIndex) {
+  requireBankIndex(trackIndex, "Track index");
+  requireBankIndex(slotIndex, "Slot index");
+  var track = inspectTrack(trackIndex);
+  var slot = trackBank.getItemAt(trackIndex).clipLauncherSlotBank().getItemAt(slotIndex);
+  var slotExists = slot.exists().get();
+  if (typeof slotExists !== "boolean") throw bridgeError(-32004, "Slot state is unavailable");
+  var exists = track.exists && slotExists;
+  var sceneIndex = slot.sceneIndex().get();
+  if (exists && !isIntegerInRange(sceneIndex, 0, 2147483647)) throw bridgeError(-32004, "Slot identity is unavailable");
+  var content = exists ? slot.hasContent().get() : false;
+  if (typeof content !== "boolean") throw bridgeError(-32004, "Slot content state is unavailable");
+  return { trackIndex: trackIndex, trackPosition: track.position, slotIndex: slotIndex,
+    slotSceneIndex: exists ? sceneIndex : null, exists: exists, hasContent: content,
+    name: exists ? slot.name().get() : null,
+    isSelected: exists ? slot.isSelected().get() : false,
+    isPlaying: exists ? slot.isPlaying().get() : false,
+    isRecording: exists ? slot.isRecording().get() : false,
+    isPlaybackQueued: exists ? slot.isPlaybackQueued().get() : false };
+}
+
+function inspectScenes() {
+  var scenes = [];
+  for (var index = 0; index < 8; index++) {
+    var scene = sceneBank.getScene(index);
+    var exists = scene.exists().get();
+    var position = scene.sceneIndex().get();
+    if (typeof exists !== "boolean" || (exists && !isIntegerInRange(position, 0, 2147483647))) {
+      throw bridgeError(-32004, "Scene state is unavailable");
+    }
+    scenes.push({ index: index, exists: exists, sceneIndex: exists ? position : null,
+      name: exists ? scene.name().get() : null });
+  }
+  return scenes;
+}
+
+function inspectTrackWindow() {
+  requireSettledBank();
+  var position = trackBank.scrollPosition().get();
+  var count = trackBank.itemCount().get();
+  if (!isIntegerInRange(position, 0, 2147483647) || !isIntegerInRange(count, 0, 2147483647)) {
+    throw bridgeError(-32004, "Track bank position or count is unavailable");
+  }
+  return { size: 8, scrollPosition: position, trackCount: count };
+}
+
+function invalidateInspection() {
+  inspectionVersion += 1;
+  inspectionSettledVersion = -1;
+}
+
+function readInspectionNotes(trackIndex, slotIndex) {
+  var slot = inspectSlot(trackIndex, slotIndex);
+  if (!slot.exists || !slot.hasContent || slot.isSelected !== true ||
+      inspectionClip.exists().get() !== true || inspectionTrack.exists().get() !== true ||
+      inspectionSlot.exists().get() !== true || inspectionSlot.hasContent().get() !== true ||
+      inspectionTrack.position().get() !== slot.trackPosition ||
+      inspectionSlot.sceneIndex().get() !== slot.slotSceneIndex) {
+    throw bridgeError(-32004, "Select the requested existing launcher clip and wait for cursor synchronization");
+  }
+  if (inspectionSettledVersion !== inspectionVersion) {
+    throw bridgeError(-32004, "Note inspection is synchronizing; retry after controller updates");
+  }
+  var length = inspectionClip.getLoopLength().get();
+  if (typeof length !== "number" || !isFinite(length) || length <= 0) throw bridgeError(-32004, "Clip length is unavailable");
+  var notes = [];
+  for (var step = 0; step < TARGET_GRID_STEPS; step++) {
+    for (var pitch = 0; pitch < 128; pitch++) {
+      var note = inspectionClip.getStep(0, step, pitch);
+      if (!note) throw bridgeError(-32004, "Note grid is unavailable");
+      var state = String(note.state());
+      if (state !== "NoteOn" && state !== "NoteSustain" && state !== "Empty") {
+        throw bridgeError(-32004, "Note grid state is unavailable");
+      }
+      if (state === "NoteOn") {
+        var velocity = note.velocity();
+        var duration = note.duration();
+        if (note.channel() !== 0 || note.x() !== step || note.y() !== pitch ||
+            typeof velocity !== "number" || !isFinite(velocity) || velocity < 0 || velocity > 1 ||
+            typeof duration !== "number" || !isFinite(duration) || duration <= 0) {
+          throw bridgeError(-32004, "Note grid data is unavailable");
+        }
+        notes.push({ channel: 0, step: step, pitch: pitch,
+          velocity: Math.max(1, Math.round(velocity * 127)), durationBeats: duration });
+      }
+    }
+  }
+  return { trackIndex: trackIndex, trackPosition: slot.trackPosition, slotIndex: slotIndex,
+    slotSceneIndex: slot.slotSceneIndex, clipLengthBeats: length,
+    coverage: { startStep: 0, stepCount: TARGET_GRID_STEPS, stepSizeBeats: TARGET_STEP_SIZE_BEATS,
+      minPitch: 0, maxPitch: 127, channels: [0], completeClip: false }, notes: notes };
+}
+
 function handleRequest(request, connection, bridgeSession) {
   if (!request.method) {
     sendError(connection, request.id, -32600, "Invalid Request");
@@ -528,6 +725,13 @@ function handleRequest(request, connection, bridgeSession) {
       !bridgeSession.authenticated
     ) {
       throw bridgeError(-32001, "Write authentication is required");
+    }
+
+    // During bank retargeting, only bank-independent bridge/transport traffic
+    // is safe. This also covers legacy bank-relative mutation handlers.
+    if (bankNavigation !== null && request.method !== "ping" &&
+        request.method.indexOf("bridge.") !== 0 && request.method.indexOf("transport.") !== 0) {
+      requireSettledBank();
     }
 
     switch (request.method) {
@@ -680,6 +884,80 @@ function handleRequest(request, connection, bridgeSession) {
         break;
       case "transport.getIsRecording":
         result = transport.isArrangerRecordEnabled().get();
+        break;
+
+      // Bank-local indices are deliberately distinct from absolute project positions.
+      case "project.get_summary":
+        result = { projectName: application.projectName().get(), bank: inspectTrackWindow(),
+          transport: { tempoBpm: transport.tempo().value().getRaw(), positionBeats: transport.getPosition().get(),
+            isPlaying: transport.isPlaying().get(), isRecording: transport.isArrangerRecordEnabled().get() },
+          tracks: inspectTracks(), scenes: inspectScenes() };
+        break;
+      case "track.list":
+        result = inspectTracks();
+        break;
+      case "track.get_info":
+        result = inspectTrack(request.params && request.params[0]);
+        break;
+      case "clip.get_status":
+        result = inspectSlot(request.params && request.params[0], request.params && request.params[1]);
+        break;
+      case "clip.get_grid":
+        var gridTracks = inspectTracks();
+        for (var gridTrack = 0; gridTrack < 8; gridTrack++) {
+          gridTracks[gridTrack].slots = [];
+          for (var gridSlot = 0; gridSlot < 8; gridSlot++) gridTracks[gridTrack].slots.push(inspectSlot(gridTrack, gridSlot));
+        }
+        result = { tracks: gridTracks, window: { trackCount: 8, slotCount: 8 }, bank: inspectTrackWindow() };
+        break;
+      case "clip.get_notes":
+        result = readInspectionNotes(request.params && request.params[0], request.params && request.params[1]);
+        break;
+      case "track.bank.scroll_forward":
+      case "track.bank.scroll_backward":
+        var navigationWindow = inspectTrackWindow();
+        var forward = request.method === "track.bank.scroll_forward";
+        var canScroll = forward ? trackBank.canScrollForwards().get() : trackBank.canScrollBackwards().get();
+        if (canScroll !== true) throw bridgeError(-32004, "Track bank cannot scroll in this direction");
+        beginBankNavigation(navigationWindow.scrollPosition, null);
+        if (forward) trackBank.scrollForwards(); else trackBank.scrollBackwards();
+        result = "OK";
+        break;
+      case "track.bank.scroll_to_position":
+        var bankPosition = request.params && request.params[0];
+        var bankWindow = inspectTrackWindow();
+        if (!isIntegerInRange(bankPosition, 0, bankWindow.trackCount - 1)) throw invalidParams("Position must identify an existing project track");
+        if (bankPosition !== bankWindow.scrollPosition) {
+          beginBankNavigation(bankWindow.scrollPosition, bankPosition);
+          trackBank.scrollPosition().set(bankPosition);
+        }
+        result = "OK";
+        break;
+      case "track.scroll_into_view":
+        var visibleTrack = requireExistingTrack(request.params && request.params[0]);
+        visibleTrack.makeVisibleInArranger();
+        visibleTrack.makeVisibleInMixer();
+        result = "OK";
+        break;
+      case "track.rename":
+        var renameTrack = requireExistingTrack(request.params && request.params[0]);
+        renameTrack.name().set(requirePortName(request.params && request.params[1]));
+        result = "OK";
+        break;
+      case "track.set_color":
+        var colorTrack = requireExistingTrack(request.params && request.params[0]);
+        for (var colorIndex = 1; colorIndex <= 3; colorIndex++) {
+          var colorValue = request.params && request.params[colorIndex];
+          if (typeof colorValue !== "number" || !isFinite(colorValue) || colorValue < 0 || colorValue > 1) throw invalidParams("Color components must be finite numbers from 0 to 1");
+        }
+        colorTrack.color().set(request.params[1], request.params[2], request.params[3]);
+        result = "OK";
+        break;
+      case "scene.rename":
+        var renameScene = sceneBank.getScene(requireBankIndex(request.params && request.params[0], "Scene index"));
+        if (renameScene.exists().get() !== true || !isIntegerInRange(renameScene.sceneIndex().get(), 0, 2147483647)) throw bridgeError(-32004, "Scene is unavailable");
+        renameScene.name().set(requirePortName(request.params && request.params[1]));
+        result = "OK";
         break;
 
       // --- Track Bank Control ---
@@ -1129,7 +1407,21 @@ function sendJSON(connection, data) {
 }
 
 function flush() {
-  // Called by Bitwig generally after init and usually per frame/gui refresh
+  if (bankNavigation !== null && bankNavigation.observed) {
+    var observedPosition = trackBank.scrollPosition().get();
+    var positionMatches = bankNavigation.destination === null ? observedPosition !== bankNavigation.from : observedPosition === bankNavigation.destination;
+    if (isIntegerInRange(observedPosition, 0, 2147483647) && positionMatches &&
+        bankNavigation.flushedVersion === bankNavigation.version) {
+      bankNavigation = null;
+      refreshTargetGeneration();
+    } else {
+      bankNavigation.flushedVersion = bankNavigation.version;
+    }
+  }
+  // Require two completed update cycles without identity/note changes. A read
+  // never initiates scrolling and never guesses that pending data is empty.
+  if (inspectionFlushedVersion === inspectionVersion) inspectionSettledVersion = inspectionVersion;
+  inspectionFlushedVersion = inspectionVersion;
 }
 
 function exit() {

@@ -28,17 +28,17 @@ change an existing MCP server or authorize a DAW write. Clearing unrelated flags
 makes the examples independent of inherited write/discovery settings:
 
 ```bash
-# Read-only: 14 tools
+# Read-only: 20 tools
 BITWIG_MCP_ENABLE_WRITES=0 BITWIG_MCP_WRITE_POLICY= BITWIG_MCP_TOOL_DISCOVERY=0 node scripts/mcp-diagnostics.js
 
-# Read + application_write: 16 tools (the two track-creation tools are added)
+# Read + application_write: 22 tools (the two track-creation tools are added)
 BITWIG_MCP_ENABLE_WRITES=0 BITWIG_MCP_WRITE_POLICY=application_write BITWIG_MCP_TOOL_DISCOVERY=0 node scripts/mcp-diagnostics.js
 
-# All six existing write policies + read: 57 tools
+# All six existing write policies + read: 70 tools
 BITWIG_MCP_ENABLE_WRITES=1 BITWIG_MCP_WRITE_POLICY= BITWIG_MCP_TOOL_DISCOVERY=0 node scripts/mcp-diagnostics.js
 ```
 
-With discovery explicitly enabled, those counts become 16, 18 and 59. These
+With discovery explicitly enabled, those counts become 22, 24 and 72. These
 counts describe the current registry, not a separate hardcoded catalog.
 `BITWIG_MCP_ENABLE_WRITES` takes precedence over selective policies when enabled.
 The report's `all-writes` mode describes the effective policy set, including
@@ -108,7 +108,7 @@ browser ownership, plans, confirmations, tools or provider projections.
 ## Offline regression checks
 
 ```bash
-node --test tests/mcp-diagnostics.test.js tests/policy-gate.test.js
+node --test tests/mcp-diagnostics.test.ts tests/policy-gate.test.ts
 # Also included in pnpm test and pnpm test:unit in the supported workspace.
 ```
 

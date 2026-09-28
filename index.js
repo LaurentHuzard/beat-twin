@@ -709,6 +709,94 @@ const WRITE_POLICIES = Object.freeze([
   "application_write",
 ]);
 
+const bankIndexSchema = { type: "integer", minimum: 0, maximum: 7 };
+const colorComponentSchema = { type: "number", minimum: 0, maximum: 1 };
+const displayNameSchema = {
+  type: "string", minLength: 1, maxLength: 128,
+  pattern: "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+};
+function boundedToolSchema(properties = {}) {
+  return { type: "object", additionalProperties: false, properties, required: Object.keys(properties) };
+}
+
+// Additive port: keep the original 57 schemas and names in their original order.
+// All new tools validate both ordinary calls and discovery-dispatched calls.
+export const PORTED_TOOL_SPECS = Object.freeze([
+  {
+    name: "project_get_summary",
+    description: "Read project name, transport and the current track/scene bank. This is a bounded bank snapshot, not the complete arrangement.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "project.get_summary",
+  },
+  {
+    name: "track_list",
+    description: "Read tracks in the current 8-track bank, including existence and absolute project positions. Does not scroll or select tracks.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "track.list",
+  },
+  {
+    name: "track_get_info",
+    description: "Read one bank-local track (index 0-7), including existence, name, position, mixer state and color.",
+    inputSchema: boundedToolSchema({ index: bankIndexSchema }), policy: "read", method: "track.get_info",
+    mapArgs: (args) => [args.index],
+  },
+  {
+    name: "clip_get_grid",
+    description: "Read clip occupancy and playback state in the current 8-track by 8-slot launcher window. Does not inspect the arranger or move the bank.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "clip.get_grid",
+  },
+  {
+    name: "clip_get_status",
+    description: "Read existence, occupancy, name and playback state of one bank-local launcher slot. Both trackIndex and sceneIndex are 0-7 in the current window.",
+    inputSchema: boundedToolSchema({ trackIndex: bankIndexSchema, sceneIndex: bankIndexSchema }),
+    policy: "read", method: "clip.get_status", mapArgs: (args) => [args.trackIndex, args.sceneIndex],
+  },
+  {
+    name: "clip_get_notes",
+    description: "Read MIDI notes from an already selected launcher clip matching trackIndex and sceneIndex (bank-local 0-7). Never selects or scrolls. Bounded to the first 64 sixteenth-note steps, MIDI pitches 0-127 and channel 0; inspect coverage metadata and errors before treating it as complete. Requires the compatible controller and settled matching cursor.",
+    inputSchema: boundedToolSchema({ trackIndex: bankIndexSchema, sceneIndex: bankIndexSchema }),
+    policy: "read", method: "clip.get_notes", mapArgs: (args) => [args.trackIndex, args.sceneIndex],
+  },
+  {
+    name: "track_bank_scroll_forward",
+    description: "Scroll the track bank one track forward. Changes bank-local target identities; re-read the bank and clip grid after navigation settles.",
+    inputSchema: boundedToolSchema(), policy: "mixer_write", method: "track.bank.scroll_forward",
+  },
+  {
+    name: "track_bank_scroll_backward",
+    description: "Scroll the track bank one track backward. Changes bank-local target identities; re-read the bank and clip grid after navigation settles.",
+    inputSchema: boundedToolSchema(), policy: "mixer_write", method: "track.bank.scroll_backward",
+  },
+  {
+    name: "track_bank_scroll_to_position",
+    description: "Scroll the track bank to an absolute project track position. The controller also checks the current track count. Re-read bank-local targets after navigation settles.",
+    inputSchema: boundedToolSchema({ position: { type: "integer", minimum: 0, maximum: 2147483647 } }),
+    policy: "mixer_write", method: "track.bank.scroll_to_position", mapArgs: (args) => [args.position],
+  },
+  {
+    name: "track_scroll_into_view",
+    description: "Scroll an existing bank-local track (index 0-7) into the Bitwig editor view. Requires mixer_write because this changes UI state.",
+    inputSchema: boundedToolSchema({ index: bankIndexSchema }),
+    policy: "mixer_write", method: "track.scroll_into_view", mapArgs: (args) => [args.index],
+  },
+  {
+    name: "track_rename",
+    description: "Rename an existing bank-local track (index 0-7). Name must be nonblank, at most 128 characters, without control characters.",
+    inputSchema: boundedToolSchema({ index: bankIndexSchema, name: displayNameSchema }),
+    policy: "mixer_write", method: "track.rename", mapArgs: (args) => [args.index, args.name],
+  },
+  {
+    name: "track_set_color",
+    description: "Set the color of an existing bank-local track (index 0-7) with finite RGB components between 0 and 1.",
+    inputSchema: boundedToolSchema({ index: bankIndexSchema, r: colorComponentSchema, g: colorComponentSchema, b: colorComponentSchema }),
+    policy: "mixer_write", method: "track.set_color", mapArgs: (args) => [args.index, args.r, args.g, args.b],
+  },
+  {
+    name: "scene_rename",
+    description: "Rename an existing bank-local scene (sceneIndex 0-7). Name must be nonblank, at most 128 characters, without control characters.",
+    inputSchema: boundedToolSchema({ sceneIndex: bankIndexSchema, name: displayNameSchema }),
+    policy: "scene_write", method: "scene.rename", mapArgs: (args) => [args.sceneIndex, args.name],
+  },
+].map((tool) => ({ ...tool, validateInput: true })));
+
 export const TOOL_SPECS = Object.freeze([
   {
     name: "bitwig_session_inspect",
@@ -1356,6 +1444,7 @@ export const TOOL_SPECS = Object.freeze([
     policy: "device_write",
     method: "browser.cancel",
   },
+  ...PORTED_TOOL_SPECS,
 ]);
 
 const TOOL_SPEC_MAP = new Map(TOOL_SPECS.map((tool) => [tool.name, tool]));
@@ -1399,7 +1488,7 @@ function discoveryEnabled(env) {
 }
 
 async function validateDiscoveryInput(schema, value) {
-  // SDK dependency already belongs to this package; load only on opt-in use.
+  // SDK dependency already belongs to this package; load only when validation is needed.
   discoveryValidator ??= import("@modelcontextprotocol/sdk/validation/ajv")
     .then(({ AjvJsonSchemaValidator }) => new AjvJsonSchemaValidator());
   const provider = await discoveryValidator;
@@ -1411,15 +1500,33 @@ async function validateDiscoveryInput(schema, value) {
   return validate(value).valid;
 }
 
+function snapshotJsonArguments(input) {
+  // Reject non-JSON values before stringify could silently turn NaN into null or
+  // drop an unknown argument. Detach before asynchronous validation to prevent
+  // callers from changing validated arguments while the validator loads.
+  const encoded = JSON.stringify(input, (_key, value) => {
+    if ((typeof value === "number" && !Number.isFinite(value)) ||
+        ["undefined", "function", "symbol", "bigint"].includes(typeof value)) {
+      throw new Error("Tool arguments must contain only finite JSON values.");
+    }
+    return value;
+  });
+  if (encoded === undefined || Buffer.byteLength(encoded, "utf8") > 65536) {
+    throw new Error("Tool arguments must fit within 65536 JSON bytes.");
+  }
+  return JSON.parse(encoded);
+}
+
 async function handleDiscoveryCall(name, input, { call, env }) {
   const fail = (error, message) => serializeToolError({ error, message });
   if (!discoveryEnabled(env)) return fail("tool_unavailable", "Tool discovery is not enabled.");
   // MCP arguments are JSON. Bound and detach them before asynchronous validation.
-  const encoded = JSON.stringify(input);
-  if (encoded === undefined || Buffer.byteLength(encoded, "utf8") > 65536) {
-    return fail("invalid_arguments", "Tool arguments must fit within 65536 JSON bytes.");
+  let args;
+  try {
+    args = snapshotJsonArguments(input);
+  } catch (error) {
+    return fail("invalid_arguments", error.message);
   }
-  const args = JSON.parse(encoded);
   const definition = DISCOVERY_DEFINITIONS.find((tool) => tool.name === name);
   if (!(await validateDiscoveryInput(definition.inputSchema, args))) {
     return fail("invalid_arguments", "Arguments do not match the dispatcher input schema.");
@@ -1529,7 +1636,7 @@ function buildToolDefinition(tool) {
   return {
     name: tool.name,
     description: `[policy:${tool.policy}] ${tool.description}`,
-    inputSchema: tool.inputSchema,
+    inputSchema: structuredClone(tool.inputSchema),
   };
 }
 
@@ -1597,7 +1704,8 @@ export async function handleToolCall(
   { call = callBitwig, env = process.env } = {},
 ) {
   try {
-    const { name, arguments: args = {} } = request.params;
+    const { name, arguments: input = {} } = request.params;
+    let args = input;
     if (DISCOVERY_NAMES.has(name)) return await handleDiscoveryCall(name, args, { call, env });
     const tool = TOOL_SPEC_MAP.get(name);
 
@@ -1610,6 +1718,22 @@ export async function handleToolCall(
 
     if (!isPolicyEnabled(tool.policy, env)) {
       return serializeToolError(buildPolicyBlockedError(tool));
+    }
+
+    if (tool.validateInput) {
+      try {
+        args = snapshotJsonArguments(args);
+      } catch (error) {
+        return serializeToolError({ error: "invalid_arguments", message: error.message });
+      }
+      if (!(await validateDiscoveryInput(tool.inputSchema, args))) {
+        return serializeToolError({ error: "invalid_arguments", message: "Arguments do not match the tool input schema." });
+      }
+      // Policy may be revoked while the validator loads; never dispatch using
+      // the earlier decision after an asynchronous boundary.
+      if (!isPolicyEnabled(tool.policy, env)) {
+        return serializeToolError(buildPolicyBlockedError(tool));
+      }
     }
 
     if (tool.execute) {
