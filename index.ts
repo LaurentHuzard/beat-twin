@@ -1022,6 +1022,132 @@ export const TRANSPORT_TOOL_SPECS = Object.freeze([
   },
 ].map((tool) => ({ ...tool, validateInput: true, partialResultIsError: true })));
 
+const normalizedLevelSchema = { type: "number", minimum: 0, maximum: 1 };
+const bankDeviceSchema = { trackIndex: bankIndexSchema, deviceIndex: bankIndexSchema };
+const bankSendSchema = { trackIndex: bankIndexSchema, sendIndex: bankIndexSchema };
+
+export const MIX_TOOL_SPECS = Object.freeze([
+  {
+    name: "track_delete",
+    description: "Delete one existing Instrument, Audio or Hybrid track from the current 8-track bank (index 0-7), including its musical material and devices. Group tracks are rejected; transport must be stopped and arranger recording disabled. Structural changes invalidate old target bindings and bank-local indices; re-read settled tracks and clips before another action. Dispatch acknowledgement is not proof of deletion.",
+    inputSchema: boundedToolSchema({ index: bankIndexSchema }), policy: "mixer_write", method: "track.delete",
+    mapArgs: (args) => [args.index],
+  },
+  {
+    name: "track_duplicate",
+    description: "Duplicate one existing Instrument, Audio or Hybrid bank-local track (index 0-7). Group tracks are rejected; transport must be stopped and arranger recording disabled. This changes project structure and invalidates old target bindings. Re-read settled tracks to identify the copy; acknowledgement does not establish its index or contents. Never automatically replay an uncertain duplication.",
+    inputSchema: boundedToolSchema({ index: bankIndexSchema }), policy: "mixer_write", method: "track.duplicate",
+    mapArgs: (args) => [args.index],
+  },
+  {
+    name: "cursor_track_get_status",
+    description: "Read the selected cursor track's existence, name, type, absolute position, normalized volume/pan, mute/solo/arm and color. Missing tracks are explicit; unsettled or unknown observations fail. Does not select a track or inspect every project track.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "cursor_track.get_status",
+  },
+  {
+    name: "cursor_device_get_status",
+    description: "Read the selected cursor device's existence, name, position in its parent chain, enabled/window/expanded flags. Unsettled or unknown observations fail. This observes the selected device; it does not select one or inspect the complete chain.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "cursor_device.get_status",
+  },
+  {
+    name: "cursor_clip_get_status",
+    description: "Read the selected launcher cursor clip's existence, loop length/start, play start/stop and color. Time values are beats (quarter-notes); this is clip state, not full note content or arranger regions. Unsettled or unknown observations fail.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "cursor_clip.get_status",
+  },
+  {
+    name: "application_create_effect_track",
+    description: "Append an effect/return track to the project using Bitwig's effect-track creation action. Transport must be stopped and arranger recording disabled. Re-read the settled return bank after this structural change; acknowledgement does not establish the new track index or contents. Never automatically replay an uncertain creation.",
+    inputSchema: boundedToolSchema(), policy: "application_write", method: "application.createEffectTrack",
+  },
+  {
+    name: "device_bypass",
+    description: "Set bypass for an existing device in the current track/device banks (both indices 0-7). bypass=true disables the device; bypass=false enables it. This can change the sound. Read device state after dispatch to verify the effect.",
+    inputSchema: boundedToolSchema({ ...bankDeviceSchema, bypass: { type: "boolean" } }),
+    policy: "device_write", method: "device.bypass", mapArgs: (args) => [args.trackIndex, args.deviceIndex, args.bypass],
+  },
+  {
+    name: "device_delete",
+    description: "Delete one existing device in the current track/device banks (both indices 0-7). Transport must be stopped and arranger recording disabled. This removes the device and its settings and changes chain positions. Wait for settled observations and re-read devices before another edit; dispatch acknowledgement is not verified deletion.",
+    inputSchema: boundedToolSchema(bankDeviceSchema), policy: "device_write", method: "device.delete",
+    mapArgs: (args) => [args.trackIndex, args.deviceIndex],
+  },
+  {
+    name: "device_select_next",
+    description: "Move the cursor to the next available device. Changes subsequent cursor-based targets; wait for settled cursor_device_get_status before editing or browsing. Never automatically replay an uncertain selection.",
+    inputSchema: boundedToolSchema(), policy: "device_write", method: "device.select_next",
+  },
+  {
+    name: "device_select_previous",
+    description: "Move the cursor to the previous available device. Changes subsequent cursor-based targets; wait for settled cursor_device_get_status before editing or browsing. Never automatically replay an uncertain selection.",
+    inputSchema: boundedToolSchema(), policy: "device_write", method: "device.select_previous",
+  },
+  {
+    name: "device_select_first",
+    description: "Select the first device in the cursor's current device chain. Changes subsequent cursor-based targets; wait for settled cursor_device_get_status before editing or browsing. Acknowledgement confirms dispatch only.",
+    inputSchema: boundedToolSchema(), policy: "device_write", method: "device.select_first",
+  },
+  {
+    name: "device_select_last",
+    description: "Select the last device in the cursor's current device chain. Changes subsequent cursor-based targets; wait for settled cursor_device_get_status before editing or browsing. Acknowledgement confirms dispatch only.",
+    inputSchema: boundedToolSchema(), policy: "device_write", method: "device.select_last",
+  },
+  {
+    name: "device_browse_insert_before",
+    description: "Open the device insertion browser before an existing selected and settled cursor device. Rejects an absent cursor; no implicit fallback insertion point. Opening the browser does not choose an instrument or prove insertion occurred.",
+    inputSchema: boundedToolSchema(), policy: "device_write", method: "device.browse_insert_before",
+  },
+  {
+    name: "device_browse_insert_after",
+    description: "Open the device insertion browser after an existing selected and settled cursor device. Rejects an absent cursor; never falls back to insertion before another target. Opening the browser does not choose a device or prove insertion occurred.",
+    inputSchema: boundedToolSchema(), policy: "device_write", method: "device.browse_insert_after",
+  },
+  {
+    name: "device_browse_replace",
+    description: "Open the replacement browser for an existing selected and settled cursor device. Rejects an absent cursor with no insertion fallback. Committing a replacement can remove the current device/settings; opening the browser alone does not prove replacement occurred.",
+    inputSchema: boundedToolSchema(), policy: "device_write", method: "device.browse_replace",
+  },
+  {
+    name: "mixer_get_master_volume",
+    description: "Read the observed master-track volume as a normalized value from 0 to 1, not decibels. Unavailable observed state is an error.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "mixer.master.get_volume",
+  },
+  {
+    name: "mixer_set_master_volume",
+    description: "Set master-track volume to a finite normalized value from 0 to 1, not decibels. This affects the output level; read master volume afterward to verify the dispatched change.",
+    inputSchema: boundedToolSchema({ value: normalizedLevelSchema }), policy: "mixer_write", method: "mixer.master.set_volume",
+    mapArgs: (args) => [args.value],
+  },
+  {
+    name: "mixer_get_send_level",
+    description: "Read one existing send's normalized level (0-1, not decibels) in the current track and send banks. trackIndex and sendIndex are each 0-7; unavailable targets or observations are errors. Does not inspect sends beyond this bank.",
+    inputSchema: boundedToolSchema(bankSendSchema), policy: "read", method: "mixer.track.get_send",
+    mapArgs: (args) => [args.trackIndex, args.sendIndex],
+  },
+  {
+    name: "mixer_set_send_level",
+    description: "Set one existing send's level using a finite normalized value from 0 to 1, not decibels. trackIndex and sendIndex are each 0-7 in the current banks. Read back the send level to verify the dispatched change.",
+    inputSchema: boundedToolSchema({ ...bankSendSchema, value: normalizedLevelSchema }), policy: "mixer_write", method: "mixer.track.set_send",
+    mapArgs: (args) => [args.trackIndex, args.sendIndex, args.value],
+  },
+  {
+    name: "mixer_return_list",
+    description: "Read existing effect/return tracks in the bounded eight-track return bank, including names, positions, normalized volume/pan and mute/solo. Inspect coverage metadata; this is not necessarily all project returns. Pan 0 is left, 0.5 center and 1 right; volume is not decibels.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "mixer.return.list",
+  },
+  {
+    name: "mixer_return_set_volume",
+    description: "Set volume for an existing return track in the current eight-track return bank (index 0-7). value is finite and normalized from 0 to 1, not decibels. Read the return bank after dispatch to verify the level.",
+    inputSchema: boundedToolSchema({ index: bankIndexSchema, value: normalizedLevelSchema }), policy: "mixer_write", method: "mixer.return.volume",
+    mapArgs: (args) => [args.index, args.value],
+  },
+  {
+    name: "mixer_return_set_pan",
+    description: "Set pan for an existing return track in the current eight-track return bank (index 0-7). value is finite and normalized: 0 left, 0.5 center, 1 right. Read the return bank after dispatch to verify the position.",
+    inputSchema: boundedToolSchema({ index: bankIndexSchema, value: normalizedLevelSchema }), policy: "mixer_write", method: "mixer.return.pan",
+    mapArgs: (args) => [args.index, args.value],
+  },
+].map((tool) => ({ ...tool, validateInput: true, partialResultIsError: true })));
+
 export const TOOL_SPECS = Object.freeze([
   {
     name: "bitwig_session_inspect",
@@ -1672,6 +1798,7 @@ export const TOOL_SPECS = Object.freeze([
   ...PORTED_TOOL_SPECS,
   ...CONSTRUCTION_TOOL_SPECS,
   ...TRANSPORT_TOOL_SPECS,
+  ...MIX_TOOL_SPECS,
 ]);
 
 const TOOL_SPEC_MAP = new Map(TOOL_SPECS.map((tool) => [tool.name, tool]));

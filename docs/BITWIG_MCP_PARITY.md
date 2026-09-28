@@ -1,6 +1,6 @@
 # Bitwig MCP capability parity and port plan
 
-Audit dates: 2026-09-27 (tranche 1), 2026-09-28 (tranches 2 and 3). Historical source: `llm2Bitwig` advanced branch at
+Audit dates: 2026-09-27 (tranche 1), 2026-09-28 (tranches 2–4). Historical source: `llm2Bitwig` advanced branch at
 `52563e4be42da37abf589245dd9ce3862c9dd7e1`. This inventory follows each catalogue
 name through the Java dispatch and the modules initialized by `controller-mcp.ts`.
 A declaration, a dispatch branch, a handler body, and a successful live operation
@@ -15,8 +15,8 @@ names are `arranger_get_status`, `arranger_set_panel_visibility`, and
 **57 tools**, including **47 historical names** and **10 newer names**. Tranche 1
 added **13 historical names**, reaching **70 tools**. Tranche 2 adds **9 historical
 names and 4 new names**, reaching **83 tools**. Tranche 3 adds **21 historical
-names**, reaching **104 tools**, with **26 reads** exposed under the default
-read-only policy. Optional discovery wrappers are counted separately.
+names**, reaching **104 tools**. Tranche 4 adds **22 historical names**, reaching
+**126 tools**, with **32 reads** exposed under the default read-only policy. Optional discovery wrappers are counted separately.
 These are source catalogue counts, not claims about an installed live controller.
 
 Each of the 164 historical names appears exactly once below. Categories are
@@ -27,8 +27,9 @@ historical incompleteness:
 - **Ported 1: 13** — historical name added in the inspection/navigation tranche.
 - **Ported 2: 9** — historical name added in the construction tranche.
 - **Ported 3: 21** — historical name added in the transport/arranger tranche.
+- **Ported 4: 22** — historical name added in the mix/device/cursor/track tranche.
 - **Equivalent: 3** — usable current replacement; historical alias is not registered.
-- **Next: 40** — historical handler exists; explicitly deferred to a later tranche.
+- **Next: 18** — historical handler exists; explicitly deferred to a later tranche.
 - **Stub: 2** — historical handler deliberately does not execute the requested operation.
 - **External: 6** — separate Ear service integration; outside the controller.
 - **Unwired: 23** — missing Java dispatch or missing/uninitialized controller handler.
@@ -91,10 +92,28 @@ bank; cue launch starts quantized playback. The tranche does not add timeline
 region editing. Zoom remains deferred because API 10 compatibility is not
 established, and cue naming/creation require API 15.
 
+## Fourth tranche: sound, mix and observed cursors
+
+See [the mix/device contract](BITWIG_MCP_MIX.md). Twenty-two historical names
+move to Ported 4: three cursor reads, seven mixer tools, nine device tools, track
+delete/duplicate, and effect-track creation. Sends and returns use bounded banks
+of eight entries; numeric mix values are normalized 0–1. Track/device structural
+changes must invalidate old bindings before host mutation and await new bank
+observations. Browser actions open a session without promising a loaded sound.
+The new track deletion/duplication tools accept individual Instrument/Audio/Hybrid
+tracks only; groups are rejected. These operations, device deletion and effect
+track creation require stopped transport and disabled arranger recording.
+
+The remaining **18 Next** rows are not all missing APIs: fourteen Application
+commands already have host implementations but depend on editor focus, selection,
+clipboard or global undo history that this port does not reliably target. The
+other four are browser text filtering, arranger zoom, cue creation and cue rename,
+with their distinct API/search evidence limits retained in the matrix.
+
 ## Complete historical-name matrix
 
 `Next` means source-level port candidate, not guaranteed API correctness. Current
-and Ported 1/2/3 identify exact registered names. Equivalent identifies replacements,
+and Ported 1/2/3/4 identify exact registered names. Equivalent identifies replacements,
 not source-compatible aliases. Historical module names refer to the archived
 `bitwig-controller/modules/` files.
 
@@ -124,9 +143,9 @@ not source-compatible aliases. Historical module names refer to the archived
 | `track_bank_set_mute` | Current | `track_bank_set_mute` | `track.bank.mute` / TrackBank |
 | `track_bank_set_solo` | Current | `track_bank_set_solo` | `track.bank.solo` / TrackBank |
 | `track_bank_select` | Current | `track_bank_select` | `track.bank.select` / TrackBank |
-| `track_delete` | Next | `Deferred: track_delete` | `track.delete` / TrackBank |
+| `track_delete` | Ported 4 | `track_delete` | `track.delete` / TrackBank |
 | `track_rename` | Ported 1 | `track_rename` | `track.rename` / TrackBank |
-| `track_duplicate` | Next | `Deferred: track_duplicate` | `track.duplicate` / TrackBank |
+| `track_duplicate` | Ported 4 | `track_duplicate` | `track.duplicate` / TrackBank |
 | `track_set_color` | Ported 1 | `track_set_color` | `track.set_color` / TrackBank — New r/g/b fields replace historical red/green/blue. |
 | `track_list` | Ported 1 | `track_list` | `track.list` / TrackBank — Visible bank, not all tracks in project. |
 | `track_get_info` | Ported 1 | `track_get_info` | `track.get_info` / TrackBank |
@@ -159,41 +178,41 @@ not source-compatible aliases. Historical module names refer to the archived
 | `track_selected_set_mute` | Current | `track_selected_set_mute` | `track.selected.mute` / Cursor |
 | `track_selected_set_solo` | Current | `track_selected_set_solo` | `track.selected.solo` / Cursor |
 | `track_selected_set_arm` | Current | `track_selected_set_arm` | `track.selected.arm` / Cursor |
-| `cursor_track_get_status` | Next | `Deferred: cursor_track_get_status` | `cursor_track.get_status` / Cursor — Current selected status APIs overlap, but do not return the full historical fields. |
-| `cursor_device_get_status` | Next | `Deferred: cursor_device_get_status` | `cursor_device.get_status` / Cursor — Current selected status APIs overlap, but do not return the full historical fields. |
-| `cursor_clip_get_status` | Next | `Deferred: cursor_clip_get_status` | `cursor_clip.get_status` / Cursor — Current selected status APIs overlap, but do not return the full historical fields. |
+| `cursor_track_get_status` | Ported 4 | `cursor_track_get_status` | `cursor_track.get_status` / Cursor — New bounded cursor status; inspect availability/coverage and settled identity. |
+| `cursor_device_get_status` | Ported 4 | `cursor_device_get_status` | `cursor_device.get_status` / Cursor — New bounded cursor status; inspect availability/coverage and settled identity. |
+| `cursor_clip_get_status` | Ported 4 | `cursor_clip_get_status` | `cursor_clip.get_status` / Cursor — New bounded cursor status; inspect availability/coverage and settled identity. |
 | `application_create_instrument_track` | Current | `application_create_instrument_track` | `application.createInstrumentTrack` / Application |
 | `application_create_audio_track` | Current | `application_create_audio_track` | `application.createAudioTrack` / Application |
-| `application_create_effect_track` | Next | `Deferred: application_create_effect_track` | `application.createEffectTrack` / Application |
+| `application_create_effect_track` | Ported 4 | `application_create_effect_track` | `application.createEffectTrack` / Application |
 | `device_get_status` | Current | `device_get_status` | `device.get_status` / Cursor |
 | `device_toggle_window` | Current | `device_toggle_window` | `device.toggle_window` / Cursor |
 | `device_toggle_expanded` | Current | `device_toggle_expanded` | `device.toggle_expanded` / Cursor |
 | `device_list` | Current | `device_list` | `device.list` / Device |
-| `device_bypass` | Next | `Deferred: device_bypass` | `device.bypass` / Device |
-| `device_delete` | Next | `Deferred: device_delete` | `device.delete` / Device |
+| `device_bypass` | Ported 4 | `device_bypass` | `device.bypass` / Device |
+| `device_delete` | Ported 4 | `device_delete` | `device.delete` / Device |
 | `device_get_remote_controls` | Current | `device_get_remote_controls` | `device.get_remote_controls` / Cursor |
 | `device_set_remote_control` | Current | `device_set_remote_control` | `device.set_remote_control` / Cursor |
 | `device_page_next` | Current | `device_page_next` | `device.page_next` / Cursor |
 | `device_page_previous` | Current | `device_page_previous` | `device.page_previous` / Cursor |
-| `device_select_next` | Next | `Deferred: device_select_next` | `device.select_next` / Cursor |
-| `device_select_previous` | Next | `Deferred: device_select_previous` | `device.select_previous` / Cursor |
-| `device_select_first` | Next | `Deferred: device_select_first` | `device.select_first` / Cursor |
-| `device_select_last` | Next | `Deferred: device_select_last` | `device.select_last` / Cursor |
-| `device_browse_insert_before` | Next | `Deferred: device_browse_insert_before` | `device.browse_insert_before` / Cursor — Current device_browse_* insertion APIs overlap; selected-device replacement semantics not equivalent. |
-| `device_browse_insert_after` | Next | `Deferred: device_browse_insert_after` | `device.browse_insert_after` / Cursor — Current device_browse_* insertion APIs overlap; selected-device replacement semantics not equivalent. |
-| `device_browse_replace` | Next | `Deferred: device_browse_replace` | `device.browse_replace` / Cursor — Current device_browse_* insertion APIs overlap; selected-device replacement semantics not equivalent. |
+| `device_select_next` | Ported 4 | `device_select_next` | `device.select_next` / Cursor |
+| `device_select_previous` | Ported 4 | `device_select_previous` | `device.select_previous` / Cursor |
+| `device_select_first` | Ported 4 | `device_select_first` | `device.select_first` / Cursor |
+| `device_select_last` | Ported 4 | `device_select_last` | `device.select_last` / Cursor |
+| `device_browse_insert_before` | Ported 4 | `device_browse_insert_before` | `device.browse_insert_before` / Cursor — Explicit existing cursor-device insertion target; browser opening only, no absent-device fallback. |
+| `device_browse_insert_after` | Ported 4 | `device_browse_insert_after` | `device.browse_insert_after` / Cursor — Explicit existing cursor-device insertion target; browser opening only, no absent-device fallback. |
+| `device_browse_replace` | Ported 4 | `device_browse_replace` | `device.browse_replace` / Cursor — Explicit existing cursor-device insertion target; browser opening only, no absent-device fallback. |
 | `clip_get_info` | Current | `clip_get_info` | `clip.get_info` / Clip |
 | `clip_set_note` | Current | `clip_set_note` | `clip.set_note` / Clip |
 | `clip_clear_note` | Current | `clip_clear_note` | `clip.clear_note` / Clip |
 | `clip_toggle_note` | Current | `clip_toggle_note` | `clip.toggle_note` / Clip |
 | `clip_get_notes` | Ported 1 | `clip_get_notes` | `clip.get_notes` / Clip — Historical Clip handler was a stub. New implementation reads bounded selected cursor; changed input schema. |
-| `mixer_get_master_volume` | Next | `Deferred: mixer_get_master_volume` | `mixer.master.get_volume` / Mixer |
-| `mixer_set_master_volume` | Next | `Deferred: mixer_set_master_volume` | `mixer.master.set_volume` / Mixer |
-| `mixer_get_send_level` | Next | `Deferred: mixer_get_send_level` | `mixer.track.get_send` / TrackBank |
-| `mixer_set_send_level` | Next | `Deferred: mixer_set_send_level` | `mixer.track.set_send` / TrackBank |
-| `mixer_return_list` | Next | `Deferred: mixer_return_list` | `mixer.return.list` / Mixer |
-| `mixer_return_set_volume` | Next | `Deferred: mixer_return_set_volume` | `mixer.return.volume` / Mixer |
-| `mixer_return_set_pan` | Next | `Deferred: mixer_return_set_pan` | `mixer.return.pan` / Mixer |
+| `mixer_get_master_volume` | Ported 4 | `mixer_get_master_volume` | `mixer.master.get_volume` / Mixer |
+| `mixer_set_master_volume` | Ported 4 | `mixer_set_master_volume` | `mixer.master.set_volume` / Mixer |
+| `mixer_get_send_level` | Ported 4 | `mixer_get_send_level` | `mixer.track.get_send` / TrackBank |
+| `mixer_set_send_level` | Ported 4 | `mixer_set_send_level` | `mixer.track.set_send` / TrackBank |
+| `mixer_return_list` | Ported 4 | `mixer_return_list` | `mixer.return.list` / Mixer |
+| `mixer_return_set_volume` | Ported 4 | `mixer_return_set_volume` | `mixer.return.volume` / Mixer |
+| `mixer_return_set_pan` | Ported 4 | `mixer_return_set_pan` | `mixer.return.pan` / Mixer |
 | `project_get_summary` | Ported 1 | `project_get_summary` | `project.get_summary` / controller-mcp — Visible bank only; new shape is not the old selection/mixer/arranger aggregate. |
 | `arranger_get_status` | Ported 3 | `arranger_get_status` | `arranger.get_status` / Arranger |
 | `arranger_set_panel_visibility` | Ported 3 | `arranger_set_panel_visibility` | `arranger.set_panel_visibility` / Arranger |
@@ -223,7 +242,7 @@ not source-compatible aliases. Historical module names refer to the archived
 | `project_unarm_all` | Unwired | `Deferred: implement/fix wiring` | `project.unarm_all` / no active handler — Java dispatch exists; no handler in initialized controller modules. |
 | `arranger_cues_create` | Stub | `Deferred` | `arranger.cues.create` / Arranger — Always throws; use future transport_add_cue_marker port. |
 | `browser_get_status` | Current | `browser_get_status` | `browser.get_status` / Browser |
-| `browser_set_filter` | Next | `Deferred: browser_set_filter` | `browser.set_filter` / Browser — Historical smart-collection wildcard call needs API review; not proven text search. |
+| `browser_set_filter` | Next | `Deferred: browser_set_filter` | `browser.set_filter` / Browser — Historical getWildcardFilter().set(text) does not match installed BrowserFilterColumn.getWildcardItem(); genuine text-search API remains unverified. |
 | `browser_list_results` | Current | `browser_list_results` | `browser.list_results` / Browser |
 | `browser_select_result` | Current | `browser_select_result` | `browser.select_result` / Browser |
 | `browser_commit` | Current | `browser_commit` | `browser.commit` / Browser |
@@ -250,20 +269,20 @@ not source-compatible aliases. Historical module names refer to the archived
 | `arranger_cues_rename` | Next | `Deferred: arranger_cues_rename` | `arranger.cues.rename` / Arranger — CueMarker.name() write requires API 15; current controller selects API 10. |
 | `arranger_cues_color` | Stub | `Deferred` | `arranger.cues.color` / Arranger — Always throws: cue marker color read-only in historical API. |
 | `transport_add_cue_marker` | Next | `Deferred: transport_add_cue_marker` | `transport.add_cue_marker` / Transport — addCueMarkerAtPlaybackPosition requires API 15. |
-| `application_undo` | Next | `Deferred: application_undo` | `application.undo` / Application |
-| `application_redo` | Next | `Deferred: application_redo` | `application.redo` / Application |
-| `application_cut` | Next | `Deferred: application_cut` | `application.cut` / Application |
-| `application_copy` | Next | `Deferred: application_copy` | `application.copy` / Application |
-| `application_paste` | Next | `Deferred: application_paste` | `application.paste` / Application |
-| `application_delete` | Next | `Deferred: application_delete` | `application.delete` / Application |
-| `application_duplicate` | Next | `Deferred: application_duplicate` | `application.duplicate` / Application |
-| `application_select_all` | Next | `Deferred: application_select_all` | `application.select_all` / Application |
-| `application_select_none` | Next | `Deferred: application_select_none` | `application.select_none` / Application |
-| `application_arrow_key` | Next | `Deferred: application_arrow_key` | `application.arrow_key` / Application |
-| `application_enter` | Next | `Deferred: application_enter` | `application.enter` / Application |
-| `application_escape` | Next | `Deferred: application_escape` | `application.escape` / Application |
-| `application_zoom_in` | Next | `Deferred: application_zoom_in` | `application.zoom_in` / Application |
-| `application_zoom_out` | Next | `Deferred: application_zoom_out` | `application.zoom_out` / Application |
+| `application_undo` | Next | `Deferred: application_undo` | `application.undo` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
+| `application_redo` | Next | `Deferred: application_redo` | `application.redo` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
+| `application_cut` | Next | `Deferred: application_cut` | `application.cut` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
+| `application_copy` | Next | `Deferred: application_copy` | `application.copy` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
+| `application_paste` | Next | `Deferred: application_paste` | `application.paste` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
+| `application_delete` | Next | `Deferred: application_delete` | `application.delete` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
+| `application_duplicate` | Next | `Deferred: application_duplicate` | `application.duplicate` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
+| `application_select_all` | Next | `Deferred: application_select_all` | `application.select_all` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
+| `application_select_none` | Next | `Deferred: application_select_none` | `application.select_none` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
+| `application_arrow_key` | Next | `Deferred: application_arrow_key` | `application.arrow_key` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
+| `application_enter` | Next | `Deferred: application_enter` | `application.enter` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
+| `application_escape` | Next | `Deferred: application_escape` | `application.escape` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
+| `application_zoom_in` | Next | `Deferred: application_zoom_in` | `application.zoom_in` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
+| `application_zoom_out` | Next | `Deferred: application_zoom_out` | `application.zoom_out` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
 
 ## Deferred delivery sequence
 
@@ -272,9 +291,11 @@ not source-compatible aliases. Historical module names refer to the archived
    tranche 2. Its duplication, names/colors, bounded note batches and selected
    scene operations are documented in the construction contract. Avoid
    destructive destinations and confirm the effective target before mutations.
-2. **Sound and mix:** device navigation and replacement, real browser filtering,
-   sends/returns/master, effect-track creation. Loading an instrument requires a
-   device identity and settled browser result, not a successful request alone.
+2. **Further sound and mix:** tranche 4 restores bounded device navigation,
+   insertion-browser opening, sends/returns/master and effect-track creation.
+   Real text filtering, sound selection/loading, cross-bank completeness and
+   live audio verification remain separate. Browser opening is not a loaded
+   instrument or proof of successful replacement.
 3. **Further song form:** tranche 3 restores transport/overdub, arranger panel
    controls and bounded cue listing/launch. Cue creation/naming, zoom and complete
    timeline region editing remain deferred. Existing view/marker tools do not

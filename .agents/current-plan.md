@@ -1,45 +1,50 @@
-# BT-MCP-PORT-003 — Advanced transport and bounded cue-marker operations
+# BT-MCP-PORT-004 — Sound, mix and bounded track/device operations
 
-User authorization 2026-09-28: publish/merge verified capability tranches and
-continue the port with parallel agents. Live Bitwig tests are deferred.
-Tranche 2 merged through PR #95 as 9bd2ec9c6c4bf5de15b2b97eafec78f9ad4a4b07.
-That freshly fetched, remote-confirmed main is this worktree's base.
-Branch: agent/bitwig-transport-port-20260928.
+Status: implemented and locally verified; authorized publication in progress.
+363 offline tests, typecheck, architecture and distribution passed. Independent
+review complete. Live Bitwig acceptance remains deferred. See
+`.agents/reports/feature-20260928-bitwig-mix-port.md` for evidence and limits.
 
-## Scope and ownership
+User authorization 2026-09-28: continue capability ports with parallel agents and
+publish/merge verified tranches. Live Bitwig tests are deferred.
+Freshly fetched and remote-confirmed base: 02f992bd4741a86caeedc3d975d73590598a7202,
+merged PR #96. Branch: agent/bitwig-mix-port-20260928.
 
-Add 21 API-10-compatible historical tools: metronome, time signature, tap tempo,
-punch controls/status, overdub controls/status, playback/navigation controls,
-arranger panel status/visibility, bounded cue list and cue playback launch.
-Catalog target: 104 tools, 26 default reads. Preserve earlier tool contracts.
+## Scope
 
-Correct historical API mistakes: timeSignature().set takes a string; return to
-zero uses setPosition(0); marker labels use getName() under API 10; cue launch
-starts playback and is not a read-only cursor move. Exclude cue creation/rename
-(API 15 required) and arranger zoom (API 10 compatibility not established).
+Add 22 historical tools: targeted track delete/duplicate; cursor track/device/clip
+inspection; effect-track creation; device bypass/delete, cursor navigation and
+browser insertion/replacement; master, send and return levels. Target catalog:
+126 tools / 32 default reads. Preserve prior 104 tools and original schema prefix.
 
-- controller_port: controller TypeScript + tests/bitwig-controller-transport.test.ts.
-- mcp_port: index.ts + tests/mcp-transport-port.test.ts.
-- parity_audit: docs/BITWIG_MCP_PARITY.md + docs/BITWIG_MCP_TRANSPORT.md;
+API 10 constraints: main track bank reserves eight sends; effect bank uses the
+legacy two-argument constructor; track duplication uses Channel.duplicate, not
+API-19 duplicateObject; no API-18 Send.isEnabled. Values are normalized 0–1,
+including pan, with 0.5 centered; no dB claim.
+
+Track structure mutations require an adapted observation barrier, not the
+construction guard that assumes unchanged bank positions. Revoke bindings before
+mutation, retain project scope, observe expected count/selection/content changes,
+and wait for stable data before reusing targets. Unknown state fails closed.
+Device browsing requires an existing selected device; no implicit replacement
+fallback. Acknowledgements describe dispatch, not observed result.
+
+## Ownership
+
+- controller_port: controller TypeScript + tests/bitwig-controller-mix.test.ts.
+- mcp_port: index.ts + tests/mcp-mix-port.test.ts.
+- parity_audit: docs/BITWIG_MCP_PARITY.md + docs/BITWIG_MCP_MIX.md;
   independent API and adversarial review.
-- Coordinator: generated JavaScript, package/tests/counts integration, validation,
-  report and authorized exact-head publication.
+- Coordinator: generated JS, package/counts/tests integration, validation, report,
+  publication and final reconciliation of the capability inventory.
 
-## Validation
+## Boundaries and verification
 
-Strict schemas, integer bounds, enum panel choices, settled/known observed read
-state, authenticated writes and retained policies. Marker bank coverage explicit;
-no complete-song or complete-marker-list claim. Non-idempotent actions never retry
-automatically; acknowledgements describe dispatch, not observed effects.
+Fourteen global focus-dependent application commands and four API/search/zoom
+candidates remain distinct follow-up work; do not claim full historical parity.
+External services, historical stubs and unwired declarations remain documented.
 
-Run focused and full offline suites, typecheck, architecture, packaging, syntax
-and diff checks. No controller installation/reload or musical action. GitHub
-Actions currently disabled; report local evidence separately from CI and live.
-
-## Outcome
-
-Implemented and offline-validated: 104 tools / 26 default reads. Full suite:
-338 passed; focused MCP integration: 65 passed. Typecheck, architecture,
-distribution, generated syntax and diff checks passed. Independent review found
-no remaining concrete blocker. Evidence: `.agents/reports/feature-20260928-bitwig-transport-port.md`.
-Publication is authorized; live acceptance remains deferred.
+Run focused/full offline tests, typecheck, architecture, distribution, syntax and
+diff checks. No installation/reload, DAW write, listening or model run. Publish
+verified source under existing user authorization; GitHub Actions are disabled,
+so local evidence and deferred live acceptance remain separate.
