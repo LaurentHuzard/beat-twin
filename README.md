@@ -105,7 +105,7 @@ through an injected port. The capability guides cover
 [sound and mix](docs/BITWIG_MCP_MIX.md), and
 [API 15 parity](docs/BITWIG_MCP_PARITY_NEXT.md), and
 [musical extensions and MIDI](docs/BITWIG_MCP_MUSICAL.md), including controller upgrades and
-readback limits. The [historical parity inventory](docs/BITWIG_MCP_PARITY.md)
+readback limits, plus [project save requests and persistence evidence](docs/BITWIG_MCP_PERSISTENCE.md). The [historical parity inventory](docs/BITWIG_MCP_PARITY.md)
 tracks remaining work.
 Browser audition is local Web Audio preview, not a
 Bitwig mutation or MCP write.

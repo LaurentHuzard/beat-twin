@@ -1,32 +1,30 @@
-# BT-MCP-PARITY-007 — Complete functional host paths
+# BT-MCP-PARITY-008 — Expression evidence and project persistence
 
-User explicitly requests continuing toward full parity and beyond. Prior
-parallel-agent, publication and disposable-project live-test authorization
-persists. Fresh fetched base: b74a587f891c1a73245faa915bf23101ce2f698b.
-One worktree and one implementation item; only root operates the live DAW.
+Fresh fetched confirmed base f6f0a447b51759c43b05e26a8c905930241fc70b (PR101).
+User explicitly continues parity campaign; previous parallel-agent, push/merge,
+disposable-project mutation and audio-test authorization persists. Root alone
+operates the live DAW. Preserve previous checkouts and private evidence.
 
-First unblock truthful current-value observation for groove/sends, browser and
-remote controls, using the installed API contract and real host behavior. Keep
-identity/snapshot/write safeguards and explicit observation provenance. No
-cached getter may silently become confirmed mutation evidence. Address pressure
-readback with host evidence, not invented values. Then replay missing functional
-paths including real sound insertion and MIDI cleanup; add a local optional Ear
-provider if its capture semantics can be verified against the existing contract.
+Resolve or precisely bound the incoming poly-aftertouch mapping failure through
+controlled probes and installed API/native evidence; do not patch speculatively.
+Inspect supported project persistence actions and develop an honest save/reopen
+witness, requiring actual persisted content to be compared. No action invocation
+may be called a successful save. Missing native UI/path capability is explicit.
+One Orbit item/PR. Any code belongs to isolated worktree, maintained scripts TS,
+generated bridge outputs only through build. Tests and real scenarios remain
+explicitly authorized. Raw project/audio/private logs remain ignored output/.
 
-Ownership: host observer agent owns main controller + its tests; creative agent
-owns creative module + its tests; Ear agent owns local Ear implementation,
-focused tests/docs only. Root owns registry/package integration, generated
-artifacts, live evidence, final review/publication and coverage report.
-
-Validation: focused regression tests, full suite/typecheck/distribution, private
-live journal and real postconditions. Track unavailable dependencies honestly;
-full parity is not a tool-count claim. Public artifacts contain no raw song,
-audio, desktop or credential data. Build isolated, review exact head, push/merge
-under existing authorization, verify remote state and installed-source match.
+Independent agents investigate MIDI forwarding and persistence contract; root
+integrates, tests live serially, reviews, publishes exact verified head, records
+limits. Validate focused tests plus relevant full suite/typecheck/distribution if
+implementation changes. No MUE/Gemma autonomy or artistic-quality score.
 
 ## Result
 
-Implementation, independent review, 498 tests and bounded live replay complete.
-See reports/parity-20260928-functional-host-paths.md for actual evidence and
-remaining exclusions. Publication is authorized; GitHub PR metadata records delivery status. No blanket
-claim of full historical/API acceptance; no MUE/Gemma evaluation performed.
+Implementation and bounded live validation complete. Three tools delivered;
+507 tests, typecheck, architecture and final 34-artifact distribution passed.
+Real save/reopen manifest comparison passed; incoming poly-aftertouch remains
+unresolved despite measured MPE positive control. Working project copy cleaned
+and saved; raw witness retained privately. Independent review complete.
+See `.agents/reports/parity-20260928-expression-persistence.md`.
+Publication is authorized; GitHub PR metadata records the final delivery state.

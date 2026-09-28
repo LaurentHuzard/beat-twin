@@ -42,13 +42,14 @@ const readNames = [
   "browser_get_filter_items",
   "device_remote_pages_get",
   "transport_get_arranger_loop",
+  "application_list_actions",
 ];
-const applicationNames = ["application_create_instrument_track", "application_create_audio_track", "arranger_set_panel_visibility", "application_create_effect_track", "application_undo", "application_redo", "application_cut", "application_copy", "application_paste", "application_delete", "application_duplicate", "application_select_all", "application_select_none", "application_arrow_key", "application_enter", "application_escape", "application_zoom_in", "application_zoom_out", "arranger_zoom", "transport_add_cue_marker", "arranger_cues_create", "arranger_cues_rename"];
+const applicationNames = ["application_create_instrument_track", "application_create_audio_track", "arranger_set_panel_visibility", "application_create_effect_track", "application_undo", "application_redo", "application_cut", "application_copy", "application_paste", "application_delete", "application_duplicate", "application_select_all", "application_select_none", "application_arrow_key", "application_enter", "application_escape", "application_zoom_in", "application_zoom_out", "arranger_zoom", "transport_add_cue_marker", "arranger_cues_create", "arranger_cues_rename", "project_save", "project_save_as"];
 const writePolicies = ["transport", "mixer_write", "clip_write", "scene_write", "device_write", "application_write", "midi_write", "audio_capture"];
 const modes = [
-  { label: "read-only", env: {}, policies: ["read"], count: 42 },
-  { label: "selective-writes", env: { BITWIG_MCP_WRITE_POLICY: "application_write" }, policies: ["read", "application_write"], count: 64 },
-  { label: "all-writes", env: { BITWIG_MCP_ENABLE_WRITES: "1" }, policies: ["read", ...writePolicies], count: 187 },
+  { label: "read-only", env: {}, policies: ["read"], count: 43 },
+  { label: "selective-writes", env: { BITWIG_MCP_WRITE_POLICY: "application_write" }, policies: ["read", "application_write"], count: 67 },
+  { label: "all-writes", env: { BITWIG_MCP_ENABLE_WRITES: "1" }, policies: ["read", ...writePolicies], count: 190 },
 ];
 const parseToolText = (response) => JSON.parse(response.content[0].text);
 
@@ -137,7 +138,7 @@ test("policy normalization, ignored entries and all-writes precedence reuse cano
   for (const enabled of ["1", "true", " YES ", "On", "all"]) {
     const report = bridge.getMcpDiagnostics({ env: { BITWIG_MCP_ENABLE_WRITES: enabled, BITWIG_MCP_WRITE_POLICY: "application_write" } });
     assert.equal(report.mode, "all-writes");
-    assert.equal(report.tool_count, 187);
+    assert.equal(report.tool_count, 190);
   }
   const env = { BITWIG_MCP_ENABLE_WRITES: "false", BITWIG_MCP_WRITE_POLICY: " APPLICATION_WRITE ,invalid,application_write ", BITWIG_MCP_TOOL_DISCOVERY: "true" };
   const report = bridge.getMcpDiagnostics({ env });

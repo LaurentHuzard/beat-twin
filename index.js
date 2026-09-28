@@ -1389,6 +1389,23 @@ export const MUSICAL_TOOL_SPECS = Object.freeze([
   },
 ].map((tool) => ({ ...tool, validateInput: true, partialResultIsError: true })));
 
+export const PERSISTENCE_TOOL_SPECS = Object.freeze([
+  {
+    name: "application_list_actions",
+    description: "Read a bounded page of Bitwig application action IDs and names. This discovers host commands without invoking them; an action's presence does not prove that it is currently enabled or that saving/opening has completed. Offset 0-4096, limit 1-64.",
+    inputSchema: boundedToolSchema({ offset: { type: "integer", minimum: 0, maximum: 4096 }, limit: { type: "integer", minimum: 1, maximum: 64 } }),
+    policy: "read", method: "application.list_actions", mapArgs: (args) => [args.offset, args.limit],
+    validateInput: true,
+  },
+  ...["save", "save_as"].map((operation) => ({
+    name: `project_${operation}`,
+    description: `Request Bitwig's ${operation === "save_as" ? "Save as" : "Save"} action for the currently observed project name, with transport and recording stopped. The expected name is a guard, not a persistent project ID; names can collide. No path or arbitrary action is accepted. Dispatch is not proof of saving: a native dialog may require user interaction, and persisted content must be verified separately.`,
+    inputSchema: boundedToolSchema({ expectedProjectName: { type: "string", minLength: 1, maxLength: 256, pattern: "^(?=.*\\S)[^\\u0000-\\u001f\\u007f-\\u009f]+$" } }),
+    policy: "application_write", method: `project.${operation}`, mapArgs: (args) => [args.expectedProjectName],
+    validateInput: true,
+  })),
+]);
+
 export const TOOL_SPECS = Object.freeze([
   {
     name: "bitwig_session_inspect",
@@ -2042,6 +2059,7 @@ export const TOOL_SPECS = Object.freeze([
   ...MIX_TOOL_SPECS,
   ...PARITY_TOOL_SPECS,
   ...MUSICAL_TOOL_SPECS,
+  ...PERSISTENCE_TOOL_SPECS,
 ]);
 
 const TOOL_SPEC_MAP = new Map(TOOL_SPECS.map((tool) => [tool.name, tool]));

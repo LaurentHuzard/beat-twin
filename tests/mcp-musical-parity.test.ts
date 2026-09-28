@@ -42,13 +42,15 @@ const cases = [
 ];
 
 test("musical tranche appends 26 unique tools, five reads and two opt-in historical wrappers", () => {
-  assert.equal(TOOL_SPECS.length, 187);
-  assert.equal(new Set(TOOL_SPECS.map((tool) => tool.name)).size, 187);
+  assert.equal(TOOL_SPECS.length, 190);
+  assert.equal(new Set(TOOL_SPECS.map((tool) => tool.name)).size, 190);
   assert.deepEqual(TOOL_SPECS.slice(161, 187), MUSICAL_TOOL_SPECS);
   assert.deepEqual(MUSICAL_TOOL_SPECS.map((tool) => tool.name), cases.map((entry) => entry[0]));
   const reads = getToolDefinitions({ env: {} });
-  assert.equal(reads.length, 42);
-  assert.deepEqual(reads.slice(37).map((tool) => tool.name), ["midi_get_status", "clip_get_note_expressions", "browser_get_filter_items", "device_remote_pages_get", "transport_get_arranger_loop"]);
+  assert.equal(reads.length, 43);
+  assert.deepEqual(reads.slice(37, 42).map((tool) => tool.name), ["midi_get_status", "clip_get_note_expressions", "browser_get_filter_items", "device_remote_pages_get", "transport_get_arranger_loop"]);
+  assert.deepEqual(reads.slice(42).map((tool) => tool.name), ["application_list_actions"]);
+  assert.deepEqual(TOOL_SPECS.slice(187).map((tool) => tool.name), ["application_list_actions", "project_save", "project_save_as"]);
   assert.equal(reads.some((tool) => tool.name.startsWith("ear_")), false);
   assert.deepEqual(getToolDefinitions({ env: discovery }).slice(-4).map((tool) => tool.name), ["search_tools", "call_tool", "mcp_search_tools", "mcp_execute_advanced_tool"]);
   for (const tool of MUSICAL_TOOL_SPECS) {

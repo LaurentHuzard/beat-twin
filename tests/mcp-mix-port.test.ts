@@ -34,11 +34,11 @@ const cases = [
 ];
 
 test("mix tranche appends 22 unique tools and six default reads without altering prior order", () => {
-  assert.equal(TOOL_SPECS.length, 187);
-  assert.equal(new Set(TOOL_SPECS.map((tool) => tool.name)).size, 187);
+  assert.equal(TOOL_SPECS.length, 190);
+  assert.equal(new Set(TOOL_SPECS.map((tool) => tool.name)).size, 190);
   assert.deepEqual(TOOL_SPECS.slice(104, 126), MIX_TOOL_SPECS);
   const definitions = getToolDefinitions({ env: {} });
-  assert.equal(definitions.length, 42);
+  assert.equal(definitions.length, 43);
   assert.deepEqual(definitions.slice(26, 32).map((tool) => tool.name), [
     "cursor_track_get_status", "cursor_device_get_status", "cursor_clip_get_status",
     "mixer_get_master_volume", "mixer_get_send_level", "mixer_return_list",
