@@ -1,6 +1,6 @@
 # Bitwig MCP capability parity and port plan
 
-Audit date: 2026-09-27. Historical source: `llm2Bitwig` advanced branch at
+Audit dates: 2026-09-27 (tranche 1), 2026-09-28 (tranche 2). Historical source: `llm2Bitwig` advanced branch at
 `52563e4be42da37abf589245dd9ce3862c9dd7e1`. This inventory follows each catalogue
 name through the Java dispatch and the modules initialized by `controller-mcp.ts`.
 A declaration, a dispatch branch, a handler body, and a successful live operation
@@ -11,24 +11,27 @@ does not claim live verification or that the full port is complete.
 
 The historical catalogue has **167 entries / 164 unique names**. The duplicated
 names are `arranger_get_status`, `arranger_set_panel_visibility`, and
-`arranger_zoom` (two entries each). Before this tranche, the current base catalogue
-had **57 tools**, including **47 historical names** and **10 newer names**. This
-tranche adds **13 historical names**, taking the base catalogue to **70 tools**.
-Optional discovery wrappers are counted separately.
+`arranger_zoom` (two entries each). Before these ports, the base catalogue had
+**57 tools**, including **47 historical names** and **10 newer names**. Tranche 1
+added **13 historical names**, reaching **70 tools**. Tranche 2 adds **9 historical
+names and 4 new names**, reaching **83 tools**, with **22 reads** exposed under
+the default read-only policy. Optional discovery wrappers are counted separately.
+These are source catalogue counts, not claims about an installed live controller.
 
 Each of the 164 historical names appears exactly once below. Categories are
 exclusive and concern this port's status, while the last column records any
 historical incompleteness:
 
-- **Current: 47** — same name already present before this tranche; not a fresh live claim.
-- **Ported: 13** — same historical name added in this tranche; contracts may be stricter.
+- **Current: 47** — same name present before either tranche; not a fresh live claim.
+- **Ported 1: 13** — historical name added in the inspection/navigation tranche.
+- **Ported 2: 9** — historical name added in the construction tranche.
 - **Equivalent: 3** — usable current replacement; historical alias is not registered.
-- **Next: 70** — historical handler exists; explicitly deferred to a later tranche.
+- **Next: 61** — historical handler exists; explicitly deferred to a later tranche.
 - **Stub: 2** — historical handler deliberately does not execute the requested operation.
 - **External: 6** — separate Ear service integration; outside the controller.
 - **Unwired: 23** — missing Java dispatch or missing/uninitialized controller handler.
 
-`clip_get_notes` is counted as Ported because it now has a bounded implementation;
+`clip_get_notes` is counted as Ported 1 because it now has a bounded implementation;
 its historical implementation was also a stub. Thus the audit identifies **three
 historical stubs**, of which two remain deferred.
 
@@ -66,10 +69,22 @@ and keeping launcher-bank navigation from silently retargeting an approved plan.
 The existence of a read API alone does not make autonomous full-track composition
 ready.
 
+## Second tranche: bounded launcher construction
+
+See [the construction contract](BITWIG_MCP_CONSTRUCTION.md) for the complete tool
+list, API evidence, overwrite limits, partial batch semantics, and offline/live
+verification boundary. Nine historical rows below move to Ported 2.
+
+Four additional names **do not belong to the historical 164-name catalogue**:
+`clip_rename`, `clip_set_notes`, `clip_clear_notes`, and `clip_set_loop_length`.
+They add selected-cursor naming, bounded batch insertion/removal, and loop length
+control. Their inclusion in the 83-tool catalogue does not change the historical
+matrix denominator.
+
 ## Complete historical-name matrix
 
 `Next` means source-level port candidate, not guaranteed API correctness. Current
-and Ported identify exact registered names. Equivalent identifies replacements,
+and Ported 1/2 identify exact registered names. Equivalent identifies replacements,
 not source-compatible aliases. Historical module names refer to the archived
 `bitwig-controller/modules/` files.
 
@@ -92,7 +107,7 @@ not source-compatible aliases. Historical module names refer to the archived
 | `transport_get_position` | Current | `transport_get_position` | `transport.getPosition` / Transport |
 | `transport_set_position` | Current | `transport_set_position` | `transport.setPosition` / Transport |
 | `transport_playing_status` | Current | `transport_playing_status` | `transport.getIsPlaying` / Transport |
-| `transport_get_recording_status` | Next | `Deferred: transport_get_recording_status` | `transport.getIsRecording` / Transport |
+| `transport_get_recording_status` | Ported 2 | `transport_get_recording_status` | `transport.getIsRecording` / Transport |
 | `track_bank_get_status` | Current | `track_bank_get_status` | `track.bank.get_status` / TrackBank |
 | `track_bank_set_volume` | Current | `track_bank_set_volume` | `track.bank.volume` / TrackBank |
 | `track_bank_set_pan` | Current | `track_bank_set_pan` | `track.bank.pan` / TrackBank |
@@ -100,34 +115,34 @@ not source-compatible aliases. Historical module names refer to the archived
 | `track_bank_set_solo` | Current | `track_bank_set_solo` | `track.bank.solo` / TrackBank |
 | `track_bank_select` | Current | `track_bank_select` | `track.bank.select` / TrackBank |
 | `track_delete` | Next | `Deferred: track_delete` | `track.delete` / TrackBank |
-| `track_rename` | Ported | `track_rename` | `track.rename` / TrackBank |
+| `track_rename` | Ported 1 | `track_rename` | `track.rename` / TrackBank |
 | `track_duplicate` | Next | `Deferred: track_duplicate` | `track.duplicate` / TrackBank |
-| `track_set_color` | Ported | `track_set_color` | `track.set_color` / TrackBank — New r/g/b fields replace historical red/green/blue. |
-| `track_list` | Ported | `track_list` | `track.list` / TrackBank — Visible bank, not all tracks in project. |
-| `track_get_info` | Ported | `track_get_info` | `track.get_info` / TrackBank |
-| `track_scroll_into_view` | Ported | `track_scroll_into_view` | `track.scroll_into_view` / TrackBank |
-| `track_bank_scroll_forward` | Ported | `track_bank_scroll_forward` | `track.bank.scroll_forward` / TrackBank |
-| `track_bank_scroll_backward` | Ported | `track_bank_scroll_backward` | `track.bank.scroll_backward` / TrackBank |
-| `track_bank_scroll_to_position` | Ported | `track_bank_scroll_to_position` | `track.bank.scroll_to_position` / TrackBank |
+| `track_set_color` | Ported 1 | `track_set_color` | `track.set_color` / TrackBank — New r/g/b fields replace historical red/green/blue. |
+| `track_list` | Ported 1 | `track_list` | `track.list` / TrackBank — Visible bank, not all tracks in project. |
+| `track_get_info` | Ported 1 | `track_get_info` | `track.get_info` / TrackBank |
+| `track_scroll_into_view` | Ported 1 | `track_scroll_into_view` | `track.scroll_into_view` / TrackBank |
+| `track_bank_scroll_forward` | Ported 1 | `track_bank_scroll_forward` | `track.bank.scroll_forward` / TrackBank |
+| `track_bank_scroll_backward` | Ported 1 | `track_bank_scroll_backward` | `track.bank.scroll_backward` / TrackBank |
+| `track_bank_scroll_to_position` | Ported 1 | `track_bank_scroll_to_position` | `track.bank.scroll_to_position` / TrackBank |
 | `clip_launch` | Current | `clip_launch` | `clip.launch` / TrackBank |
 | `clip_record` | Current | `clip_record` | `clip.record` / TrackBank |
 | `clip_stop` | Current | `clip_stop` | `clip.stop` / TrackBank |
-| `clip_get_status` | Ported | `clip_get_status` | `clip.get_status` / TrackBank |
-| `clip_get_grid` | Ported | `clip_get_grid` | `clip.get_grid` / TrackBank |
-| `clip_set_color` | Next | `Deferred: clip_set_color` | `clip.set_color` / TrackBank |
-| `clip_get_color` | Next | `Deferred: clip_get_color` | `clip.get_color` / TrackBank |
+| `clip_get_status` | Ported 1 | `clip_get_status` | `clip.get_status` / TrackBank |
+| `clip_get_grid` | Ported 1 | `clip_get_grid` | `clip.get_grid` / TrackBank |
+| `clip_set_color` | Ported 2 | `clip_set_color` | `clip.set_color` / TrackBank |
+| `clip_get_color` | Ported 2 | `clip_get_color` | `clip.get_color` / TrackBank |
 | `scene_launch` | Current | `scene_launch` | `scene.launch` / SceneBank |
 | `scene_list` | Current | `scene_list` | `scene.list` / SceneBank |
 | `scene_create` | Current | `scene_create` | `scene.create` / SceneBank |
-| `scene_delete` | Next | `Deferred: scene_delete` | `scene.delete` / SceneBank |
-| `scene_rename` | Ported | `scene_rename` | `scene.rename` / SceneBank |
-| `scene_select` | Next | `Deferred: scene_select` | `scene.select` / SceneBank |
-| `scene_create_from_playing` | Next | `Deferred: scene_create_from_playing` | `scene.create_from_playing` / SceneBank |
-| `clip_duplicate` | Next | `Deferred: clip_duplicate` | `clip.duplicate` / TrackBank |
+| `scene_delete` | Ported 2 | `scene_delete` | `scene.delete` / SceneBank |
+| `scene_rename` | Ported 1 | `scene_rename` | `scene.rename` / SceneBank |
+| `scene_select` | Ported 2 | `scene_select` | `scene.select` / SceneBank |
+| `scene_create_from_playing` | Ported 2 | `scene_create_from_playing` | `scene.create_from_playing` / SceneBank |
+| `clip_duplicate` | Ported 2 | `clip_duplicate` | `clip.duplicate` / TrackBank — new explicit source/destination schema; copies into an observed empty slot. |
 | `clip_slot_select` | Equivalent | `clip_select_slot` | `clip.select_slot` / TrackBank |
 | `clip_create` | Current | `clip_create` | `clip.create` / TrackBank |
-| `clip_delete` | Next | `Deferred: clip_delete` | `clip.delete` / TrackBank |
-| `clip_browse_insert` | Next | `Deferred: clip_browse_insert` | `clip.browse_insert` / TrackBank |
+| `clip_delete` | Ported 2 | `clip_delete` | `clip.delete` / TrackBank |
+| `clip_browse_insert` | Ported 2 | `clip_browse_insert` | `clip.browse_insert` / TrackBank |
 | `track_selected_get_status` | Current | `track_selected_get_status` | `track.selected.get_status` / Cursor |
 | `track_selected_set_volume` | Current | `track_selected_set_volume` | `track.selected.volume` / Cursor |
 | `track_selected_set_pan` | Current | `track_selected_set_pan` | `track.selected.pan` / Cursor |
@@ -161,7 +176,7 @@ not source-compatible aliases. Historical module names refer to the archived
 | `clip_set_note` | Current | `clip_set_note` | `clip.set_note` / Clip |
 | `clip_clear_note` | Current | `clip_clear_note` | `clip.clear_note` / Clip |
 | `clip_toggle_note` | Current | `clip_toggle_note` | `clip.toggle_note` / Clip |
-| `clip_get_notes` | Ported | `clip_get_notes` | `clip.get_notes` / Clip — Historical Clip handler was a stub. New implementation reads bounded selected cursor; changed input schema. |
+| `clip_get_notes` | Ported 1 | `clip_get_notes` | `clip.get_notes` / Clip — Historical Clip handler was a stub. New implementation reads bounded selected cursor; changed input schema. |
 | `mixer_get_master_volume` | Next | `Deferred: mixer_get_master_volume` | `mixer.master.get_volume` / Mixer |
 | `mixer_set_master_volume` | Next | `Deferred: mixer_set_master_volume` | `mixer.master.set_volume` / Mixer |
 | `mixer_get_send_level` | Next | `Deferred: mixer_get_send_level` | `mixer.track.get_send` / TrackBank |
@@ -169,7 +184,7 @@ not source-compatible aliases. Historical module names refer to the archived
 | `mixer_return_list` | Next | `Deferred: mixer_return_list` | `mixer.return.list` / Mixer |
 | `mixer_return_set_volume` | Next | `Deferred: mixer_return_set_volume` | `mixer.return.volume` / Mixer |
 | `mixer_return_set_pan` | Next | `Deferred: mixer_return_set_pan` | `mixer.return.pan` / Mixer |
-| `project_get_summary` | Ported | `project_get_summary` | `project.get_summary` / controller-mcp — Visible bank only; new shape is not the old selection/mixer/arranger aggregate. |
+| `project_get_summary` | Ported 1 | `project_get_summary` | `project.get_summary` / controller-mcp — Visible bank only; new shape is not the old selection/mixer/arranger aggregate. |
 | `arranger_get_status` | Next | `Deferred: arranger_get_status` | `arranger.get_status` / Arranger |
 | `arranger_set_panel_visibility` | Next | `Deferred: arranger_set_panel_visibility` | `arranger.set_panel_visibility` / Arranger |
 | `arranger_zoom` | Next | `Deferred: arranger_zoom` | `arranger.zoom` / Arranger |
@@ -242,10 +257,11 @@ not source-compatible aliases. Historical module names refer to the archived
 
 ## Deferred delivery sequence
 
-1. **Musical construction:** safe duplication/deletion, clip names/colors,
-   occupancy-aware creation, scene operations, structured note batches and a
-   broader, verified note readback contract. Avoid destructive destinations and
-   confirm the effective target before mutations.
+1. **Further musical construction:** occupancy-aware creation, broader verified
+   note readback, full-fidelity MIDI and cross-track copy remain separate from
+   tranche 2. Its duplication, names/colors, bounded note batches and selected
+   scene operations are documented in the construction contract. Avoid
+   destructive destinations and confirm the effective target before mutations.
 2. **Sound and mix:** device navigation and replacement, real browser filtering,
    sends/returns/master, effect-track creation. Loading an instrument requires a
    device identity and settled browser result, not a successful request alone.

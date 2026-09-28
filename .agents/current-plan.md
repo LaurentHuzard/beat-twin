@@ -1,42 +1,39 @@
-# BT-MCP-PORT-001 — Recover Bitwig inspection and navigation
+# BT-MCP-PORT-002 — Launcher construction and structured note edits
 
-Authorized by user on 2026-09-27: start the capability port plan with parallel sub-agents.
-Base: freshly fetched origin/main 8a6f9bdef9958caccbb421cdcd65f5062e1598b6.
-Branch: agent/bitwig-capability-port-20260927.
+User authorization 2026-09-28: push/merge tranche 1, then continue remaining tools
+with maximum parallel sub-agents. Live Bitwig tests are explicitly deferred.
+Tranche 1 merged as PR #94 / 0f9318ea25a231e09aba1e20dc56a5e8a5b40cf8.
+Freshly fetched and remote-confirmed base is that merge commit.
+Branch: agent/bitwig-construction-port-20260928.
 
-## Active outcome
+## Outcome and ownership
 
-Build an exhaustive historical/current capability inventory and deliver the first coherent port: clip grid and occupancy, track/project inspection, bank navigation, names/colors, and real bounded note readback where supported by the current controller contract. Restore useful composition primitives without weakening the existing local relay, Agent-mode target binding or write-policy defaults.
+Port 13 tools: clip rename/color/delete/copy/browser insertion, scene selection,
+deletion and capture from playing clips, structured note insert/clear batches,
+loop length, recording status. Explicit empty destination for clip copy; fixed
+selected matching cursor for note/name/length operations. Prevalidate whole
+batches, reject overwrite/collision, report host partial failures honestly.
+Structural mutations must revoke old bindings and block use of stale observations.
 
-## Ownership
+- controller_port: controller TypeScript + tests/bitwig-controller-construction.test.ts.
+- mcp_port: index.ts + tests/mcp-construction-port.test.ts.
+- parity_audit: docs/BITWIG_MCP_PARITY.md + docs/BITWIG_MCP_CONSTRUCTION.md;
+  API and adversarial review in coordination with implementation agents.
+- Coordinator: package/test counts, generated JS, integration, validation, report,
+  publication lifecycle. Preserve original 57-tool schema/policy baseline.
 
-- Controller agent: controller TypeScript and focused controller port tests.
-- MCP agent: index.ts registry/dispatch and focused registry port tests.
-- Inventory agent: historical parity documentation and independent API compatibility review.
-- Coordinator: integration, generated bridge outputs, compatibility checks, documentation and final evidence.
+## Validation and delivery
 
-## Validation and boundaries
+Focused controller/MCP tests, full available offline suite, typecheck, architecture,
+packaging smoke and diff checks. No DAW install/reload/actions or live musical test.
+Record local validation separately from disabled GitHub Actions and deferred live
+acceptance. Publish verified work under current user authorization. Do not delete
+branches or touch unrelated main checkouts.
 
-Run focused tests, bridge generation, repository unit suite/typecheck and distribution checks as relevant. Review policy gating, bounds, stale/unavailable state and unsupported APIs. Source references may use the historical archived branch; no runtime claims from historical declarations alone.
+## Outcome
 
-Implementation authority is explicit in this session. Publication, merge and installation of the new controller remain separate from this development tranche. Do not touch the user's live musical session during port validation. Report unported domains, stubs and external services in the inventory, not as restored features.
-
-## Outcome — 2026-09-27
-
-Locally implemented and offline-validated; review pending. Registry is 70 tools
-(20 read-only by default), with the historical 57-tool schema/policy prefix intact.
-Navigation revokes old target bindings before moving and rejects bank-dependent
-calls until the observed position settles. Final full suite: 294 passed; typecheck,
-architecture, distribution and diff checks passed.
-
-Evidence: `.agents/reports/feature-20260927-bitwig-capability-port.md`.
-Historical matrix: `docs/BITWIG_MCP_PARITY.md`.
-No runtime install, live validation, commit, publication or merge. Further port
-tranches and live acceptance remain outstanding; this is not full historical parity.
-
-## Publication authorization — 2026-09-28
-
-User explicitly authorized commit/push/merge of this tranche and continuation of
-remaining tool ports with parallel agents. Live Bitwig tests are deferred by the
-user. Publish the verified implementation, then start the next bounded tranche
-from the freshly fetched merged main in a separate worktree.
+Implemented and offline-validated: 83 tools / 22 default reads, full suite318pass,
+typecheck/architecture/distribution/syntax/diff checks pass. Independent review
+found no remaining concrete blocker after partial-readback recovery correction.
+Evidence: `.agents/reports/feature-20260928-bitwig-construction-port.md`.
+Live acceptance remains deferred. Publication authorized by user2026-09-28.

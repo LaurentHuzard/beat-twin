@@ -33,6 +33,10 @@ var cursorClipSlot;
 var targetGeneration = 0;
 var lastTargetSignature = null;
 var bankNavigation = null;
+var constructionPending = null;
+var constructionReadAccess = false;
+var sceneSelected = [];
+var project;
 
 var BRIDGE_PROTOCOL_VERSION = "beat-twin-bitwig-v2";
 var TARGET_GRID_STEPS = 64;
@@ -51,6 +55,7 @@ function init() {
   transport.isArrangerRecordEnabled().markInterested();
 
   application = host.createApplication();
+  project = host.getProject();
   application.projectName().markInterested();
 
   controllerInstanceId = createControllerInstanceId();
@@ -85,14 +90,16 @@ function init() {
   inspectionClip.scrollToKey(0);
   inspectionTrack = inspectionClip.getTrack();
   inspectionSlot = inspectionClip.clipLauncherSlot();
-  var inspectionValues = [inspectionClip.exists(), inspectionClip.getLoopLength(),
+  var inspectionValues = [inspectionClip.exists(), inspectionClip.getLoopLength(), inspectionClip.getLoopStart(),
     inspectionTrack.exists(), inspectionTrack.position(), inspectionSlot.exists(),
     inspectionSlot.sceneIndex(), inspectionSlot.hasContent(), application.projectName()];
   for (var readIndex = 0; readIndex < inspectionValues.length; readIndex++) {
     inspectionValues[readIndex].markInterested();
     inspectionValues[readIndex].addValueObserver(invalidateInspection);
+    inspectionValues[readIndex].addValueObserver(observeConstructionChange);
   }
   inspectionClip.addNoteStepObserver(invalidateInspection);
+  inspectionClip.addNoteStepObserver(observeConstructionChange);
 
   // Agent-mode writes use a dedicated cursor clip so the historical MCP note
   // tools cannot shift its step/key viewport behind the adapter's back.
@@ -189,6 +196,9 @@ function init() {
       slot.sceneIndex().markInterested();
       slot.name().markInterested();
       slot.hasContent().markInterested();
+      slot.color().markInterested();
+      slot.hasContent().addValueObserver(observeConstructionChange);
+      slot.name().addValueObserver(observeConstructionChange);
       slot.isSelected().markInterested();
       slot.isPlaying().markInterested();
       slot.isRecording().markInterested();
@@ -202,16 +212,24 @@ function init() {
   
   // Create Scene Bank (8 scenes)
   sceneBank = host.createSceneBank(8);
+  sceneBank.itemCount().markInterested();
+  sceneBank.itemCount().addValueObserver(observeConstructionChange);
   for (var i = 0; i < 8; i++) {
      var scene = sceneBank.getScene(i);
      scene.exists().markInterested();
      scene.name().markInterested();
      scene.sceneIndex().markInterested();
+     scene.clipCount().markInterested();
+     scene.exists().addValueObserver(observeConstructionChange);
+     scene.sceneIndex().addValueObserver(observeConstructionChange);
+     scene.clipCount().addValueObserver(observeConstructionChange);
+     observeSceneSelection(i, scene);
   }
 
   // --- Popup Browser Setup ---
   popupBrowser = host.createPopupBrowser();
   popupBrowser.exists().markInterested();
+  popupBrowser.exists().addValueObserver(observeConstructionChange);
   popupBrowser.title().markInterested();
   popupBrowser.contentTypeNames().markInterested();
   popupBrowser.selectedContentTypeIndex().markInterested();
@@ -348,6 +366,7 @@ function isBridgeReadMethod(method) {
     method === "project.get_summary" ||
     method === "track.list" ||
     method === "track.get_info" ||
+    method === "clip.get_color" ||
     method === "clip.get_grid" ||
     method === "clip.get_status" ||
     method === "clip.get_notes" ||
@@ -384,7 +403,7 @@ function selectedBankTarget() {
 }
 
 function currentTargetState() {
-  if (bankNavigation !== null) {
+  if (bankNavigation !== null || constructionPending !== null) {
     return { available: false, track: null, slot: null, trackPosition: -1, slotSceneIndex: -1 };
   }
   var selected = selectedBankTarget();
@@ -440,6 +459,7 @@ function targetSignature() {
 }
 
 function refreshTargetGeneration() {
+  if (constructionPending !== null) constructionPending.version += 1;
   if (bankNavigation !== null) bankNavigation.version += 1;
   var nextSignature = targetSignature();
   if (lastTargetSignature !== null && nextSignature !== lastTargetSignature) {
@@ -557,6 +577,7 @@ function isValidTrackIndex(index) {
 }
 
 function requireSettledBank() {
+  if (constructionPending !== null && !constructionReadAccess) throw bridgeError(-32004, "Construction is awaiting observed state; retry after controller updates");
   if (bankNavigation !== null) throw bridgeError(-32004, "Track bank navigation is synchronizing; retry after controller updates");
 }
 
@@ -712,6 +733,170 @@ function readInspectionNotes(trackIndex, slotIndex) {
       minPitch: 0, maxPitch: 127, channels: [0], completeClip: false }, notes: notes };
 }
 
+function observeSceneSelection(index, scene) {
+  scene.addIsSelectedInEditorObserver(function (selected) {
+    sceneSelected[index] = selected;
+    observeConstructionChange();
+  });
+}
+
+function observeConstructionChange() {
+  if (constructionPending === null) return;
+  constructionPending.version += 1;
+  constructionPending.observed = constructionMatches();
+}
+
+function constructionBankIdentity() {
+  var identity = [application.projectName().get(), trackBank.scrollPosition().get()];
+  for (var i = 0; i < 8; i++) {
+    var track = trackBank.getItemAt(i);
+    identity.push(track.exists().get(), track.position().get());
+  }
+  return identity.join("|");
+}
+
+function constructionMatches() {
+  try {
+    return constructionPending !== null && constructionPending.identity() && constructionPending.matches();
+  } catch (unavailableState) {
+    return false;
+  }
+}
+
+function cursorConstructionIdentity() {
+  var trackPosition = inspectionTrack.position().get();
+  var slotPosition = inspectionSlot.sceneIndex().get();
+  return function () {
+    return inspectionTrack.exists().get() === true && inspectionSlot.exists().get() === true &&
+      inspectionTrack.position().get() === trackPosition && inspectionSlot.sceneIndex().get() === slotPosition;
+  };
+}
+
+function slotConstructionIdentity(trackIndex, slot) {
+  var track = trackBank.getItemAt(trackIndex);
+  var trackPosition = track.position().get();
+  var slotPosition = slot.sceneIndex().get();
+  return function () {
+    return track.exists().get() === true && slot.exists().get() === true &&
+      track.position().get() === trackPosition && slot.sceneIndex().get() === slotPosition;
+  };
+}
+
+function beginConstruction(matches, identity) {
+  requireSettledBank();
+  var bankIdentity = constructionBankIdentity();
+  targetGeneration += 1;
+  invalidateInspection();
+  constructionPending = { matches: matches, identity: function () {
+    return constructionBankIdentity() === bankIdentity && (!identity || identity());
+  }, observed: false, failed: false, version: 0, flushedVersion: -1 };
+}
+
+function canReadConstructionFailure(method) {
+  if (constructionPending === null || !constructionPending.failed || inspectionSettledVersion !== inspectionVersion) return false;
+  var reads = ["clip.get_notes", "clip.get_status", "clip.get_grid", "clip.get_color", "track.list", "track.get_info", "project.get_summary"];
+  try { return reads.indexOf(method) >= 0 && constructionPending.identity(); } catch (unavailableState) { return false; }
+}
+
+function safeHostError(error) {
+  return String(error && error.message || error).replace(/[\x00-\x1f\x7f-\x9f]/g, " ").slice(0, 300);
+}
+
+function constructionResult() {
+  return { status: "dispatched", verified: false, requiresReadback: true };
+}
+
+function requireConstructionSlot(trackIndex, slotIndex, occupied) {
+  var status = inspectSlot(trackIndex, slotIndex);
+  if (!status.exists || status.hasContent !== occupied) throw bridgeError(-32004, occupied ? "Existing clip required" : "Known empty destination required");
+  if (status.isPlaying !== false || status.isRecording !== false || status.isPlaybackQueued !== false) {
+    throw bridgeError(-32004, "Clip must be stopped, not recording, and not queued");
+  }
+  return trackBank.getItemAt(trackIndex).clipLauncherSlotBank().getItemAt(slotIndex);
+}
+
+function requireConstructionCursor(trackIndex, slotIndex, requireZeroLoop) {
+  var slot = requireConstructionSlot(trackIndex, slotIndex, true);
+  readInspectionNotes(trackIndex, slotIndex);
+  if (requireZeroLoop && inspectionClip.getLoopStart().get() !== 0) throw bridgeError(-32004, "Bounded note construction requires loop start at zero");
+  return slot;
+}
+
+function requireScene(index) {
+  requireSettledBank();
+  var scene = sceneBank.getScene(requireBankIndex(index, "Scene index"));
+  if (scene.exists().get() !== true || !isIntegerInRange(scene.sceneIndex().get(), 0, 2147483647)) throw bridgeError(-32004, "Existing scene required");
+  return scene;
+}
+
+function sceneConstructionSignature() {
+  var count = sceneBank.itemCount().get();
+  if (!isIntegerInRange(count, 0, 2147483647)) throw bridgeError(-32004, "Scene count unavailable");
+  var signature = [count];
+  for (var i = 0; i < 8; i++) {
+    var scene = sceneBank.getScene(i);
+    signature.push(scene.exists().get(), scene.sceneIndex().get(), scene.clipCount().get());
+  }
+  return signature.join("|");
+}
+
+function validateNoteBatch(notes, clear, length) {
+  if (!Array.isArray(notes) || notes.length < 1 || notes.length > 256) throw invalidParams("Provide 1 to 256 note coordinates");
+  var used = {};
+  for (var i = 0; i < notes.length; i++) {
+    var note = notes[i];
+    if (!note || typeof note !== "object" || Array.isArray(note) ||
+        !isIntegerInRange(note.step, 0, 63) || !isIntegerInRange(note.pitch, 0, 127)) throw invalidParams("Note coordinates must use steps 0-63 and pitches 0-127");
+    var keys = Object.keys(note);
+    var allowed = clear ? ["step", "pitch"] : ["step", "pitch", "velocity", "durationBeats"];
+    for (var k = 0; k < keys.length; k++) if (allowed.indexOf(keys[k]) < 0) throw invalidParams("Unexpected note field");
+    var coordinate = note.step + ":" + note.pitch;
+    if (used[coordinate]) throw invalidParams("Duplicate note coordinates");
+    used[coordinate] = true;
+    var state = String(inspectionClip.getStep(0, note.step, note.pitch).state());
+    if (clear) {
+      if (state !== "NoteOn") throw bridgeError(-32004, "Clear requires an observed note start at every coordinate");
+      continue;
+    }
+    if (!isIntegerInRange(note.velocity, 1, 127) || !isQuarterBeat(note.durationBeats) ||
+        note.step * 0.25 + note.durationBeats > Math.min(16, length)) throw invalidParams("Note velocity or duration is outside the bounded clip");
+    var end = note.step + note.durationBeats * 4;
+    for (var step = note.step; step < end; step++) {
+      if (String(inspectionClip.getStep(0, step, note.pitch).state()) !== "Empty") throw bridgeError(-32005, "Note insertion would overlap existing or unknown note data");
+    }
+    for (var previous = 0; previous < i; previous++) {
+      var other = notes[previous];
+      if (other.pitch === note.pitch && note.step < other.step + other.durationBeats * 4 && other.step < end) throw invalidParams("Batch notes overlap on the same pitch");
+    }
+  }
+}
+
+function dispatchNoteBatch(notes, clear) {
+  var dispatched = 0;
+  beginConstruction(function () {
+    for (var i = 0; i < notes.length; i++) {
+      var note = notes[i];
+      var observed = inspectionClip.getStep(0, note.step, note.pitch);
+      if (String(observed.state()) !== (clear ? "Empty" : "NoteOn")) return false;
+      if (!clear && (Math.round(observed.velocity() * 127) !== note.velocity || Math.abs(observed.duration() - note.durationBeats) > 0.000001)) return false;
+    }
+    return true;
+  }, cursorConstructionIdentity());
+  try {
+    for (var i = 0; i < notes.length; i++) {
+      var note = notes[i];
+      if (clear) inspectionClip.clearStep(0, note.step, note.pitch);
+      else inspectionClip.setStep(0, note.step, note.pitch, note.velocity, note.durationBeats);
+      dispatched += 1;
+    }
+  } catch (error) {
+    constructionPending.failed = true;
+    return { status: "partial", dispatchedCount: dispatched, totalCount: notes.length,
+      verified: false, requiresReadback: true, uncertain: true, recovery: "readback_then_reload_controller", error: safeHostError(error) };
+  }
+  return { status: "dispatched", dispatchedCount: dispatched, totalCount: notes.length, verified: false, requiresReadback: true };
+}
+
 function handleRequest(request, connection, bridgeSession) {
   if (!request.method) {
     sendError(connection, request.id, -32600, "Invalid Request");
@@ -728,9 +913,10 @@ function handleRequest(request, connection, bridgeSession) {
       throw bridgeError(-32001, "Write authentication is required");
     }
 
+    constructionReadAccess = canReadConstructionFailure(request.method);
     // During bank retargeting, only bank-independent bridge/transport traffic
     // is safe. This also covers legacy bank-relative mutation handlers.
-    if (bankNavigation !== null && request.method !== "ping" &&
+    if ((bankNavigation !== null || constructionPending !== null) && request.method !== "ping" &&
         request.method.indexOf("bridge.") !== 0 && request.method.indexOf("transport.") !== 0) {
       requireSettledBank();
     }
@@ -885,6 +1071,99 @@ function handleRequest(request, connection, bridgeSession) {
         break;
       case "transport.getIsRecording":
         result = transport.isArrangerRecordEnabled().get();
+        break;
+
+      case "clip.get_color":
+        var readColorStatus = inspectSlot(request.params && request.params[0], request.params && request.params[1]);
+        if (!readColorStatus.exists || !readColorStatus.hasContent) throw bridgeError(-32004, "Existing clip required");
+        var readColor = trackBank.getItemAt(request.params[0]).clipLauncherSlotBank().getItemAt(request.params[1]).color();
+        result = { r: readColor.red(), g: readColor.green(), b: readColor.blue() };
+        for (var colorKey in result) {
+          if (typeof result[colorKey] !== "number" || !isFinite(result[colorKey]) || result[colorKey] < 0 || result[colorKey] > 1) throw bridgeError(-32004, "Clip color unavailable");
+        }
+        break;
+      case "clip.set_color":
+        var paintSlot = requireConstructionSlot(request.params && request.params[0], request.params && request.params[1], true);
+        for (var component = 2; component < 5; component++) {
+          var componentValue = request.params && request.params[component];
+          if (typeof componentValue !== "number" || !isFinite(componentValue) || componentValue < 0 || componentValue > 1) throw invalidParams("Colors must be finite numbers from 0 to 1");
+        }
+        paintSlot.color().set(request.params[2], request.params[3], request.params[4]);
+        result = constructionResult();
+        break;
+      case "clip.rename":
+        var clipName = requirePortName(request.params && request.params[2]);
+        var renameSlot = requireConstructionCursor(request.params && request.params[0], request.params && request.params[1], false);
+        if (renameSlot.name().get() !== clipName) {
+          beginConstruction(function () { return renameSlot.name().get() === clipName; }, cursorConstructionIdentity());
+          inspectionClip.setName(clipName);
+        }
+        result = constructionResult();
+        break;
+      case "clip.delete":
+        var deleteSlot = requireConstructionSlot(request.params && request.params[0], request.params && request.params[1], true);
+        beginConstruction(function () { return deleteSlot.hasContent().get() === false; }, slotConstructionIdentity(request.params[0], deleteSlot));
+        trackBank.getItemAt(request.params[0]).clipLauncherSlotBank().deleteClip(request.params[1]);
+        result = constructionResult();
+        break;
+      case "clip.duplicate":
+        var copySource = requireConstructionSlot(request.params && request.params[0], request.params && request.params[1], true);
+        var copyDestination = requireConstructionSlot(request.params && request.params[0], request.params && request.params[2], false);
+        if (request.params[1] === request.params[2]) throw invalidParams("Copy destination must differ from source");
+        beginConstruction(function () { return copyDestination.hasContent().get() === true; }, slotConstructionIdentity(request.params[0], copyDestination));
+        copyDestination.replaceInsertionPoint().copySlotsOrScenes(copySource);
+        result = constructionResult();
+        break;
+      case "clip.browse_insert":
+        var browseSlot = requireConstructionSlot(request.params && request.params[0], request.params && request.params[1], false);
+        if (popupBrowser.exists().get() !== false) throw bridgeError(-32004, "Close the existing browser first");
+        beginConstruction(function () { return popupBrowser.exists().get() === true; }, slotConstructionIdentity(request.params[0], browseSlot));
+        browseSlot.browseToInsertClip();
+        result = constructionResult();
+        break;
+      case "scene.select":
+        var sceneIndex = request.params && request.params[0];
+        var selectScene = requireScene(sceneIndex);
+        if (sceneSelected[sceneIndex] !== true) {
+          beginConstruction(function () { return sceneSelected[sceneIndex] === true; });
+          selectScene.selectInEditor();
+        }
+        result = constructionResult();
+        break;
+      case "scene.delete":
+        var deleteScene = requireScene(request.params && request.params[0]);
+        if (transport.isPlaying().get() !== false || transport.isArrangerRecordEnabled().get() !== false) throw bridgeError(-32004, "Stop transport and recording before deleting a scene");
+        var oldSceneCount = sceneBank.itemCount().get();
+        if (!isIntegerInRange(oldSceneCount, 1, 2147483647)) throw bridgeError(-32004, "Scene count unavailable");
+        beginConstruction(function () { return sceneBank.itemCount().get() === oldSceneCount - 1; });
+        deleteScene.deleteObject();
+        result = constructionResult();
+        break;
+      case "scene.create_from_playing":
+        var oldSceneSignature = sceneConstructionSignature();
+        if (transport.isPlaying().get() !== true) throw bridgeError(-32004, "Scene capture requires playing launcher clips");
+        beginConstruction(function () { return sceneConstructionSignature() !== oldSceneSignature; });
+        project.createSceneFromPlayingLauncherClips();
+        result = constructionResult();
+        break;
+      case "clip.set_notes":
+      case "clip.clear_notes":
+        requireConstructionCursor(request.params && request.params[0], request.params && request.params[1], true);
+        var batch = request.params && request.params[2];
+        var clearBatch = request.method === "clip.clear_notes";
+        validateNoteBatch(batch, clearBatch, inspectionClip.getLoopLength().get());
+        result = dispatchNoteBatch(batch, clearBatch);
+        break;
+      case "clip.set_loop_length":
+        requireConstructionCursor(request.params && request.params[0], request.params && request.params[1], true);
+        var newLength = request.params && request.params[2];
+        var previousLength = inspectionClip.getLoopLength().get();
+        if (!isQuarterBeat(newLength) || newLength > 16 || newLength < previousLength) throw invalidParams("Loop length must extend the current loop in quarter beats up to 16 beats");
+        if (newLength !== previousLength) {
+          beginConstruction(function () { return inspectionClip.getLoopLength().get() === newLength; }, cursorConstructionIdentity());
+          inspectionClip.getLoopLength().set(newLength);
+        }
+        result = constructionResult();
         break;
 
       // Bank-local indices are deliberately distinct from absolute project positions.
@@ -1366,9 +1645,13 @@ function handleRequest(request, connection, bridgeSession) {
 
   } catch (e) {
     var code = (e && e.jsonrpcCode) ? e.jsonrpcCode : -32603;
-    var message = (e && e.message) ? e.message : String(e);
+    if (constructionPending !== null && code === -32603) constructionPending.failed = true;
+    var message = safeHostError(e);
+    if (constructionPending !== null && constructionPending.failed) message += "; writes locked: read back observed state, then reload the controller before new writes";
     var prefix = code === -32602 ? "Invalid params: " : "Internal error: ";
     sendError(connection, request.id, code, prefix + message);
+  } finally {
+    constructionReadAccess = false;
   }
 }
 
@@ -1408,6 +1691,14 @@ function sendJSON(connection, data) {
 }
 
 function flush() {
+  if (constructionPending !== null && constructionPending.observed && !constructionPending.failed) {
+    if (constructionMatches() && constructionPending.flushedVersion === constructionPending.version) {
+      constructionPending = null;
+      refreshTargetGeneration();
+    } else {
+      constructionPending.flushedVersion = constructionPending.version;
+    }
+  }
   if (bankNavigation !== null && bankNavigation.observed) {
     var observedPosition = trackBank.scrollPosition().get();
     var positionMatches = bankNavigation.destination === null ? observedPosition !== bankNavigation.from : observedPosition === bankNavigation.destination;

@@ -797,6 +797,119 @@ export const PORTED_TOOL_SPECS = Object.freeze([
   },
 ].map((tool) => ({ ...tool, validateInput: true })));
 
+const clipTargetSchema = { trackIndex: bankIndexSchema, sceneIndex: bankIndexSchema };
+const stepSchema = { type: "integer", minimum: 0, maximum: 63 };
+const pitchSchema = { type: "integer", minimum: 0, maximum: 127 };
+const beatLengthSchema = { type: "number", minimum: 0.25, maximum: 16, multipleOf: 0.25 };
+const noteCoordinatesSchema = { step: stepSchema, pitch: pitchSchema };
+const noteBatchSchema = (properties) => ({
+  type: "array", minItems: 1, maxItems: 256, items: boundedToolSchema(properties),
+});
+
+function validateNoteBatchArguments(args, insert) {
+  const seen = new Set();
+  const ranges = new Map();
+  for (const note of args.notes) {
+    const key = `${note.step}:${note.pitch}`;
+    if (seen.has(key)) return "Each step/pitch coordinate must appear only once in a note batch.";
+    seen.add(key);
+    if (!insert) continue;
+    const start = note.step * 0.25;
+    const end = start + note.durationBeats;
+    if (end > 16) return "Each note must end within the first 16 beats (64 steps).";
+    const pitchRanges = ranges.get(note.pitch) ?? [];
+    if (pitchRanges.some(([otherStart, otherEnd]) => start < otherEnd && otherStart < end)) {
+      return "Notes on the same pitch must not overlap within a batch.";
+    }
+    pitchRanges.push([start, end]);
+    ranges.set(note.pitch, pitchRanges);
+  }
+  return null;
+}
+
+export const CONSTRUCTION_TOOL_SPECS = Object.freeze([
+  {
+    name: "clip_rename",
+    description: "Rename an existing stopped launcher clip. Requires the already selected matching settled cursor at bank-local trackIndex/sceneIndex (0-7). Name is nonblank, at most 128 characters, with no control characters. Dispatch acknowledgement is not verified state.",
+    inputSchema: boundedToolSchema({ ...clipTargetSchema, name: displayNameSchema }),
+    policy: "clip_write", method: "clip.rename", mapArgs: (args) => [args.trackIndex, args.sceneIndex, args.name],
+  },
+  {
+    name: "clip_get_color",
+    description: "Read the RGB color of an existing launcher clip at bank-local trackIndex/sceneIndex (0-7), without changing selection.",
+    inputSchema: boundedToolSchema(clipTargetSchema), policy: "read", method: "clip.get_color",
+    mapArgs: (args) => [args.trackIndex, args.sceneIndex],
+  },
+  {
+    name: "clip_set_color",
+    description: "Set RGB color of an existing stopped launcher clip at bank-local trackIndex/sceneIndex (0-7), using finite r/g/b components from 0 to 1. Read back the color to verify the dispatched change.",
+    inputSchema: boundedToolSchema({ ...clipTargetSchema, r: colorComponentSchema, g: colorComponentSchema, b: colorComponentSchema }),
+    policy: "clip_write", method: "clip.set_color", mapArgs: (args) => [args.trackIndex, args.sceneIndex, args.r, args.g, args.b],
+  },
+  {
+    name: "clip_delete",
+    description: "Delete content from one existing stopped launcher clip at bank-local trackIndex/sceneIndex (0-7). This removes musical material. The controller blocks unsettled structural state; inspect the grid after dispatch before further edits.",
+    inputSchema: boundedToolSchema(clipTargetSchema), policy: "clip_write", method: "clip.delete",
+    mapArgs: (args) => [args.trackIndex, args.sceneIndex],
+  },
+  {
+    name: "clip_duplicate",
+    description: "Copy a stopped occupied source launcher slot to an explicitly empty destination on the same track. All indices are bank-local 0-7; source and destination must differ. Never overwrite an occupied destination. Inspect the grid after dispatch to verify the copy.",
+    inputSchema: boundedToolSchema({ trackIndex: bankIndexSchema, sourceSceneIndex: bankIndexSchema, destinationSceneIndex: bankIndexSchema }),
+    policy: "clip_write", method: "clip.duplicate",
+    validateArgs: (args) => args.sourceSceneIndex === args.destinationSceneIndex ? "Source and destination must be different launcher slots." : null,
+    mapArgs: (args) => [args.trackIndex, args.sourceSceneIndex, args.destinationSceneIndex],
+  },
+  {
+    name: "clip_browse_insert",
+    description: "Open Bitwig's clip insertion browser for one known empty stopped launcher slot at bank-local trackIndex/sceneIndex (0-7). This dispatch only opens the browser; it does not choose a file or prove an insertion occurred.",
+    inputSchema: boundedToolSchema(clipTargetSchema), policy: "clip_write", method: "clip.browse_insert",
+    mapArgs: (args) => [args.trackIndex, args.sceneIndex],
+  },
+  {
+    name: "scene_select",
+    description: "Select an existing bank-local scene (sceneIndex 0-7). Changes UI selection without launching the scene; acknowledgement is not verified state.",
+    inputSchema: boundedToolSchema({ sceneIndex: bankIndexSchema }), policy: "scene_write", method: "scene.select",
+    mapArgs: (args) => [args.sceneIndex],
+  },
+  {
+    name: "scene_delete",
+    description: "Delete an existing stopped bank-local scene (sceneIndex 0-7), including its musical material. Structural changes invalidate old target bindings. Inspect the settled scene/clip grid after dispatch before reusing indices.",
+    inputSchema: boundedToolSchema({ sceneIndex: bankIndexSchema }), policy: "scene_write", method: "scene.delete",
+    mapArgs: (args) => [args.sceneIndex],
+  },
+  {
+    name: "scene_create_from_playing",
+    description: "Ask Bitwig to create a scene from currently playing clips. This captures mutable playback state and changes the scene structure. Inspect the settled scenes afterward; dispatch acknowledgement does not establish the new scene index or contents.",
+    inputSchema: boundedToolSchema(), policy: "scene_write", method: "scene.create_from_playing",
+  },
+  {
+    name: "clip_set_notes",
+    description: "Insert 1-256 notes into the already selected matching stopped launcher clip. Scope: MIDI channel 0, first 64 steps at 0.25 beats, pitches 0-127, velocity 1-127; durationBeats is quarter-beat aligned and at most 16. Rejects duplicate coordinates, overlap and existing occupied cells. Validates the whole batch before writes but host failures may leave a partial result: inspect before retrying. Dispatch counts are not verified note state.",
+    inputSchema: boundedToolSchema({ ...clipTargetSchema, notes: noteBatchSchema({ ...noteCoordinatesSchema, velocity: { type: "integer", minimum: 1, maximum: 127 }, durationBeats: beatLengthSchema }) }),
+    policy: "clip_write", method: "clip.set_notes", validateArgs: (args) => validateNoteBatchArguments(args, true),
+    mapArgs: (args) => [args.trackIndex, args.sceneIndex, args.notes],
+  },
+  {
+    name: "clip_clear_notes",
+    description: "Clear 1-256 explicit unique note-start coordinates from an already selected matching stopped launcher clip. Scope: MIDI channel 0, steps 0-63 and pitches 0-127. Requires observed NoteOn starts, never an implicit whole-clip clear. Validates the whole batch first; host errors may leave a partial result. Inspect notes before retrying; dispatch counts are not verified deletions.",
+    inputSchema: boundedToolSchema({ ...clipTargetSchema, notes: noteBatchSchema(noteCoordinatesSchema) }),
+    policy: "clip_write", method: "clip.clear_notes", validateArgs: (args) => validateNoteBatchArguments(args, false),
+    mapArgs: (args) => [args.trackIndex, args.sceneIndex, args.notes],
+  },
+  {
+    name: "clip_set_loop_length",
+    description: "Extend loop length in beats for an already selected matching stopped launcher clip with loop start at zero. lengthBeats must be quarter-beat aligned from 0.25 to 16 and at least the current length; shortening is rejected to preserve notes outside the inspected channel/window. Re-read clip state after dispatch; no arrangement region editing is implied.",
+    inputSchema: boundedToolSchema({ ...clipTargetSchema, lengthBeats: beatLengthSchema }),
+    policy: "clip_write", method: "clip.set_loop_length", mapArgs: (args) => [args.trackIndex, args.sceneIndex, args.lengthBeats],
+  },
+  {
+    name: "transport_get_recording_status",
+    description: "Read whether Bitwig's arranger recording is enabled; this does not establish every launcher clip's recording state.",
+    inputSchema: boundedToolSchema(), policy: "read", method: "transport.getIsRecording",
+  },
+].map((tool) => ({ ...tool, validateInput: true, partialResultIsError: true })));
+
 export const TOOL_SPECS = Object.freeze([
   {
     name: "bitwig_session_inspect",
@@ -1445,6 +1558,7 @@ export const TOOL_SPECS = Object.freeze([
     method: "browser.cancel",
   },
   ...PORTED_TOOL_SPECS,
+  ...CONSTRUCTION_TOOL_SPECS,
 ]);
 
 const TOOL_SPEC_MAP = new Map(TOOL_SPECS.map((tool) => [tool.name, tool]));
@@ -1501,6 +1615,36 @@ async function validateDiscoveryInput(schema, value) {
 }
 
 function snapshotJsonArguments(input) {
+  const ancestors = new Set();
+  const visit = (value) => {
+    if (value === null || typeof value === "string" || typeof value === "boolean") return;
+    if (typeof value === "number" && Number.isFinite(value)) return;
+    if (typeof value !== "object") throw new Error("Tool arguments must contain only finite JSON values.");
+    if (ancestors.has(value)) throw new Error("Tool arguments must not contain cycles.");
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== Array.prototype && prototype !== null) {
+      throw new Error("Tool arguments must contain only plain JSON objects and arrays.");
+    }
+    ancestors.add(value);
+    if (Array.isArray(value)) {
+      for (let index = 0; index < value.length; index++) {
+        if (!Object.hasOwn(value, index)) throw new Error("Tool argument arrays must not contain empty slots.");
+      }
+    }
+    for (const key of Reflect.ownKeys(value)) {
+      if (Array.isArray(value) && key === "length") continue;
+      if (Array.isArray(value) && (typeof key !== "string" || !/^(0|[1-9][0-9]*)$/.test(key) || Number(key) >= value.length)) {
+        throw new Error("Tool argument arrays must not contain named properties.");
+      }
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (typeof key !== "string" || !descriptor?.enumerable || !("value" in descriptor)) {
+        throw new Error("Tool arguments must contain only enumerable JSON data properties.");
+      }
+      visit(descriptor.value);
+    }
+    ancestors.delete(value);
+  };
+  visit(input);
   // Reject non-JSON values before stringify could silently turn NaN into null or
   // drop an unknown argument. Detach before asynchronous validation to prevent
   // callers from changing validated arguments while the validator loads.
@@ -1729,6 +1873,10 @@ export async function handleToolCall(
       if (!(await validateDiscoveryInput(tool.inputSchema, args))) {
         return serializeToolError({ error: "invalid_arguments", message: "Arguments do not match the tool input schema." });
       }
+      const argumentError = tool.validateArgs?.(args);
+      if (argumentError) {
+        return serializeToolError({ error: "invalid_arguments", message: argumentError });
+      }
       // Policy may be revoked while the validator loads; never dispatch using
       // the earlier decision after an asynchronous boundary.
       if (!isPolicyEnabled(tool.policy, env)) {
@@ -1746,6 +1894,14 @@ export async function handleToolCall(
       params,
       { requiresAuthentication: tool.policy !== "read" },
     );
+
+    if (tool.partialResultIsError && result?.status === "partial") {
+      return serializeToolError({
+        error: "partial_mutation", tool: tool.name, policy: tool.policy,
+        method: tool.method, params, result,
+        message: "The controller reported a partial or uncertain mutation. Read back the affected clip after synchronization; if recovery requires a controller reload, keep writes blocked until reload and reconciliation; do not automatically replay the batch.",
+      });
+    }
 
     if (tool.policy === "read") {
       return serializeToolResult(result);

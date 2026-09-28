@@ -1,5 +1,8 @@
 # Bitwig capability port — tranche 1
 
+This document records tranche 1 (merged in PR #94). For the subsequent tools
+and current catalog, see [launcher construction](BITWIG_MCP_CONSTRUCTION.md).
+
 This tranche restores the inspection and navigation needed to find occupied
 launcher slots before proposing musical edits. It adds 13 tools to the original
 57-tool registry: 70 total, of which 20 are available with no write policy.

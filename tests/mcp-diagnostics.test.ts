@@ -20,13 +20,15 @@ const readNames = [
   "clip_get_grid",
   "clip_get_status",
   "clip_get_notes",
+  "clip_get_color",
+  "transport_get_recording_status",
 ];
 const applicationNames = ["application_create_instrument_track", "application_create_audio_track"];
 const writePolicies = ["transport", "mixer_write", "clip_write", "scene_write", "device_write", "application_write"];
 const modes = [
-  { label: "read-only", env: {}, policies: ["read"], count: 20 },
-  { label: "selective-writes", env: { BITWIG_MCP_WRITE_POLICY: "application_write" }, policies: ["read", "application_write"], count: 22 },
-  { label: "all-writes", env: { BITWIG_MCP_ENABLE_WRITES: "1" }, policies: ["read", ...writePolicies], count: 70 },
+  { label: "read-only", env: {}, policies: ["read"], count: 22 },
+  { label: "selective-writes", env: { BITWIG_MCP_WRITE_POLICY: "application_write" }, policies: ["read", "application_write"], count: 24 },
+  { label: "all-writes", env: { BITWIG_MCP_ENABLE_WRITES: "1" }, policies: ["read", ...writePolicies], count: 83 },
 ];
 const parseToolText = (response) => JSON.parse(response.content[0].text);
 
@@ -115,7 +117,7 @@ test("policy normalization, ignored entries and all-writes precedence reuse cano
   for (const enabled of ["1", "true", " YES ", "On", "all"]) {
     const report = bridge.getMcpDiagnostics({ env: { BITWIG_MCP_ENABLE_WRITES: enabled, BITWIG_MCP_WRITE_POLICY: "application_write" } });
     assert.equal(report.mode, "all-writes");
-    assert.equal(report.tool_count, 70);
+    assert.equal(report.tool_count, 83);
   }
   const env = { BITWIG_MCP_ENABLE_WRITES: "false", BITWIG_MCP_WRITE_POLICY: " APPLICATION_WRITE ,invalid,application_write ", BITWIG_MCP_TOOL_DISCOVERY: "true" };
   const report = bridge.getMcpDiagnostics({ env });
