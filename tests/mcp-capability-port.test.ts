@@ -27,13 +27,13 @@ const cases = [
   ["scene_rename", { sceneIndex: 7, name: "Drop" }, "scene.rename", [7, "Drop"], "scene_write"],
 ];
 
-test("port is additive and only six inspection tools are visible by default", async () => {
-  assert.equal(TOOL_SPECS.length, 70);
-  assert.equal(new Set(TOOL_SPECS.map((tool) => tool.name)).size, 70);
+test("first port remains a stable additive prefix with six inspection reads", async () => {
+  assert.equal(TOOL_SPECS.length, 83);
+  assert.equal(new Set(TOOL_SPECS.map((tool) => tool.name)).size, 83);
   assert.equal(PORTED_TOOL_SPECS.length, 13);
-  assert.deepEqual(TOOL_SPECS.slice(57), PORTED_TOOL_SPECS);
+  assert.deepEqual(TOOL_SPECS.slice(57, 70), PORTED_TOOL_SPECS);
   const visible = getToolDefinitions({ env: {} }).map((tool) => tool.name);
-  assert.deepEqual(visible.slice(-6), cases.filter((entry) => entry[4] === "read").map((entry) => entry[0]));
+  assert.deepEqual(visible.slice(14, 20), cases.filter((entry) => entry[4] === "read").map((entry) => entry[0]));
   for (const [name, args, , , policy] of cases.filter((entry) => entry[4] !== "read")) {
     assert.ok(!visible.includes(name));
     for (const generic of [false, true]) {

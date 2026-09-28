@@ -95,11 +95,12 @@ apps/playground
   -> localStorage JSON save/load
 ```
 
-The 70-tool Bitwig MCP bridge (including the original 57 tools) is maintained in `index.ts`; `index.js` is its
+The 83-tool Bitwig MCP bridge (including the original 57 tools) is maintained in `index.ts`; `index.js` is its
 committed, generated runtime entry point for the npm package and MCP clients. The portable `BitwigAdapter` lives separately under
 `packages/adapters/bitwig` and receives the shared authenticated RPC primitive
 through an injected port. See [Bitwig capability port](docs/BITWIG_MCP_PORT.md)
-for the restored tools, controller upgrade and readback limits, and the
+and [launcher construction](docs/BITWIG_MCP_CONSTRUCTION.md)
+for the added tools, controller upgrade and readback limits, and the
 [historical parity inventory](docs/BITWIG_MCP_PARITY.md) for remaining work.
 Browser audition is local Web Audio preview, not a
 Bitwig mutation or MCP write.
@@ -146,8 +147,8 @@ NanoDAW Agent mode
 
 Gemma may only list targets, inspect the selected session, and propose a
 bounded `SongPatchV1`. Confirmation and execution are gateway/UI operations;
-they are never model tools. The `TOOL_SPECS` registry preserves the original 57 tools and adds 13 restored
-inspection/navigation tools. This registry is separate from the portable agent language. See
+they are never model tools. The `TOOL_SPECS` registry preserves the original 57 tools and adds 26
+inspection/navigation/construction tools. This registry is separate from the portable agent language. See
 [`docs/LOCAL-LLM-TOOL-ORCHESTRATION.md`](docs/LOCAL-LLM-TOOL-ORCHESTRATION.md).
 
 The provider, security core, typed loopback HTTP/WebSocket delivery, explicit

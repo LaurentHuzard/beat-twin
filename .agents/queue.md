@@ -1,6 +1,6 @@
 # Beat Twin Execution Queue
 
-Updated: 2026-09-27
+Updated: 2026-09-28
 Reconciliation base: `413238b2`
 
 This queue keeps standalone NanoDAW work separate from the S25 gateway branch
@@ -18,11 +18,11 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-- **BT-MCP-PORT-001 — Bitwig capability port, tranche 1** (Done locally; review and live acceptance pending). Explicitly authorized 2026-09-27. Historical inventory complete; 13 tools added; 294 offline tests pass. Not installed or published. See current-plan.md and `.agents/reports/feature-20260927-bitwig-capability-port.md`.
+- **BT-MCP-PORT-002 — Launcher construction and note batches** (Done locally; publication authorized). 318 offline tests pass; see current-plan.md and construction report. Live Bitwig tests deferred.
 
 ### Previous readiness (historical)
 
-_None._
+BT-MCP-PORT-001 merged through PR #94 as `0f9318ea25a231e09aba1e20dc56a5e8a5b40cf8`; 294 offline tests passed. Actions disabled; live Bitwig acceptance deferred by the user.
 
 No next product item is implicitly activated by the governance reconciliation in
 issue #80. A future implementation loop requires fresh explicit authorization.
