@@ -1,6 +1,6 @@
 # Bitwig MCP capability parity and port plan
 
-Audit dates: 2026-09-27 (tranche 1), 2026-09-28 (tranches 2–4). Historical source: `llm2Bitwig` advanced branch at
+Audit dates: 2026-09-27 (tranche 1), 2026-09-28 (tranches 2–5). Historical source: `llm2Bitwig` advanced branch at
 `52563e4be42da37abf589245dd9ce3862c9dd7e1`. This inventory follows each catalogue
 name through the Java dispatch and the modules initialized by `controller-mcp.ts`.
 A declaration, a dispatch branch, a handler body, and a successful live operation
@@ -16,7 +16,8 @@ names are `arranger_get_status`, `arranger_set_panel_visibility`, and
 added **13 historical names**, reaching **70 tools**. Tranche 2 adds **9 historical
 names and 4 new names**, reaching **83 tools**. Tranche 3 adds **21 historical
 names**, reaching **104 tools**. Tranche 4 adds **22 historical names**, reaching
-**126 tools**, with **32 reads** exposed under the default read-only policy. Optional discovery wrappers are counted separately.
+**126 tools**. Tranche 5 adds **33 historical names and 2 new reads**, reaching
+**161 tools**, with **37 reads** exposed under the default read-only policy. Optional discovery wrappers are counted separately.
 These are source catalogue counts, not claims about an installed live controller.
 
 Each of the 164 historical names appears exactly once below. Categories are
@@ -28,15 +29,17 @@ historical incompleteness:
 - **Ported 2: 9** — historical name added in the construction tranche.
 - **Ported 3: 21** — historical name added in the transport/arranger tranche.
 - **Ported 4: 22** — historical name added in the mix/device/cursor/track tranche.
+- **Ported 5: 33** — application, cue, drum-pad, groove and native project commands.
 - **Equivalent: 3** — usable current replacement; historical alias is not registered.
-- **Next: 18** — historical handler exists; explicitly deferred to a later tranche.
-- **Stub: 2** — historical handler deliberately does not execute the requested operation.
+- **Next: 1** — browser filtering needs a supported replacement contract.
+- **Stub: 1** — historical cue color handler does not execute the requested operation.
 - **External: 6** — separate Ear service integration; outside the controller.
-- **Unwired: 23** — missing Java dispatch or missing/uninitialized controller handler.
+- **Unwired: 8** — historical MIDI/NoteInput functions still need a routing contract.
 
 `clip_get_notes` is counted as Ported 1 because it now has a bounded implementation;
-its historical implementation was also a stub. Thus the audit identifies **three
-historical stubs**, of which two remain deferred.
+its historical implementation was also a stub. The historical cue creation stub
+is now implemented in tranche 5. Thus the audit identifies **three historical
+stubs**, of which only cue color remains deferred.
 
 ## First tranche: inspection before musical construction
 
@@ -89,8 +92,9 @@ matrix denominator.
 See [the transport contract](BITWIG_MCP_TRANSPORT.md). Seventeen transport tools
 and four arranger/cue tools move to Ported 3. Cue lists are a bounded 32-marker
 bank; cue launch starts quantized playback. The tranche does not add timeline
-region editing. Zoom remains deferred because API 10 compatibility is not
-established, and cue naming/creation require API 15.
+region editing. This tranche deferred zoom because API 10 compatibility was not
+established, and cue naming/creation require API 15. Tranche 5 adds those tools
+under an explicit API 15 selection.
 
 ## Fourth tranche: sound, mix and observed cursors
 
@@ -104,16 +108,28 @@ The new track deletion/duplication tools accept individual Instrument/Audio/Hybr
 tracks only; groups are rejected. These operations, device deletion and effect
 track creation require stopped transport and disabled arranger recording.
 
-The remaining **18 Next** rows are not all missing APIs: fourteen Application
-commands already have host implementations but depend on editor focus, selection,
-clipboard or global undo history that this port does not reliably target. The
-other four are browser text filtering, arranger zoom, cue creation and cue rename,
-with their distinct API/search evidence limits retained in the matrix.
+## Fifth tranche: application, cues, drum pads and groove
+
+See [the parity continuation contract](BITWIG_MCP_PARITY_NEXT.md). Thirty-three
+historical names are added, including previously unwired native functionality.
+The controller now selects API 15 explicitly. Fourteen Application commands
+expose their global focus/selection/clipboard scope; they do not promise a
+specific musical target. Cue creation and naming use API 15. Drum pads and
+groove use native observed proxies. Three project resets use native project
+operations rather than pretending an eight-track bank is the whole project.
+
+The two new reads, `application_get_status` and `project_get_status`, are outside
+the historical denominator. Source coverage is **145/164 historical names**, or
+**148/164 with three documented equivalents**. The remaining **16 names** are
+eight MIDI/NoteInput operations, six Ear service operations, browser filtering,
+and cue color. These have different integration or API boundaries; they are not
+sixteen proven impossible operations. See the [API opportunity inventory](BITWIG_CONTROLLER_API_COVERAGE.md)
+for supported alternatives and capabilities beyond the old catalogue.
 
 ## Complete historical-name matrix
 
 `Next` means source-level port candidate, not guaranteed API correctness. Current
-and Ported 1/2/3/4 identify exact registered names. Equivalent identifies replacements,
+and Ported 1/2/3/4/5 identify exact registered names. Equivalent identifies replacements,
 not source-compatible aliases. Historical module names refer to the archived
 `bitwig-controller/modules/` files.
 
@@ -216,9 +232,9 @@ not source-compatible aliases. Historical module names refer to the archived
 | `project_get_summary` | Ported 1 | `project_get_summary` | `project.get_summary` / controller-mcp — Visible bank only; new shape is not the old selection/mixer/arranger aggregate. |
 | `arranger_get_status` | Ported 3 | `arranger_get_status` | `arranger.get_status` / Arranger |
 | `arranger_set_panel_visibility` | Ported 3 | `arranger_set_panel_visibility` | `arranger.set_panel_visibility` / Arranger |
-| `arranger_zoom` | Next | `Deferred: arranger_zoom` | `arranger.zoom` / Arranger — direct-method compatibility with loadAPI(10) not established; Action/stepper variants require API 14. |
-| `arranger_get_cue_markers` | Unwired | `Deferred: implement/fix wiring` | Java only / missing dispatch — No Java dispatch case; current arranger_cues_list/jump provide the intended functions, but these aliases remain unregistered. |
-| `arranger_jump_to_cue_marker` | Unwired | `Deferred: implement/fix wiring` | Java only / missing dispatch — No Java dispatch case; current arranger_cues_list/jump provide the intended functions, but these aliases remain unregistered. |
+| `arranger_zoom` | Ported 5 | `arranger_zoom` | Native Arranger lane-height zoom under explicit API 15; view operation, not clip-region editing. |
+| `arranger_get_cue_markers` | Ported 5 | `arranger_get_cue_markers` | Historical alias now dispatches the bounded cue list; schema follows current cue inspection. |
+| `arranger_jump_to_cue_marker` | Ported 5 | `arranger_jump_to_cue_marker` | Historical alias now dispatches cue launch; starts quantized playback. |
 | `midi_send_raw` | Unwired | `Deferred: implement/fix wiring` | `note_input.send_raw_midi` / no active handler — NoteInput.ts handler exists but module not initialized; zero MIDI ports. note_play only sends note-on. |
 | `note_on` | Unwired | `Deferred: implement/fix wiring` | `note_input.send_note_on` / no active handler — NoteInput.ts handler exists but module not initialized; zero MIDI ports. note_play only sends note-on. |
 | `note_off` | Unwired | `Deferred: implement/fix wiring` | `note_input.send_note_off` / no active handler — NoteInput.ts handler exists but module not initialized; zero MIDI ports. note_play only sends note-on. |
@@ -227,20 +243,20 @@ not source-compatible aliases. Historical module names refer to the archived
 | `note_input_set_mpe` | Unwired | `Deferred: implement/fix wiring` | `note_input.set_use_expressive_midi` / no active handler — No corresponding handler even in uninitialized NoteInput.ts. |
 | `note_input_set_key_translation` | Unwired | `Deferred: implement/fix wiring` | `note_input.set_key_translation_table` / no active handler — No corresponding handler even in uninitialized NoteInput.ts. |
 | `note_input_set_velocity_translation` | Unwired | `Deferred: implement/fix wiring` | `note_input.set_velocity_translation_table` / no active handler — No corresponding handler even in uninitialized NoteInput.ts. |
-| `drumpad_get_status` | Unwired | `Deferred: implement/fix wiring` | `drumpad.get_status` / no active handler — Java dispatch exists; no handler in initialized controller modules. |
-| `drumpad_select` | Unwired | `Deferred: implement/fix wiring` | `drumpad.select` / no active handler — Java dispatch exists; no handler in initialized controller modules. |
-| `drumpad_scroll_forward` | Unwired | `Deferred: implement/fix wiring` | `drumpad.scroll_forward` / no active handler — Java dispatch exists; no handler in initialized controller modules. |
-| `drumpad_scroll_backward` | Unwired | `Deferred: implement/fix wiring` | `drumpad.scroll_backward` / no active handler — Java dispatch exists; no handler in initialized controller modules. |
-| `drumpad_set_volume` | Unwired | `Deferred: implement/fix wiring` | `drumpad.set_volume` / no active handler — Java dispatch exists; no handler in initialized controller modules. |
-| `drumpad_set_mute` | Unwired | `Deferred: implement/fix wiring` | `drumpad.set_mute` / no active handler — Java dispatch exists; no handler in initialized controller modules. |
-| `drumpad_set_solo` | Unwired | `Deferred: implement/fix wiring` | `drumpad.set_solo` / no active handler — Java dispatch exists; no handler in initialized controller modules. |
-| `groove_get_status` | Unwired | `Deferred: implement/fix wiring` | `groove.get_status` / no active handler — Java dispatch exists; no handler in initialized controller modules. |
-| `groove_set_enabled` | Unwired | `Deferred: implement/fix wiring` | `groove.set_enabled` / no active handler — Java dispatch exists; no handler in initialized controller modules. |
-| `groove_set_shuffle_amount` | Unwired | `Deferred: implement/fix wiring` | `groove.set_shuffle_amount` / no active handler — Java dispatch exists; no handler in initialized controller modules. |
-| `project_unsolo_all` | Unwired | `Deferred: implement/fix wiring` | `project.unsolo_all` / no active handler — Java dispatch exists; no handler in initialized controller modules. |
-| `project_unmute_all` | Unwired | `Deferred: implement/fix wiring` | `project.unmute_all` / no active handler — Java dispatch exists; no handler in initialized controller modules. |
-| `project_unarm_all` | Unwired | `Deferred: implement/fix wiring` | `project.unarm_all` / no active handler — Java dispatch exists; no handler in initialized controller modules. |
-| `arranger_cues_create` | Stub | `Deferred` | `arranger.cues.create` / Arranger — Always throws; use future transport_add_cue_marker port. |
+| `drumpad_get_status` | Ported 5 | `drumpad_get_status` | Historical uninitialized functionality now uses a native bounded drum-pad bank on the selected device. |
+| `drumpad_select` | Ported 5 | `drumpad_select` | Historical uninitialized functionality now uses a native bounded drum-pad bank on the selected device. |
+| `drumpad_scroll_forward` | Ported 5 | `drumpad_scroll_forward` | Historical uninitialized functionality now uses a native bounded drum-pad bank on the selected device. |
+| `drumpad_scroll_backward` | Ported 5 | `drumpad_scroll_backward` | Historical uninitialized functionality now uses a native bounded drum-pad bank on the selected device. |
+| `drumpad_set_volume` | Ported 5 | `drumpad_set_volume` | Historical uninitialized functionality now uses a native bounded drum-pad bank on the selected device. |
+| `drumpad_set_mute` | Ported 5 | `drumpad_set_mute` | Historical uninitialized functionality now uses a native bounded drum-pad bank on the selected device. |
+| `drumpad_set_solo` | Ported 5 | `drumpad_set_solo` | Historical uninitialized functionality now uses a native bounded drum-pad bank on the selected device. |
+| `groove_get_status` | Ported 5 | `groove_get_status` | Historical uninitialized functionality now uses native observed Groove parameters. |
+| `groove_set_enabled` | Ported 5 | `groove_set_enabled` | Historical uninitialized functionality now uses native observed Groove parameters. |
+| `groove_set_shuffle_amount` | Ported 5 | `groove_set_shuffle_amount` | Historical uninitialized functionality now uses native observed Groove parameters. |
+| `project_unsolo_all` | Ported 5 | `project_unsolo_all` | Historical missing handler replaced by native Project-wide operation; not restricted to the visible track bank. |
+| `project_unmute_all` | Ported 5 | `project_unmute_all` | Historical missing handler replaced by native Project-wide operation; not restricted to the visible track bank. |
+| `project_unarm_all` | Ported 5 | `project_unarm_all` | Historical missing handler replaced by native Project-wide operation; not restricted to the visible track bank. |
+| `arranger_cues_create` | Ported 5 | `arranger_cues_create` | Historical throwing stub replaced by API 15 cue creation at playback position. |
 | `browser_get_status` | Current | `browser_get_status` | `browser.get_status` / Browser |
 | `browser_set_filter` | Next | `Deferred: browser_set_filter` | `browser.set_filter` / Browser — Historical getWildcardFilter().set(text) does not match installed BrowserFilterColumn.getWildcardItem(); genuine text-search API remains unverified. |
 | `browser_list_results` | Current | `browser_list_results` | `browser.list_results` / Browser |
@@ -266,23 +282,23 @@ not source-compatible aliases. Historical module names refer to the archived
 | `transport_nudge_backward` | Ported 3 | `transport_nudge_backward` | `transport.nudge_backward` / Transport |
 | `arranger_cues_list` | Ported 3 | `arranger_cues_list` | `arranger.cues.list` / Arranger |
 | `arranger_cues_jump` | Ported 3 | `arranger_cues_jump` | `arranger.cues.jump` / Arranger |
-| `arranger_cues_rename` | Next | `Deferred: arranger_cues_rename` | `arranger.cues.rename` / Arranger — CueMarker.name() write requires API 15; current controller selects API 10. |
+| `arranger_cues_rename` | Ported 5 | `arranger_cues_rename` | CueMarker.name() write supported by explicit API 15. |
 | `arranger_cues_color` | Stub | `Deferred` | `arranger.cues.color` / Arranger — Always throws: cue marker color read-only in historical API. |
-| `transport_add_cue_marker` | Next | `Deferred: transport_add_cue_marker` | `transport.add_cue_marker` / Transport — addCueMarkerAtPlaybackPosition requires API 15. |
-| `application_undo` | Next | `Deferred: application_undo` | `application.undo` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
-| `application_redo` | Next | `Deferred: application_redo` | `application.redo` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
-| `application_cut` | Next | `Deferred: application_cut` | `application.cut` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
-| `application_copy` | Next | `Deferred: application_copy` | `application.copy` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
-| `application_paste` | Next | `Deferred: application_paste` | `application.paste` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
-| `application_delete` | Next | `Deferred: application_delete` | `application.delete` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
-| `application_duplicate` | Next | `Deferred: application_duplicate` | `application.duplicate` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
-| `application_select_all` | Next | `Deferred: application_select_all` | `application.select_all` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
-| `application_select_none` | Next | `Deferred: application_select_none` | `application.select_none` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
-| `application_arrow_key` | Next | `Deferred: application_arrow_key` | `application.arrow_key` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
-| `application_enter` | Next | `Deferred: application_enter` | `application.enter` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
-| `application_escape` | Next | `Deferred: application_escape` | `application.escape` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
-| `application_zoom_in` | Next | `Deferred: application_zoom_in` | `application.zoom_in` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
-| `application_zoom_out` | Next | `Deferred: application_zoom_out` | `application.zoom_out` / Application — API exists; defer until selection/focus or global edit-history targeting is explicit. |
+| `transport_add_cue_marker` | Ported 5 | `transport_add_cue_marker` | Transport.addCueMarkerAtPlaybackPosition() supported by explicit API 15. |
+| `application_undo` | Ported 5 | `application_undo` | Native Application command; explicit global focus/selection/clipboard scope, dispatch acknowledgement only. |
+| `application_redo` | Ported 5 | `application_redo` | Native Application command; explicit global focus/selection/clipboard scope, dispatch acknowledgement only. |
+| `application_cut` | Ported 5 | `application_cut` | Native Application command; explicit global focus/selection/clipboard scope, dispatch acknowledgement only. |
+| `application_copy` | Ported 5 | `application_copy` | Native Application command; explicit global focus/selection/clipboard scope, dispatch acknowledgement only. |
+| `application_paste` | Ported 5 | `application_paste` | Native Application command; explicit global focus/selection/clipboard scope, dispatch acknowledgement only. |
+| `application_delete` | Ported 5 | `application_delete` | Native Application command; explicit global focus/selection/clipboard scope, dispatch acknowledgement only. |
+| `application_duplicate` | Ported 5 | `application_duplicate` | Native Application command; explicit global focus/selection/clipboard scope, dispatch acknowledgement only. |
+| `application_select_all` | Ported 5 | `application_select_all` | Native Application command; explicit global focus/selection/clipboard scope, dispatch acknowledgement only. |
+| `application_select_none` | Ported 5 | `application_select_none` | Native Application command; explicit global focus/selection/clipboard scope, dispatch acknowledgement only. |
+| `application_arrow_key` | Ported 5 | `application_arrow_key` | Native Application command; explicit global focus/selection/clipboard scope, dispatch acknowledgement only. |
+| `application_enter` | Ported 5 | `application_enter` | Native Application command; explicit global focus/selection/clipboard scope, dispatch acknowledgement only. |
+| `application_escape` | Ported 5 | `application_escape` | Native Application command; explicit global focus/selection/clipboard scope, dispatch acknowledgement only. |
+| `application_zoom_in` | Ported 5 | `application_zoom_in` | Native Application command; explicit global focus/selection/clipboard scope, dispatch acknowledgement only. |
+| `application_zoom_out` | Ported 5 | `application_zoom_out` | Native Application command; explicit global focus/selection/clipboard scope, dispatch acknowledgement only. |
 
 ## Deferred delivery sequence
 
@@ -297,13 +313,13 @@ not source-compatible aliases. Historical module names refer to the archived
    live audio verification remain separate. Browser opening is not a loaded
    instrument or proof of successful replacement.
 3. **Further song form:** tranche 3 restores transport/overdub, arranger panel
-   controls and bounded cue listing/launch. Cue creation/naming, zoom and complete
-   timeline region editing remain deferred. Existing view/marker tools do not
+   controls and bounded cue listing/launch. Tranche 5 adds cue creation/naming and zoom. Complete
+   timeline region editing remains outside the proven API surface. Existing view/marker tools do not
    establish arbitrary timeline clip-region editing.
 4. **Separate feasibility work:** raw MIDI, expressive MIDI, drum pads, groove,
-   project-wide bulk actions and Ear. These include missing wiring, missing
-   implementations and external services; they cannot be recovered just by
-   copying the historical catalogue.
+   project-wide bulk actions and Ear were originally missing wiring. Tranche 5
+   implements drum pads, groove and native project resets; MIDI routing and Ear
+   remain separate integrations.
 
 ## API and correctness review
 
@@ -330,11 +346,12 @@ not source-compatible aliases. Historical module names refer to the archived
 - Interested flags and observers must be initialized before reading clip
   existence, occupancy, names, colors, and cursor identity. Unknown cached data
   must not be presented as an available empty slot.
-- Historical `arranger_cues_create` always throws and redirects to
-  `transport.add_cue_marker`. Historical `arranger_cues_color` always throws a
-  read-only limitation. Do not present either as a restored write capability.
+- Historical `arranger_cues_create` always threw; tranche 5 implements creation
+  through API 15. Historical `arranger_cues_color` still has no supported setter:
+  installed `CueMarker.getColor()` is read-only. Do not infer color mutation from
+  creation or name mutation.
 - Historical `note_play` dispatched only note-on: its apparent duration was not
-  implemented. MIDI requires explicit port configuration, note-off guarantees,
+  implemented. The NoteInput route requires explicit port configuration, note-off guarantees,
   cleanup on failure and an instantiated module. The historical controller
   declared zero MIDI ports and never initialized `NoteInputModule`.
 - Historical browser filtering used a smart-collection wildcard setter. Verify

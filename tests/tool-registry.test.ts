@@ -19,7 +19,7 @@ test("preserves every historical tool schema and policy as a stable prefix", () 
   }));
   const digest = createHash("sha256").update(JSON.stringify(schemas)).digest("hex");
 
-  assert.equal(TOOL_SPECS.length, 126);
+  assert.equal(TOOL_SPECS.length, 161);
   assert.equal(new Set(TOOL_SPECS.map(({ name }) => name)).size, TOOL_SPECS.length);
   assert.deepEqual(tools, snapshot.tools);
   assert.equal(digest, snapshot.schemaDigest);

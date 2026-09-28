@@ -95,14 +95,15 @@ apps/playground
   -> localStorage JSON save/load
 ```
 
-The 126-tool Bitwig MCP bridge (including the original 57 tools) is maintained in `index.ts`; `index.js` is its
+The 161-tool Bitwig MCP bridge (including the original 57 tools) is maintained in `index.ts`; `index.js` is its
 committed, generated runtime entry point for the npm package and MCP clients. The portable `BitwigAdapter` lives separately under
 `packages/adapters/bitwig` and receives the shared authenticated RPC primitive
 through an injected port. The capability guides cover
 [inspection and navigation](docs/BITWIG_MCP_PORT.md),
 [launcher construction](docs/BITWIG_MCP_CONSTRUCTION.md),
 [transport and cues](docs/BITWIG_MCP_TRANSPORT.md), and
-[sound and mix](docs/BITWIG_MCP_MIX.md), including controller upgrades and
+[sound and mix](docs/BITWIG_MCP_MIX.md), and
+[API 15 parity](docs/BITWIG_MCP_PARITY_NEXT.md), including controller upgrades and
 readback limits. The [historical parity inventory](docs/BITWIG_MCP_PARITY.md)
 tracks remaining work.
 Browser audition is local Web Audio preview, not a
@@ -150,7 +151,7 @@ NanoDAW Agent mode
 
 Gemma may only list targets, inspect the selected session, and propose a
 bounded `SongPatchV1`. Confirmation and execution are gateway/UI operations;
-they are never model tools. The `TOOL_SPECS` registry preserves the original 57 tools and adds 69
+they are never model tools. The `TOOL_SPECS` registry preserves the original 57 tools and adds 104
 inspection, construction, transport, arranger, sound and mix tools. This registry is separate from the portable agent language. See
 [`docs/LOCAL-LLM-TOOL-ORCHESTRATION.md`](docs/LOCAL-LLM-TOOL-ORCHESTRATION.md).
 
@@ -227,6 +228,11 @@ codex mcp add beat-twin --env BITWIG_HOST=127.0.0.1 --env BITWIG_PORT=8888 -- no
 ```
 
 ## Install The Bitwig Controller
+
+The current controller requires **controller API 15 or newer**. Earlier port
+tranches selected API 10. The API audit uses the official documentation bundled
+with installed Bitwig Studio 6.1.1; live compatibility acceptance is still pending.
+See [API coverage](docs/BITWIG_CONTROLLER_API_COVERAGE.md).
 
 Copy the controller script into your Bitwig controller scripts directory.
 

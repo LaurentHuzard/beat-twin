@@ -1,50 +1,40 @@
-# BT-MCP-PORT-004 — Sound, mix and bounded track/device operations
+# BT-MCP-PORT-005 — Historical parity and API inventory
 
-Status: implemented and locally verified; authorized publication in progress.
-363 offline tests, typecheck, architecture and distribution passed. Independent
-review complete. Live Bitwig acceptance remains deferred. See
-`.agents/reports/feature-20260928-bitwig-mix-port.md` for evidence and limits.
+Status: locally complete, 386 offline tests and all integration checks passed;
+independent review complete. Authorized publication in progress. Detailed report:
+.agents/reports/feature-20260928-bitwig-parity-next.md. Live acceptance deferred.
 
-User authorization 2026-09-28: continue capability ports with parallel agents and
-publish/merge verified tranches. Live Bitwig tests are deferred.
-Freshly fetched and remote-confirmed base: 02f992bd4741a86caeedc3d975d73590598a7202,
-merged PR #96. Branch: agent/bitwig-mix-port-20260928.
+Authorized 2026-09-28: continue historical parity, go beyond it using the official
+controller API, publish verified tranches under continuing authorization. Real
+Bitwig tests are deferred until the larger acceptance pass.
 
-## Scope
+Fresh fetched and remote-confirmed base: 6543c69bce4aee0466173ba4a26b7117ef885820.
+Branch: agent/bitwig-parity-next-20260928. Primary checkout preserved.
 
-Add 22 historical tools: targeted track delete/duplicate; cursor track/device/clip
-inspection; effect-track creation; device bypass/delete, cursor navigation and
-browser insertion/replacement; master, send and return levels. Target catalog:
-126 tools / 32 default reads. Preserve prior 104 tools and original schema prefix.
+## Slice
 
-API 10 constraints: main track bank reserves eight sends; effect bank uses the
-legacy two-argument constructor; track duplication uses Channel.duplicate, not
-API-19 duplicateObject; no API-18 Send.isEnabled. Values are normalized 0–1,
-including pan, with 0.5 centered; no dB claim.
+Restore 33 historical names and add application_get_status/project_get_status:
+14 explicit global Application commands; arranger zoom; cue creation/rename and
+existing cue aliases; seven drum-pad tools; three groove tools; three native
+project-wide reset operations. API 15 replaces API 10 to support cue creation,
+rename and observed undo/redo availability. Review old overload compatibility.
 
-Track structure mutations require an adapted observation barrier, not the
-construction guard that assumes unchanged bank positions. Revoke bindings before
-mutation, retain project scope, observe expected count/selection/content changes,
-and wait for stable data before reusing targets. Unknown state fails closed.
-Device browsing requires an existing selected device; no implicit replacement
-fallback. Acknowledgements describe dispatch, not observed result.
+Global UI commands explicitly expose unknown focus/selection/clipboard and
+ dispatch-only results. Do not infer target guarantees from panel layout. Target
+bindings are revoked before dispatch; settling is not proof of the effect.
+New proxy reads and structure calls require initialized observations.
 
-## Ownership
+## Parallel ownership
 
-- controller_port: controller TypeScript + tests/bitwig-controller-mix.test.ts.
-- mcp_port: index.ts + tests/mcp-mix-port.test.ts.
-- parity_audit: docs/BITWIG_MCP_PARITY.md + docs/BITWIG_MCP_MIX.md;
-  independent API and adversarial review.
-- Coordinator: generated JS, package/counts/tests integration, validation, report,
-  publication and final reconciliation of the capability inventory.
+- application_contract: controller TS and new controller parity tests.
+- historical_audit: index.ts and new MCP parity tests.
+- api_inventory: full API gap audit, documentation and independent review.
+- Coordinator: package/count integration, generated runtime, full offline checks,
+  report, inventory reconciliation and exact-head publication.
 
-## Boundaries and verification
+## Continuation
 
-Fourteen global focus-dependent application commands and four API/search/zoom
-candidates remain distinct follow-up work; do not claim full historical parity.
-External services, historical stubs and unwired declarations remain documented.
-
-Run focused/full offline tests, typecheck, architecture, distribution, syntax and
-diff checks. No installation/reload, DAW write, listening or model run. Publish
-verified source under existing user authorization; GitHub Actions are disabled,
-so local evidence and deferred live acceptance remain separate.
+Investigate MIDI/NoteInput, expression/note-editing opportunities, and honest
+replacement contracts for unsupported filter/color stubs and external Ear.
+No live install/reload, playback, DAW mutation, listening or model call. Focused
+and full offline tests, typecheck, architecture, package smoke and review.

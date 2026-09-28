@@ -1,5 +1,8 @@
 # Bitwig MCP bounded mix, devices and cursor port
 
+Historical tranche-4 contract and counts. The controller now selects API 15;
+see [tranche 5](BITWIG_MCP_PARITY_NEXT.md) for the current catalogue and migration.
+
 Date: 2026-09-28. Tranche 4 adds **22 historical names**, taking the source
 catalogue to **126 tools / 32 reads** with default write policies disabled.
 Optional discovery wrappers are counted separately. These counts describe the

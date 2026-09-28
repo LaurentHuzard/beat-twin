@@ -63,6 +63,11 @@ test("default tool list exposes only read tools", () => {
       "mixer_get_master_volume",
       "mixer_get_send_level",
       "mixer_return_list",
+      "application_get_status",
+      "arranger_get_cue_markers",
+      "drumpad_get_status",
+      "groove_get_status",
+      "project_get_status",
     ],
   );
   assert.ok(tools.every((tool) => tool.description.startsWith("[policy:read]")));

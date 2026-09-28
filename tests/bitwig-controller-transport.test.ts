@@ -53,8 +53,8 @@ function harness(options: { unsettled?: boolean; count?: number; offset?: number
     context.watchAdvancedValue(cueValues.name, index + ".name", "cues");
     context.watchAdvancedValue(cueValues.position, index + ".position", "cues");
     context.watchAdvancedValue(color, index + ".color", "cues");
-    // Deliberately no name() API15 method: only getName() is valid for this fixture.
-    return { values: cueValues, exists: () => cueValues.exists, getName: () => cueValues.name,
+    // Tranche 5 migrates to API15: read and write use the same name() proxy.
+    return { values: cueValues, exists: () => cueValues.exists, getName: () => cueValues.name, name: () => cueValues.name,
       position: () => cueValues.position, getColor: () => color,
       launch(quantized: boolean) { calls.push(["cue.launch", index, quantized]); } };
   });
