@@ -17,7 +17,9 @@ restart/reload that server and refresh its tool list. Only the exact value
 `1` enables this surface. The option does **not** enable any write policy.
 Pairing or restarting a NanoDAW Gateway does not enable these Bitwig wrappers.
 
-Default MCP listing and the historical 57-tool registry remain unchanged.
+The registry preserves the schemas/policies of the original 57 tools and now
+adds 13 restored tools (70 total; 20 read-only by default). See
+[capability port](BITWIG_MCP_PORT.md).
 With discovery enabled, the policy-filtered direct tool list gains two tools:
 `search_tools` and `call_tool`. Direct calls remain available.
 
@@ -88,7 +90,7 @@ MCP annotations are hints for clients, not authorization checks.
 
 ## Evidence
 
-`tests/tool-registry.test.js` covers default metadata compatibility, opt-in
+`tests/tool-registry.test.ts` covers default metadata compatibility, opt-in
 listing, filtered/paged discovery, input bounds, recursion and policy bypass
 attempts, schema validation, direct-call parity and in-memory MCP transport.
 All DAW calls are injected fakes; these tests prove neither a live connection

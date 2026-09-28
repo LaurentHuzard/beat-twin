@@ -78,7 +78,7 @@ MCP compatibility guardrails:
 
 ```bash
 rtk proxy node --check index.js
-rtk proxy node --test tests/session-inspect.test.js tests/policy-gate.test.js tests/arrangement-plan.test.js
+rtk proxy node --test tests/session-inspect.test.js tests/policy-gate.test.ts tests/arrangement-plan.test.js
 ```
 
 Protocol smoke is still separate because it needs a local TCP listener:

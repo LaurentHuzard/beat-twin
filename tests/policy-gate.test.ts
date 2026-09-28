@@ -45,6 +45,12 @@ test("default tool list exposes only read tools", () => {
       "device_list",
       "browser_get_status",
       "browser_list_results",
+      "project_get_summary",
+      "track_list",
+      "track_get_info",
+      "clip_get_grid",
+      "clip_get_status",
+      "clip_get_notes",
     ],
   );
   assert.ok(tools.every((tool) => tool.description.startsWith("[policy:read]")));

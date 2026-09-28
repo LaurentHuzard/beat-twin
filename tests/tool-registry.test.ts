@@ -9,17 +9,18 @@ const snapshot = JSON.parse(
   await readFile(new URL("./fixtures/tool-specs.snapshot.json", import.meta.url), "utf8"),
 );
 
-test("keeps the historical 57-tool Bitwig MCP surface stable", () => {
-  const tools = TOOL_SPECS.map(({ name, policy }) => [name, policy]);
-  const schemas = TOOL_SPECS.map(({ name, policy, inputSchema }) => ({
+test("preserves every historical tool schema and policy as a stable prefix", () => {
+  const historical = TOOL_SPECS.slice(0, snapshot.count);
+  const tools = historical.map(({ name, policy }) => [name, policy]);
+  const schemas = historical.map(({ name, policy, inputSchema }) => ({
     name,
     policy,
     inputSchema,
   }));
   const digest = createHash("sha256").update(JSON.stringify(schemas)).digest("hex");
 
-  assert.equal(TOOL_SPECS.length, snapshot.count);
-  assert.equal(new Set(TOOL_SPECS.map(({ name }) => name)).size, snapshot.count);
+  assert.equal(TOOL_SPECS.length, 70);
+  assert.equal(new Set(TOOL_SPECS.map(({ name }) => name)).size, TOOL_SPECS.length);
   assert.deepEqual(tools, snapshot.tools);
   assert.equal(digest, snapshot.schemaDigest);
 });

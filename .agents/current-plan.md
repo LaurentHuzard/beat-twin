@@ -1,77 +1,42 @@
-# Documentation reconciliation — 2026-09-27
+# BT-MCP-PORT-001 — Recover Bitwig inspection and navigation
 
-The maintainer requested a refresh of the lolOS portfolio, project docs and PR
-state. Dedicated worktree from freshly fetched and remotely confirmed main
-`413238b2659ffb8a0a417feab2b8bb536fb8c3a6`. This is a documentation task.
+Authorized by user on 2026-09-27: start the capability port plan with parallel sub-agents.
+Base: freshly fetched origin/main 8a6f9bdef9958caccbb421cdcd65f5062e1598b6.
+Branch: agent/bitwig-capability-port-20260927.
 
-## Current publication and Orbit checkpoint
+## Active outcome
 
-PR #92 merged on 2026-09-25 at `413238b2`; BT-AUD-01–03 is no longer awaiting publication. Drafts #89 (Android/MUE Duo spike) and #91 (runtime prerequisites) remain open. The Ready queue is empty; these drafts do not activate a live experiment or DAW operation.
+Build an exhaustive historical/current capability inventory and deliver the first coherent port: clip grid and occupancy, track/project inspection, bank navigation, names/colors, and real bounded note readback where supported by the current controller contract. Restore useful composition primitives without weakening the existing local relay, Agent-mode target binding or write-policy defaults.
 
-GitHub issue/PR metadata and main ancestry were checked for this reconciliation.
-Publication-pending statements in the dated plans below are historical where
-this checkpoint names an integrated change. Integration is not deployment.
+## Ownership
 
-## Scope and verification
+- Controller agent: controller TypeScript and focused controller port tests.
+- MCP agent: index.ts registry/dispatch and focused registry port tests.
+- Inventory agent: historical parity documentation and independent API compatibility review.
+- Coordinator: integration, generated bridge outputs, compatibility checks, documentation and final evidence.
 
-Reconcile status, queue and documentation entry points; retain historical test
-evidence. Check changed Markdown links, structured portfolio projections where
-applicable, merge ancestry and `git diff --check`. No application suite or live
-provider evidence is claimed by a documentation-only refresh. No new product
-item is promoted to Ready. Publication was explicitly authorized by the maintainer on 2026-09-27.
+## Validation and boundaries
 
-## Local documentation outcome
+Run focused tests, bridge generation, repository unit suite/typecheck and distribution checks as relevant. Review policy gating, bounds, stale/unavailable state and unsupported APIs. Source references may use the historical archived branch; no runtime claims from historical declarations alone.
 
-Status and tracking reconciliation is complete locally. Added Markdown links,
-Git whitespace and the cited merge ancestry pass verification. Application
-code and original checkout modifications are unchanged. The maintainer explicitly authorized commit, push and merge on 2026-09-27.
-The associated documentation PR records integration state; its merge metadata
-is authoritative. Application deployment remains a separate operation.
+Implementation authority is explicit in this session. Publication, merge and installation of the new controller remain separate from this development tranche. Do not touch the user's live musical session during port validation. Report unported domains, stubs and external services in the inventory, not as restored features.
 
-## Historical plans and validation evidence
+## Outcome — 2026-09-27
 
-# Current plan — BT-AUD-01–03
+Locally implemented and offline-validated; review pending. Registry is 70 tools
+(20 read-only by default), with the historical 57-tool schema/policy prefix intact.
+Navigation revokes old target bindings before moving and rejects bank-dependent
+calls until the observed position settles. Final full suite: 294 passed; typecheck,
+architecture, distribution and diff checks passed.
 
-Authorized 2026-09-25: fix the audited UI/documentation tickets in an isolated freshly fetched worktree. No media/DAW mutation, publication or shared-runtime restart. Validate focused regressions and isolated browser rendering; report in /tmp/lolos-ticket-treatment-20260925/audio-beat.md.
+Evidence: `.agents/reports/feature-20260927-bitwig-capability-port.md`.
+Historical matrix: `docs/BITWIG_MCP_PARITY.md`.
+No runtime install, live validation, commit, publication or merge. Further port
+tranches and live acceptance remain outstanding; this is not full historical parity.
 
-## Local result
+## Publication authorization — 2026-09-28
 
-34 App unit tests, three isolated browser viewports, frontend build and npm distribution smoke pass. Packed executable initializes and lists14 read-policy tools without tools/call. BT-AUD-03 is a corrected audit false positive: existing SVG icon decodes; original404 was optional MCP plans. No DAW writes.
-Historical local checkpoint; subsequently merged through PR #92 on
-2026-09-25. Shared-runtime activation is not established by this documentation review.
-
-## Previous plan
-
-# No active Orbit
-
-Last reconciled: 2026-09-22 through issue #80 on branch
-`fix/issue-80-reconcile-orbit-state`.
-
-## Current state
-
-There is no active implementation item. `.agents/queue.md` is the canonical
-execution queue and its `Orbit Ready` section is explicitly empty.
-
-BT-MCP-DIAGNOSTICS / issue #1 is historical delivered work: PR #77 merged as
-`add81650e418c0acb1776cf74998668249001086` and issue #1 is closed completed.
-Its implementation evidence remains in
-`.agents/reports/feature-20260915-mcp-diagnostics.md`.
-
-PR #76 is closed without merge and is explicitly superseded by #77. Its branch
-and evidence remain historical; they do not grant current implementation authority.
-
-## Reconciliation evidence
-
-See `.agents/reports/issue-80-orbit-reconciliation.md` for the GitHub-state
-cross-check, main-ancestry verification, PR #76 supersession review, and scope
-review performed for issue #80.
-
-## Next authorization boundary
-
-Do not promote a legacy `Ready`, `In progress`, backlog, issue, roadmap item, or
-historical branch into implementation authority automatically. A future product
-loop must receive fresh explicit authorization and then update both
-`.agents/queue.md` and this plan before meaningful implementation begins.
-
-No MCP permission, provider, runtime, DAW write, dependency, deployment, merge,
-or branch deletion is authorized by this handoff.
+User explicitly authorized commit/push/merge of this tranche and continuation of
+remaining tool ports with parallel agents. Live Bitwig tests are deferred by the
+user. Publish the verified implementation, then start the next bounded tranche
+from the freshly fetched merged main in a separate worktree.
