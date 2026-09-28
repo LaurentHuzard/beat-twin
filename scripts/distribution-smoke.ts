@@ -21,6 +21,9 @@ try {
     assert.ok(paths.has(file), `Missing distribution artifact: ${file}`);
   }
   assert.ok(![...paths].some(path => /(^|\/)(?:node_modules|\.env|test-results)(?:\/|$)/.test(path)));
+  for (const file of ["lib/ear-local-provider.ts", "scripts/ear-local.ts", "docs/EAR_LOCAL_PROVIDER.md"]) {
+    assert.ok(paths.has(file), `Missing optional Ear provider artifact: ${file}`);
+  }
   execFileSync("tar", ["-xzf", join(temporary, packed[0].filename), "-C", temporary], { timeout: 10_000 });
   const extracted = join(temporary, "package");
   symlinkSync(resolve(root, "node_modules"), join(extracted, "node_modules"), "dir");

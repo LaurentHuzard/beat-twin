@@ -1336,11 +1336,11 @@ export const MUSICAL_TOOL_SPECS = Object.freeze([
     inputSchema: boundedToolSchema(), policy: "midi_write", method: "note_input.all_notes_off",
   },
   {
-    name: "clip_get_note_expressions", description: "Read expressions for 1-256 explicit step/pitch note starts from the already selected matching launcher clip. trackIndex/sceneIndex are 0-7; steps 0-63, pitches 0-127, channel 0 only. Returns a bounded snapshot for later expression updates, not full MIDI export.",
+    name: "clip_get_note_expressions", description: "Read expressions for 1-256 explicit step/pitch note starts from the already selected matching launcher clip. trackIndex/sceneIndex are 0-7; steps 0-63, pitches 0-127, channel 0 only. Returns a bounded snapshot and expressionCapabilities; unsupported host fields are null. Check writable capabilities before updating. Not full MIDI export.",
     inputSchema: boundedToolSchema({ ...clipTargetSchema, notes: noteBatchSchema(noteCoordinatesSchema) }), policy: "read", method: "clip.get_note_expressions", mapArgs: (args) => [args.trackIndex, args.sceneIndex, args.notes], validateArgs: (args) => validateNoteBatchArguments(args, false),
   },
   {
-    name: "clip_set_note_expressions", description: "Patch expressions on 1-256 explicit note starts using a current snapshotId from clip_get_note_expressions. Each item needs step, pitch and at least one expression: velocity/releaseVelocity/pressure/gain 0-1, pan/timbre -1..1, transpose -96..96 semitones. Same selected clip and channel-0 bounded grid are required; duration changes are not supported. Partial results are errors and must not be retried automatically.",
+    name: "clip_set_note_expressions", description: "Patch expressions on 1-256 explicit note starts using a current snapshotId from clip_get_note_expressions. Each item needs step, pitch and at least one expression: velocity/releaseVelocity/pressure/gain 0-1, pan/timbre -1..1, transpose -96..96 semitones. Same selected clip and channel-0 bounded grid are required; duration changes are not supported. Respect expressionCapabilities from the read; pressure is unavailable on Bitwig 6.1.1. Partial results are errors and must not be retried automatically.",
     inputSchema: boundedToolSchema({ ...clipTargetSchema, snapshotId: snapshotIdSchema, notes: { type: "array", minItems: 1, maxItems: 256, items: expressionPatchSchema } }), policy: "clip_write", method: "clip.set_note_expressions", mapArgs: (args) => [args.trackIndex, args.sceneIndex, args.snapshotId, args.notes], validateArgs: (args) => validateNoteBatchArguments(args, false),
   },
   {

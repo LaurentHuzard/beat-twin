@@ -1,26 +1,32 @@
-# BT-MCP-LIVE-FIX-001 — Live regression corrections
+# BT-MCP-PARITY-007 — Complete functional host paths
 
-Implementation and bounded real replay complete, 2026-09-28.
-Fresh fetched base: 4fe22572e4d3e0270f2be2a37b7dcdf25256d65d.
-Dedicated worktree preserves the original checkout and acceptance evidence.
-Existing user authorization covers parallel agents, live tests and publication.
+User explicitly requests continuing toward full parity and beyond. Prior
+parallel-agent, publication and disposable-project live-test authorization
+persists. Fresh fetched base: b74a587f891c1a73245faa915bf23101ce2f698b.
+One worktree and one implementation item; only root operates the live DAW.
 
-Delivered: explicit Java channel access, observed Project.createScene,
-immediate normalized mixer/remote commands, bounded creative uncertainty with
-independent diagnostics, browser cancel independent of results, honest velocity
-translation bounds. Source and generated distributions remain synchronized.
+First unblock truthful current-value observation for groove/sends, browser and
+remote controls, using the installed API contract and real host behavior. Keep
+identity/snapshot/write safeguards and explicit observation provenance. No
+cached getter may silently become confirmed mutation evidence. Address pressure
+readback with host evidence, not invented values. Then replay missing functional
+paths including real sound insertion and MIDI cleanup; add a local optional Ear
+provider if its capture semantics can be verified against the existing contract.
 
-Validation: 465 tests, typecheck, architecture, distribution and syntax passed.
-Real replay: pan/master/remote set-read-restore, scene create-delete, browser
-cancel, timeout diagnostics with blocked writes and panic, controller reload,
-negative velocity rejection at both boundaries. One live writer only.
+Ownership: host observer agent owns main controller + its tests; creative agent
+owns creative module + its tests; Ear agent owns local Ear implementation,
+focused tests/docs only. Root owns registry/package integration, generated
+artifacts, live evidence, final review/publication and coverage report.
 
-Report: .agents/reports/fix-20260928-bitwig-live-regressions.md.
-Private evidence stays ignored in output/bitwig-live-fixes-20260928. No raw song,
-audio or desktop data is publication material. No model/provider calls.
+Validation: focused regression tests, full suite/typecheck/distribution, private
+live journal and real postconditions. Track unavailable dependencies honestly;
+full parity is not a tool-count claim. Public artifacts contain no raw song,
+audio, desktop or credential data. Build isolated, review exact head, push/merge
+under existing authorization, verify remote state and installed-source match.
 
-Remaining: pressure callback/getter fidelity; browser/remote fresh observations;
-zero-initial groove/send observations; separate Ear/MPE/disconnect acceptance.
-Do not claim complete live parity. Next product work requires a fresh bounded
-plan and remote-confirmed base; this completed tranche is ready for authorized
-publication with exact-head review and remote verification.
+## Result
+
+Implementation, independent review, 498 tests and bounded live replay complete.
+See reports/parity-20260928-functional-host-paths.md for actual evidence and
+remaining exclusions. Publication is authorized; GitHub PR metadata records delivery status. No blanket
+claim of full historical/API acceptance; no MUE/Gemma evaluation performed.

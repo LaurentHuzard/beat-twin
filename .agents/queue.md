@@ -18,16 +18,17 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-No active implementation item. **BT-MCP-LIVE-FIX-001** implementation and bounded
-live replay complete: 465 offline tests; pan/master/remote, scene lifecycle,
-browser cancel and uncertainty recovery verified in the host. Publication is
-authorized; GitHub records the exact merge outcome. See current-plan.md and
-.agents/reports/fix-20260928-bitwig-live-regressions.md for remaining limitations.
+No active implementation item.
 
-BT-MCP-LIVE-001 ran 290 MCP calls over 102 distinct tool names, with actual audio
-and MIDI evidence, failures and partial coverage. Private raw artifacts remain
-in the previous acceptance worktree and are not publication material.
-BT-MCP-PORT-006 merged through PR99 as 4fe22572e4d3e0270f2be2a37b7dcdf25256d65d.
+BT-MCP-PARITY-007 implementation and bounded live validation completed;
+publication authorized; GitHub PR metadata records delivery status. See
+`.agents/reports/parity-20260928-functional-host-paths.md`: 498 offline tests,
+real loading/audio/MPE/filter/mix evidence, explicit aftertouch/pressure limits.
+
+BT-MCP-LIVE-FIX-001 merged as PR100, b74a587f891c1a73245faa915bf23101ce2f698b.
+465 offline tests and bounded real replay passed for that correction tranche.
+That tranche did not accept observation/pressure/Ear/MPE/concurrency paths;
+the newer PARITY-007 report records the subsequent partial acceptance.
 
 ### Previous readiness (historical)
 

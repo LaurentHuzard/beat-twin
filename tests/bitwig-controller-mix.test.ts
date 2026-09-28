@@ -108,6 +108,55 @@ test("six reads report bounded known cursor/mixer state without mutations", () =
   assert.deepEqual(h.calls, []);
 });
 
+function silentInitialZeroParameter() {
+  let current = 0, displayObserver: (text: string) => void = () => {}, numericObserver: () => void = () => {};
+  const writes: number[] = [];
+  const parameter = { markInterested() {}, get: () => current,
+    addValueObserver(callback: () => void) { numericObserver = callback; },
+    setImmediately(next: number) { writes.push(next); },
+    displayedValue: () => ({ markInterested() {}, addValueObserver(callback: (text: string) => void) { displayObserver = callback; } }),
+    display: (text: string) => displayObserver(text), update: (next: number) => { current = next; }, notify: () => numericObserver() };
+  return { parameter, writes };
+}
+
+test("initial zero send uses interested getter with display and identity evidence, not invented numeric callback", () => {
+  const h = harness(), { parameter, writes } = silentInitialZeroParameter();
+  (parameter as any).exists = h.sends[0][0].exists; h.sends[0][0] = parameter;
+  h.ctx.watchMixValue(parameter, "level", "send0:0");
+  assert.equal(h.rpc("mixer.track.get_send", [0, 0]).error.code, -32004);
+  parameter.display(""); h.settle();
+  assert.equal(h.rpc("mixer.track.get_send", [0, 0]).error.code, -32004);
+  parameter.display("-inf dB"); h.ctx.flush();
+  assert.equal(h.rpc("mixer.track.get_send", [0, 0]).error.code, -32004);
+  h.ctx.flush();
+  assert.equal(h.rpc("mixer.track.get_send", [0, 0]).result, 0);
+  assert.equal(h.ctx.advancedState["send0:0"].seen.level, false);
+  assert.ok(h.ctx.mixObservationDiagnostics().initialZeroWithoutNumericCallback.includes("send0:0.level"));
+  h.main[0].position().update(1); h.main[0].position().notify();
+  assert.equal(h.rpc("mixer.track.get_send", [0, 0]).error.code, -32004);
+  h.main[0].position().update(0); h.main[0].position().notify(); h.settle();
+  assert.ok(h.rpc("mixer.track.set_send", [0, 0, 0.2]).result);
+  assert.deepEqual(writes, [0.2]);
+  parameter.update(0.2); parameter.display("-10 dB"); h.settle();
+  assert.equal(h.rpc("mixer.track.get_send", [0, 0]).error.code, -32004);
+  assert.ok(h.ctx.mixObservationDiagnostics().awaitingNumericCallback.includes("send0:0.level"));
+  parameter.notify(); h.settle();
+  assert.equal(h.rpc("mixer.track.get_send", [0, 0]).result, 0.2);
+});
+
+test("initial groove zero does not turn flushes or a nonzero cached getter into observation", () => {
+  const h = harness(), { parameter } = silentInitialZeroParameter();
+  h.ctx.watchMixValue(parameter, "level", "groove.enabled");
+  h.settle(); h.settle();
+  assert.throws(() => h.ctx.mixNormalized(parameter, "level", "groove.enabled"), /not observed/);
+  parameter.display("Off"); h.settle();
+  assert.equal(h.ctx.mixNormalized(parameter, "level", "groove.enabled"), 0);
+  parameter.update(1);
+  assert.throws(() => h.ctx.mixNormalized(parameter, "level", "groove.enabled"), /callback is pending/);
+  parameter.notify();
+  assert.equal(h.ctx.mixNormalized(parameter, "level", "groove.enabled"), 1);
+});
+
 test("legacy channel writes resolve explicit host methods and reject unknown fields", () => {
   const h = harness();
   assert.equal(h.rpc("track.bank.pan", [0, 0.4]).result, "OK");

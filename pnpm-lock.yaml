@@ -20,6 +20,9 @@ importers:
         specifier: ^1.29.0
         version: 1.29.0(zod@4.3.5)
     devDependencies:
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^5.9.0
         version: 5.9.3

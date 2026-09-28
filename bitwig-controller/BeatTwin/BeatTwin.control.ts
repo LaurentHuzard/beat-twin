@@ -56,6 +56,7 @@ var groove;
 var drumPadBank;
 var drumPadSelected = [];
 var globalUiPending = 0;
+var mixValueObservations = {};
 
 var BRIDGE_PROTOCOL_VERSION = "beat-twin-bitwig-v2";
 var TARGET_GRID_STEPS = 64;
@@ -895,8 +896,31 @@ function watchMixValue(value, key, group) {
     // Automation changes current levels continuously; it must not invalidate
     // settled proxy identity or unrelated reads on every frame.
     if (!advancedState[group]) advancedState[group] = { version: 0, flushedVersion: -1, settledVersion: -1, seen: {} };
+    var observation = { numericCallbackReceived: false, awaitingNumericCallback: false, displayReceived: false };
+    mixValueObservations[group + "." + key] = observation;
+    advancedState[group].seen[key] = false;
     value.markInterested();
-    value.addValueObserver(function () { advancedState[group].seen[key] = true; });
+    value.addValueObserver(function () {
+      observation.numericCallbackReceived = true;
+      observation.awaitingNumericCallback = false;
+      advancedState[group].seen[key] = true;
+    });
+    // Bitwig 6.1's ranged-value proxy suppresses the initial numeric callback
+    // when its subscribed value is the default zero. Value.markInterested/get
+    // still provides the current host cache (API 2). A real display callback
+    // supplies initialization evidence; it is NOT a numeric observation.
+    if (typeof value.displayedValue === "function") {
+      var display = value.displayedValue();
+      display.markInterested();
+      display.addValueObserver(function (text) {
+        var received = typeof text === "string" && text.length > 0;
+        if (observation.displayReceived !== received) {
+          observation.displayReceived = received;
+          advancedState[group].version += 1;
+          advancedState[group].settledVersion = -1;
+        }
+      });
+    }
   } else {
     watchAdvancedValue(value, key, group);
     value.addValueObserver(observeConstructionChange);
@@ -923,9 +947,37 @@ function mixObserved(value, key, group, type) {
 }
 
 function mixNormalized(value, key, group) {
-  var result = mixObserved(value, key, group, "number");
-  if (result < 0 || result > 1) throw bridgeError(-32004, "Normalized mixer state unavailable");
+  var state = advancedState[group];
+  var observation = mixValueObservations[group + "." + key];
+  var initialCurrent = observation && !observation.numericCallbackReceived &&
+    !observation.awaitingNumericCallback && observation.displayReceived;
+  if (!state || state.settledVersion !== state.version || (state.seen[key] !== true && !initialCurrent)) {
+    throw bridgeError(-32004, "Requested " + group + " state is not observed and settled yet");
+  }
+  var result = value.get();
+  if (typeof result !== "number" || !isFinite(result) || result < 0 || result > 1) throw bridgeError(-32004, "Normalized mixer state unavailable");
+  // Only the known suppressed initial zero uses the current-value contract.
+  // Changed nonzero values still require their numeric callback.
+  if (state.seen[key] !== true && result !== 0) throw bridgeError(-32004, "Normalized numeric callback is pending");
   return result;
+}
+
+function invalidateMixNormalized(key, group) {
+  advancedState[group].seen[key] = false;
+  var observation = mixValueObservations[group + "." + key];
+  if (observation) observation.awaitingNumericCallback = true;
+}
+
+function mixObservationDiagnostics() {
+  var initialCurrent = [], pending = [];
+  for (var id in mixValueObservations) {
+    var observation = mixValueObservations[id];
+    if (observation.awaitingNumericCallback) pending.push(id);
+    else if (!observation.numericCallbackReceived && observation.displayReceived) initialCurrent.push(id);
+  }
+  return { valueSource: "interested_host_cached_getter", initialZeroReadiness: "nonempty_display_callback_and_settled_identity",
+    initialZeroWithoutNumericCallback: initialCurrent, awaitingNumericCallback: pending,
+    mutationConfirmation: "numeric_callback_required" };
 }
 
 function setMixNormalized(value, key, group, next, cursorKey, cursorMatches) {
@@ -933,9 +985,9 @@ function setMixNormalized(value, key, group, next, cursorKey, cursorMatches) {
   var current = mixNormalized(value, key, group);
   if (current === next) return;
   if (cursorKey && mixObserved(cursorMatches, "cursorMatch", group, "boolean")) {
-    advancedState.cursorTrack.seen[cursorKey] = false;
+    invalidateMixNormalized(cursorKey, "cursorTrack");
   }
-  advancedState[group].seen[key] = false;
+  invalidateMixNormalized(key, group);
   targetGeneration += 1;
   // An absolute MCP command has no physical fader to cross a takeover point.
   // Preserve observation/readback guards while bypassing hardware takeover.
@@ -1149,7 +1201,7 @@ function invalidateLegacyBankField(index, key, next) {
   var track = requireExistingTrack(index);
   if (channelValue(track, key).get() === next) return;
   invalidateProjectAggregate(key);
-  if (mixObserved(mainCursorMatches[index], "cursorMatch", "mainTrack" + index, "boolean")) advancedState.cursorTrack.seen[key] = false;
+  if (mixObserved(mainCursorMatches[index], "cursorMatch", "mainTrack" + index, "boolean")) invalidateMixNormalized(key, "cursorTrack");
 }
 
 function invalidateProjectAggregate(key) {
@@ -1157,7 +1209,8 @@ function invalidateProjectAggregate(key) {
 }
 
 function invalidateLegacySelectedField(key, next) {
-  requireObservedAdvanced(key, "cursorTrack");
+  if (key === "volume" || key === "pan") mixNormalized(channelValue(cursorTrack, key), key, "cursorTrack");
+  else requireObservedAdvanced(key, "cursorTrack");
   if (channelValue(cursorTrack, key).get() === next) return;
   var affected = [];
   if (key === "volume" && mixObserved(masterCursorMatches, "cursorMatch", "master", "boolean")) affected.push(["master", "level"]);
@@ -1166,8 +1219,8 @@ function invalidateLegacySelectedField(key, next) {
       if (mixObserved(returnCursorMatches[i], "cursorMatch", "return" + i, "boolean")) affected.push(["return" + i, key]);
     }
   }
-  advancedState.cursorTrack.seen[key] = false;
-  for (var i = 0; i < affected.length; i++) advancedState[affected[i][0]].seen[affected[i][1]] = false;
+  invalidateMixNormalized(key, "cursorTrack");
+  for (var i = 0; i < affected.length; i++) invalidateMixNormalized(affected[i][1], affected[i][0]);
 }
 
 function readInspectionNotes(trackIndex, slotIndex) {
@@ -1837,6 +1890,8 @@ function handleRequest(request, connection, bridgeSession) {
         requireArgumentCount(request.params, setSend ? 3 : 2);
         if (setSend) requireNormalized(request.params[2]);
         var sendTrack = requireExistingTrack(request.params[0]);
+        requireObservedAdvanced("exists", "mainTrack" + request.params[0]);
+        requireObservedAdvanced("position", "mainTrack" + request.params[0]);
         requireBankIndex(request.params[1], "Send index");
         var sendGroup = "send" + request.params[0] + ":" + request.params[1];
         var send = sendTrack.sendBank().getItemAt(request.params[1]);
@@ -2092,6 +2147,8 @@ function handleRequest(request, connection, bridgeSession) {
           tracks: inspectTracks(), scenes: inspectScenes() };
         var creativeMutation = typeof creativeMutationStatus === "function" ? creativeMutationStatus() : null;
         if (creativeMutation !== null) result.creativeMutation = creativeMutation;
+        result.observation = { mixer: mixObservationDiagnostics() };
+        if (typeof creativeObservationDiagnostics === "function") result.observation.creative = creativeObservationDiagnostics();
         break;
       case "track.list":
         result = inspectTracks();
