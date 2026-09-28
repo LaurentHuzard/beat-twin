@@ -28,17 +28,17 @@ change an existing MCP server or authorize a DAW write. Clearing unrelated flags
 makes the examples independent of inherited write/discovery settings:
 
 ```bash
-# Read-only: 37 tools
+# Read-only: 42 tools
 BITWIG_MCP_ENABLE_WRITES=0 BITWIG_MCP_WRITE_POLICY= BITWIG_MCP_TOOL_DISCOVERY=0 node scripts/mcp-diagnostics.js
 
-# Read + application_write: 59 tools (includes global UI commands and cue edits)
+# Read + application_write: 64 tools (includes global UI commands and cue edits)
 BITWIG_MCP_ENABLE_WRITES=0 BITWIG_MCP_WRITE_POLICY=application_write BITWIG_MCP_TOOL_DISCOVERY=0 node scripts/mcp-diagnostics.js
 
-# All six existing write policies + read: 161 tools
+# All eight write policies + read: 187 tools
 BITWIG_MCP_ENABLE_WRITES=1 BITWIG_MCP_WRITE_POLICY= BITWIG_MCP_TOOL_DISCOVERY=0 node scripts/mcp-diagnostics.js
 ```
 
-With discovery explicitly enabled, those counts become 39, 61 and 163. These
+With discovery explicitly enabled, those counts become 46, 68 and 191. These
 counts describe the current registry, not a separate hardcoded catalog.
 `BITWIG_MCP_ENABLE_WRITES` takes precedence over selective policies when enabled.
 The report's `all-writes` mode describes the effective policy set, including

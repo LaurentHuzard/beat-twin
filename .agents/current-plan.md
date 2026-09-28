@@ -1,40 +1,49 @@
-# BT-MCP-PORT-005 — Historical parity and API inventory
+# BT-MCP-PORT-006 — MIDI, Ear integration and musical API extensions
 
-Status: locally complete, 386 offline tests and all integration checks passed;
-independent review complete. Authorized publication in progress. Detailed report:
-.agents/reports/feature-20260928-bitwig-parity-next.md. Live acceptance deferred.
+Continuing user authorization: recover historical parity, extend useful musical
+API coverage, publish reviewed offline tranches. Real Bitwig tests remain deferred.
+Fresh fetched/remote-confirmed base:f2191707b690c4c7973273d8cd1bd0978a924643,
+PR98 merged. Isolated branch:agent/bitwig-musical-parity-20260928.
 
-Authorized 2026-09-28: continue historical parity, go beyond it using the official
-controller API, publish verified tranches under continuing authorization. Real
-Bitwig tests are deferred until the larger acceptance pass.
+## Scope
 
-Fresh fetched and remote-confirmed base: 6543c69bce4aee0466173ba4a26b7117ef885820.
-Branch: agent/bitwig-parity-next-20260928. Primary checkout preserved.
+Historical MIDI8 implemented through optional generated MIDI controller profile,
+with status and panic helpers; original zero-port profile retained. Dedicated
+midi_write policy, bounded note leases and actual scheduled note-offs/cleanup.
+Six Ear adapters use an explicitly configured local external HTTP service and
+audio_capture policy, bounded errors/timeouts/results. No service startup/capture.
+Clip-slot alias plus historical discovery wrappers preserve current validation.
 
-## Slice
-
-Restore 33 historical names and add application_get_status/project_get_status:
-14 explicit global Application commands; arranger zoom; cue creation/rename and
-existing cue aliases; seven drum-pad tools; three groove tools; three native
-project-wide reset operations. API 15 replaces API 10 to support cue creation,
-rename and observed undo/redo availability. Review old overload compatibility.
-
-Global UI commands explicitly expose unknown focus/selection/clipboard and
- dispatch-only results. Do not infer target guarantees from panel layout. Target
-bindings are revoked before dispatch; settling is not proof of the effect.
-New proxy reads and structure calls require initialized observations.
+Beyond historical: note-expression read/update, observed browser filter items,
+item selection and bank paging, remote-page read/select, arranger-loop read/set.
+Browser_set_filter intentionally replaces an invalid text-search contract with
+observed column/item selection. Cue-color remains unsupported by public API;
+no fake success or blind UI fallback. All original57schemas/policies preserved.
 
 ## Parallel ownership
 
-- application_contract: controller TS and new controller parity tests.
-- historical_audit: index.ts and new MCP parity tests.
-- api_inventory: full API gap audit, documentation and independent review.
-- Coordinator: package/count integration, generated runtime, full offline checks,
-  report, inventory reconciliation and exact-head publication.
+- application_contract: core controller TS, new MIDI module and its tests;
+  hook creative module into core init/flush/dispatch and relevant browser handlers.
+- api_inventory: new creative controller module and creative tests only.
+- historical_audit: index.ts, Ear TS client, MCP and Ear tests only.
+- Coordinator: generated build/profile, package/count integration, documentation,
+  matrix/API inventory, real-session acceptance plan, checks/review/publication.
 
-## Continuation
+Controller modules remain ES5-compatible TypeScript, concatenated by build into
+self-contained generated controller outputs. API15 retained. New policies hidden
+by default. No install/reload/live test/audio capture/model call.
 
-Investigate MIDI/NoteInput, expression/note-editing opportunities, and honest
-replacement contracts for unsupported filter/color stubs and external Ear.
-No live install/reload, playback, DAW mutation, listening or model call. Focused
-and full offline tests, typecheck, architecture, package smoke and review.
+## Verification
+
+Focused/full offline tests; API signature/range review; hostile inputs, stale
+snapshots, partial mutation and timer cleanup tests. Typecheck, architecture,
+distribution/profile checks, syntax and diff checks. Source parity is distinct
+from external-service readiness and actual DAW acceptance.
+
+## Outcome
+
+Implementation and independent review complete:454 offline tests, typecheck,
+architecture and distribution checks pass.187 direct tools,42 default reads;
+four optional discovery wrappers. See the loop report for evidence and limits.
+Publication is authorized and tracked by the attached PR. Live acceptance is
+deferred; docs/BITWIG_LIVE_ACCEPTANCE.md contains the unexecuted scenario plan.
