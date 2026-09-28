@@ -1,5 +1,9 @@
 # Bitwig MCP transport and bounded arranger port
 
+This document records tranche 3 (merged in PR #96). Subsequent catalog additions
+are documented in [sound and mix tools](BITWIG_MCP_MIX.md).
+
+
 Date: 2026-09-28. Tranche 3 adds **21 historical tool names**: 17 transport tools
 and 4 arranger/cue tools. The source catalogue reaches **104 tools**, including
 **26 reads** under the default read-only policy. Optional discovery wrappers are

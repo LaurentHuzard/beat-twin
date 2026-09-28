@@ -26,13 +26,19 @@ const readNames = [
   "transport_get_overdub_status",
   "arranger_get_status",
   "arranger_cues_list",
+  "cursor_track_get_status",
+  "cursor_device_get_status",
+  "cursor_clip_get_status",
+  "mixer_get_master_volume",
+  "mixer_get_send_level",
+  "mixer_return_list",
 ];
-const applicationNames = ["application_create_instrument_track", "application_create_audio_track", "arranger_set_panel_visibility"];
+const applicationNames = ["application_create_instrument_track", "application_create_audio_track", "arranger_set_panel_visibility", "application_create_effect_track"];
 const writePolicies = ["transport", "mixer_write", "clip_write", "scene_write", "device_write", "application_write"];
 const modes = [
-  { label: "read-only", env: {}, policies: ["read"], count: 26 },
-  { label: "selective-writes", env: { BITWIG_MCP_WRITE_POLICY: "application_write" }, policies: ["read", "application_write"], count: 29 },
-  { label: "all-writes", env: { BITWIG_MCP_ENABLE_WRITES: "1" }, policies: ["read", ...writePolicies], count: 104 },
+  { label: "read-only", env: {}, policies: ["read"], count: 32 },
+  { label: "selective-writes", env: { BITWIG_MCP_WRITE_POLICY: "application_write" }, policies: ["read", "application_write"], count: 36 },
+  { label: "all-writes", env: { BITWIG_MCP_ENABLE_WRITES: "1" }, policies: ["read", ...writePolicies], count: 126 },
 ];
 const parseToolText = (response) => JSON.parse(response.content[0].text);
 
@@ -121,7 +127,7 @@ test("policy normalization, ignored entries and all-writes precedence reuse cano
   for (const enabled of ["1", "true", " YES ", "On", "all"]) {
     const report = bridge.getMcpDiagnostics({ env: { BITWIG_MCP_ENABLE_WRITES: enabled, BITWIG_MCP_WRITE_POLICY: "application_write" } });
     assert.equal(report.mode, "all-writes");
-    assert.equal(report.tool_count, 104);
+    assert.equal(report.tool_count, 126);
   }
   const env = { BITWIG_MCP_ENABLE_WRITES: "false", BITWIG_MCP_WRITE_POLICY: " APPLICATION_WRITE ,invalid,application_write ", BITWIG_MCP_TOOL_DISCOVERY: "true" };
   const report = bridge.getMcpDiagnostics({ env });

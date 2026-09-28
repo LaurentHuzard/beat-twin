@@ -7,6 +7,10 @@ host.defineController("Beat Twin", "Beat Twin", "0.1", "761be710-90df-4577-8094-
 var transport;
 var arranger;
 var cueMarkerBank;
+var masterTrack;
+var masterCursorMatches;
+var returnCursorMatches = [];
+var effectTrackBank;
 var advancedState = {
   transport: { version: 0, flushedVersion: -1, settledVersion: -1, seen: {} },
   arranger: { version: 0, flushedVersion: -1, settledVersion: -1, seen: {} },
@@ -27,6 +31,8 @@ var inspectionSettledVersion = -1;
 var inspectionFlushedVersion = -1;
 var remoteControlsBank;
 var deviceBanks = [];
+var deviceCursorMatches = [];
+var mainCursorMatches = [];
 var targetTracks = [];
 var targetSlots = [];
 var popupBrowser;
@@ -59,6 +65,8 @@ function init() {
   transport.getPosition().markInterested();
   transport.isPlaying().markInterested();
   transport.isArrangerRecordEnabled().markInterested();
+  watchMixValue(transport.isPlaying(), "playing", "mixSafety");
+  watchMixValue(transport.isArrangerRecordEnabled(), "recording", "mixSafety");
 
   watchAdvancedValue(transport.isMetronomeEnabled(), "metronome", "transport");
   watchAdvancedValue(transport.isPunchInEnabled(), "punchIn", "transport");
@@ -180,9 +188,10 @@ function init() {
     param.setIndication(true);
   }
 
-  // Create Main Track Bank (8 tracks, 0 sends, 8 scenes)
-  trackBank = host.createMainTrackBank(8, 0, 8);
+  // Create Main Track Bank (8 tracks, 8 sends, 8 scenes)
+  trackBank = host.createMainTrackBank(8, 8, 8);
   trackBank.itemCount().markInterested();
+  watchMixValue(trackBank.itemCount(), "count", "mainBank");
   trackBank.scrollPosition().markInterested();
   trackBank.scrollPosition().addValueObserver(observeBankNavigationPosition);
   trackBank.canScrollForwards().markInterested();
@@ -200,19 +209,39 @@ function init() {
     track.arm().markInterested();
     track.name().markInterested();
     track.color().markInterested();
+    watchMixValue(track.exists(), "exists", "mainTrack" + i);
+    watchMixValue(track.position(), "position", "mainTrack" + i);
+    watchMixValue(track.trackType(), "type", "mainTrack" + i);
+    var mainMatchesCursor = track.createEqualsValue(cursorTrack);
+    mainCursorMatches.push(mainMatchesCursor);
+    watchMixValue(mainMatchesCursor, "cursorMatch", "mainTrack" + i);
+    for (var sendIndex = 0; sendIndex < 8; sendIndex++) {
+      var send = track.sendBank().getItemAt(sendIndex);
+      watchMixValue(send.exists(), "exists", "send" + i + ":" + sendIndex);
+      watchMixValue(send, "level", "send" + i + ":" + sendIndex);
+    }
     track.exists().addValueObserver(refreshTargetGeneration);
     track.position().addValueObserver(refreshTargetGeneration);
     targetTracks.push(track);
     targetSlots.push([]);
 
     var deviceBank = track.createDeviceBank(8);
+    var deviceMatches = [];
+    watchMixValue(deviceBank.itemCount(), "count", "devices" + i);
     for (var d = 0; d < 8; d++) {
       var device = deviceBank.getItemAt(d);
       device.exists().markInterested();
       device.name().markInterested();
       device.isEnabled().markInterested();
+      watchMixValue(device.exists(), "exists", "device" + i + ":" + d);
+      watchMixValue(device.position(), "position", "device" + i + ":" + d);
+      watchMixValue(device.isEnabled(), "enabled", "device" + i + ":" + d);
+      var sameCursorDevice = device.createEqualsValue(cursorDevice);
+      deviceMatches.push(sameCursorDevice);
+      watchMixValue(sameCursorDevice, "cursorMatch", "device" + i + ":" + d);
     }
     deviceBanks.push(deviceBank);
+    deviceCursorMatches.push(deviceMatches);
     
     // Clip Launcher Slots
     var clipLauncher = track.clipLauncherSlotBank();
@@ -252,9 +281,36 @@ function init() {
      observeSceneSelection(i, scene);
   }
 
+  masterTrack = host.createMasterTrack(0);
+  watchMixValue(masterTrack.exists(), "exists", "master");
+  watchMixValue(masterTrack.volume(), "level", "master");
+  masterCursorMatches = masterTrack.createEqualsValue(cursorTrack);
+  watchMixValue(masterCursorMatches, "cursorMatch", "master");
+  effectTrackBank = host.createEffectTrackBank(8, 8);
+  watchMixValue(effectTrackBank.itemCount(), "count", "returns");
+  watchMixValue(effectTrackBank.scrollPosition(), "offset", "returns");
+  for (var returnIndex = 0; returnIndex < 8; returnIndex++) {
+    var returnTrack = effectTrackBank.getItemAt(returnIndex);
+    watchChannelValues(returnTrack, "return" + returnIndex, false);
+    var returnMatchesCursor = returnTrack.createEqualsValue(cursorTrack);
+    returnCursorMatches.push(returnMatchesCursor);
+    watchMixValue(returnMatchesCursor, "cursorMatch", "return" + returnIndex);
+  }
+  watchChannelValues(cursorTrack, "cursorTrack", true);
+  var selectedDeviceValues = { exists: cursorDevice.exists(), name: cursorDevice.name(), position: cursorDevice.position(),
+    isEnabled: cursorDevice.isEnabled(), isWindowOpen: cursorDevice.isWindowOpen(), isExpanded: cursorDevice.isExpanded(),
+    hasNext: cursorDevice.hasNext(), hasPrevious: cursorDevice.hasPrevious() };
+  for (var deviceKey in selectedDeviceValues) watchMixValue(selectedDeviceValues[deviceKey], deviceKey, "cursorDevice");
+  var selectedClipValues = { exists: inspectionClip.exists(), loopLength: inspectionClip.getLoopLength(),
+    loopStart: inspectionClip.getLoopStart(), playStart: inspectionClip.getPlayStart(), playStop: inspectionClip.getPlayStop(),
+    color: inspectionClip.color(), trackExists: inspectionTrack.exists(), trackPosition: inspectionTrack.position(),
+    slotExists: inspectionSlot.exists(), slotSceneIndex: inspectionSlot.sceneIndex() };
+  for (var clipKey in selectedClipValues) watchMixValue(selectedClipValues[clipKey], clipKey, "cursorClip");
+
   // --- Popup Browser Setup ---
   popupBrowser = host.createPopupBrowser();
   popupBrowser.exists().markInterested();
+  watchMixValue(popupBrowser.exists(), "exists", "mixBrowser");
   popupBrowser.exists().addValueObserver(observeConstructionChange);
   popupBrowser.title().markInterested();
   popupBrowser.contentTypeNames().markInterested();
@@ -385,6 +441,12 @@ function isBridgeReadMethod(method) {
   return method === "ping" ||
     method === "bridge.identity" ||
     method === "target.inspect" ||
+    method === "cursor_track.get_status" ||
+    method === "cursor_device.get_status" ||
+    method === "cursor_clip.get_status" ||
+    method === "mixer.master.get_volume" ||
+    method === "mixer.track.get_send" ||
+    method === "mixer.return.list" ||
     method === "transport.get_punch_status" ||
     method === "transport.get_overdub_status" ||
     method === "arranger.get_status" ||
@@ -722,6 +784,7 @@ function invalidateInspection() {
 }
 
 function watchAdvancedValue(value, key, group) {
+  if (!advancedState[group]) advancedState[group] = { version: 0, flushedVersion: -1, settledVersion: -1, seen: {} };
   value.markInterested();
   value.addValueObserver(function () {
     var state = advancedState[group];
@@ -802,6 +865,159 @@ function inspectCueWindow() {
   var offset = cueMarkerBank.scrollPosition().get();
   if (!isIntegerInRange(count, 0, 2147483647) || !isIntegerInRange(offset, 0, Math.max(0, count - 1))) throw bridgeError(-32004, "Cue bank count or offset is unavailable");
   return { bankSize: 32, scrollPosition: offset, projectMarkerCount: count, complete: offset === 0 && count <= 32 };
+}
+
+function watchMixValue(value, key, group) {
+  if (key === "volume" || key === "pan" || key === "level") {
+    // Automation changes current levels continuously; it must not invalidate
+    // settled proxy identity or unrelated reads on every frame.
+    if (!advancedState[group]) advancedState[group] = { version: 0, flushedVersion: -1, settledVersion: -1, seen: {} };
+    value.markInterested();
+    value.addValueObserver(function () { advancedState[group].seen[key] = true; });
+  } else {
+    watchAdvancedValue(value, key, group);
+    value.addValueObserver(observeConstructionChange);
+  }
+}
+
+function watchChannelValues(track, group, cursor) {
+  var values = { exists: track.exists(), position: track.position(), name: track.name(),
+    volume: track.volume(), pan: track.pan(), mute: track.mute(), solo: track.solo() };
+  if (cursor) { values.arm = track.arm(); values.type = track.trackType(); values.color = track.color(); }
+  for (var key in values) watchMixValue(values[key], key, group);
+}
+
+function requireNormalized(value) {
+  if (typeof value !== "number" || !isFinite(value) || value < 0 || value > 1) throw invalidParams("Value must be a finite normalized number from 0 to 1");
+  return value;
+}
+
+function mixObserved(value, key, group, type) {
+  requireObservedAdvanced(key, group);
+  var result = value.get();
+  if (typeof result !== type || (type === "number" && !isFinite(result))) throw bridgeError(-32004, "Mixer/cursor state unavailable");
+  return result;
+}
+
+function mixNormalized(value, key, group) {
+  var result = mixObserved(value, key, group, "number");
+  if (result < 0 || result > 1) throw bridgeError(-32004, "Normalized mixer state unavailable");
+  return result;
+}
+
+function setMixNormalized(value, key, group, next, cursorKey, cursorMatches) {
+  requireNormalized(next);
+  var current = mixNormalized(value, key, group);
+  if (current === next) return;
+  if (cursorKey && mixObserved(cursorMatches, "cursorMatch", group, "boolean")) {
+    advancedState.cursorTrack.seen[cursorKey] = false;
+  }
+  advancedState[group].seen[key] = false;
+  targetGeneration += 1;
+  value.set(next);
+}
+
+function observedColor(color, key, group) {
+  requireObservedAdvanced(key, group);
+  var result = { red: color.red(), green: color.green(), blue: color.blue() };
+  for (var component in result) {
+    if (typeof result[component] !== "number" || !isFinite(result[component]) || result[component] < 0 || result[component] > 1) throw bridgeError(-32004, "Color state unavailable");
+  }
+  return result;
+}
+
+function mixChannelStatus(track, group, cursor) {
+  var exists = mixObserved(track.exists(), "exists", group, "boolean");
+  var result = { exists: exists, name: null, position: null, volume: null, pan: null, mute: null, solo: null };
+  if (cursor) { result.type = null; result.arm = null; result.color = null; }
+  if (!exists) return result;
+  result.name = mixObserved(track.name(), "name", group, "string");
+  result.position = mixObserved(track.position(), "position", group, "number");
+  if (!isIntegerInRange(result.position, 0, 2147483647)) throw bridgeError(-32004, "Track identity unavailable");
+  result.volume = mixNormalized(track.volume(), "volume", group);
+  result.pan = mixNormalized(track.pan(), "pan", group);
+  result.mute = mixObserved(track.mute(), "mute", group, "boolean");
+  result.solo = mixObserved(track.solo(), "solo", group, "boolean");
+  if (cursor) {
+    result.type = mixObserved(track.trackType(), "type", group, "string");
+    result.arm = mixObserved(track.arm(), "arm", group, "boolean");
+    result.color = observedColor(track.color(), "color", group);
+  }
+  return result;
+}
+
+function requireStoppedStructure() {
+  requireSettledBank();
+  if (mixObserved(transport.isPlaying(), "playing", "mixSafety", "boolean") !== false ||
+      mixObserved(transport.isArrangerRecordEnabled(), "recording", "mixSafety", "boolean") !== false) throw bridgeError(-32004, "Stop transport and recording before structural operations");
+}
+
+function observedCount(bank, group) {
+  var count = mixObserved(bank.itemCount(), "count", group, "number");
+  if (!isIntegerInRange(count, 0, 2147483647)) throw bridgeError(-32004, "Bank count unavailable");
+  return count;
+}
+
+function beginTrackStructure(bank, expectedCount, group) {
+  requireSettledBank();
+  var projectName = application.projectName().get();
+  targetGeneration += 1;
+  invalidateInspection();
+  // Track positions are expected to move. Keep project scope and exact count
+  // instead of imposing the immutable bank identity used for clip construction.
+  advancedState[group].seen.count = false;
+  constructionPending = { matches: function () { return advancedState[group].seen.count === true && bank.itemCount().get() === expectedCount; },
+    identity: function () { return application.projectName().get() === projectName; },
+    observed: false, failed: false, version: 0, flushedVersion: -1 };
+}
+
+function requireBankDevice(trackIndex, deviceIndex) {
+  var track = requireExistingTrack(trackIndex);
+  requireBankIndex(deviceIndex, "Device index");
+  var group = "device" + trackIndex + ":" + deviceIndex;
+  var device = deviceBanks[trackIndex].getItemAt(deviceIndex);
+  if (mixObserved(device.exists(), "exists", group, "boolean") !== true ||
+      !isIntegerInRange(mixObserved(device.position(), "position", group, "number"), 0, 2147483647)) throw bridgeError(-32004, "Existing device required");
+  return device;
+}
+
+function cursorDeviceStatus() {
+  var track = mixChannelStatus(cursorTrack, "cursorTrack", true);
+  var exists = mixObserved(cursorDevice.exists(), "exists", "cursorDevice", "boolean");
+  var result = { exists: exists && track.exists, trackPosition: track.position, name: null, position: null,
+    isEnabled: null, isWindowOpen: null, isExpanded: null };
+  if (!result.exists) return result;
+  result.name = mixObserved(cursorDevice.name(), "name", "cursorDevice", "string");
+  result.position = mixObserved(cursorDevice.position(), "position", "cursorDevice", "number");
+  if (!isIntegerInRange(result.position, 0, 2147483647)) throw bridgeError(-32004, "Device identity unavailable");
+  result.isEnabled = mixObserved(cursorDevice.isEnabled(), "isEnabled", "cursorDevice", "boolean");
+  result.isWindowOpen = mixObserved(cursorDevice.isWindowOpen(), "isWindowOpen", "cursorDevice", "boolean");
+  result.isExpanded = mixObserved(cursorDevice.isExpanded(), "isExpanded", "cursorDevice", "boolean");
+  return result;
+}
+
+function cursorTrackIdentity(position) {
+  return function () { return cursorTrack.exists().get() === true && cursorTrack.position().get() === position; };
+}
+
+function invalidateLegacyBankField(index, key, next) {
+  var track = requireExistingTrack(index);
+  if (track[key]().get() === next) return;
+  if (mixObserved(mainCursorMatches[index], "cursorMatch", "mainTrack" + index, "boolean")) advancedState.cursorTrack.seen[key] = false;
+}
+
+function invalidateLegacySelectedField(key, next) {
+  requireObservedAdvanced(key, "cursorTrack");
+  if (cursorTrack[key]().get() === next) return;
+  var affected = [];
+  if (key === "volume" && mixObserved(masterCursorMatches, "cursorMatch", "master", "boolean")) affected.push(["master", "level"]);
+  if (["volume", "pan", "mute", "solo"].indexOf(key) >= 0) {
+    for (var i = 0; i < 8; i++) {
+      if (mixObserved(returnCursorMatches[i], "cursorMatch", "return" + i, "boolean")) affected.push(["return" + i, key]);
+    }
+  }
+  advancedState.cursorTrack.seen[key] = false;
+  for (var i = 0; i < affected.length; i++) advancedState[affected[i][0]].seen[affected[i][1]] = false;
 }
 
 function readInspectionNotes(trackIndex, slotIndex) {
@@ -907,7 +1123,7 @@ function beginConstruction(matches, identity) {
 
 function canReadConstructionFailure(method) {
   if (constructionPending === null || !constructionPending.failed || inspectionSettledVersion !== inspectionVersion) return false;
-  var reads = ["clip.get_notes", "clip.get_status", "clip.get_grid", "clip.get_color", "track.list", "track.get_info", "project.get_summary"];
+  var reads = ["clip.get_notes", "clip.get_status", "clip.get_grid", "clip.get_color", "track.list", "track.get_info", "project.get_summary", "cursor_track.get_status", "cursor_device.get_status", "cursor_clip.get_status", "mixer.master.get_volume", "mixer.track.get_send", "mixer.return.list"];
   try { return reads.indexOf(method) >= 0 && constructionPending.identity(); } catch (unavailableState) { return false; }
 }
 
@@ -1184,6 +1400,174 @@ function handleRequest(request, connection, bridgeSession) {
         break;
       case "transport.getIsRecording":
         result = transport.isArrangerRecordEnabled().get();
+        break;
+
+      case "track.delete":
+      case "track.duplicate":
+        requireArgumentCount(request.params, 1);
+        requireStoppedStructure();
+        var structureTrack = requireExistingTrack(request.params[0]);
+        var structureType = mixObserved(structureTrack.trackType(), "type", "mainTrack" + request.params[0], "string");
+        if (["Instrument", "Audio", "Hybrid"].indexOf(structureType) < 0) throw bridgeError(-32004, "Only individual instrument, audio or hybrid tracks can be deleted or duplicated");
+        var trackCount = observedCount(trackBank, "mainBank");
+        var countDelta = request.method === "track.delete" ? -1 : 1;
+        if (trackCount + countDelta < 0) throw bridgeError(-32004, "Track count unavailable");
+        beginTrackStructure(trackBank, trackCount + countDelta, "mainBank");
+        if (countDelta < 0) structureTrack.deleteObject(); else structureTrack.duplicate();
+        result = constructionResult();
+        break;
+      case "application.createEffectTrack":
+        requireArgumentCount(request.params, 0);
+        requireStoppedStructure();
+        var returnCount = observedCount(effectTrackBank, "returns");
+        beginTrackStructure(effectTrackBank, returnCount + 1, "returns");
+        application.createEffectTrack(-1);
+        result = constructionResult();
+        break;
+      case "cursor_track.get_status":
+        requireArgumentCount(request.params, 0);
+        result = mixChannelStatus(cursorTrack, "cursorTrack", true);
+        break;
+      case "cursor_device.get_status":
+        requireArgumentCount(request.params, 0);
+        result = cursorDeviceStatus();
+        break;
+      case "cursor_clip.get_status":
+        requireArgumentCount(request.params, 0);
+        var clipExists = mixObserved(inspectionClip.exists(), "exists", "cursorClip", "boolean");
+        result = { exists: clipExists, scope: "selected_launcher", trackPosition: null, slotSceneIndex: null,
+          loopLength: null, loopStart: null, playStart: null, playStop: null, color: null };
+        if (clipExists) {
+          if (mixObserved(inspectionTrack.exists(), "trackExists", "cursorClip", "boolean") !== true || mixObserved(inspectionSlot.exists(), "slotExists", "cursorClip", "boolean") !== true) throw bridgeError(-32004, "Launcher clip identity unavailable");
+          result.trackPosition = mixObserved(inspectionTrack.position(), "trackPosition", "cursorClip", "number");
+          result.slotSceneIndex = mixObserved(inspectionSlot.sceneIndex(), "slotSceneIndex", "cursorClip", "number");
+          if (!isIntegerInRange(result.trackPosition, 0, 2147483647) || !isIntegerInRange(result.slotSceneIndex, 0, 2147483647)) throw bridgeError(-32004, "Launcher clip identity unavailable");
+          result.loopLength = mixObserved(inspectionClip.getLoopLength(), "loopLength", "cursorClip", "number");
+          result.loopStart = mixObserved(inspectionClip.getLoopStart(), "loopStart", "cursorClip", "number");
+          result.playStart = mixObserved(inspectionClip.getPlayStart(), "playStart", "cursorClip", "number");
+          result.playStop = mixObserved(inspectionClip.getPlayStop(), "playStop", "cursorClip", "number");
+          if (result.loopLength <= 0 || result.loopStart < 0 || result.playStart < 0 || result.playStop < result.playStart) throw bridgeError(-32004, "Launcher clip time bounds unavailable");
+          result.color = observedColor(inspectionClip.color(), "color", "cursorClip");
+        }
+        break;
+      case "device.bypass":
+        requireArgumentCount(request.params, 3);
+        var bypassState = requireBooleanArgument(request.params[2]);
+        var bypassDevice = requireBankDevice(request.params[0], request.params[1]);
+        var bypassGroup = "device" + request.params[0] + ":" + request.params[1];
+        var bypassEnabled = mixObserved(bypassDevice.isEnabled(), "enabled", bypassGroup, "boolean");
+        var affectsCursor = mixObserved(deviceCursorMatches[request.params[0]][request.params[1]], "cursorMatch", bypassGroup, "boolean");
+        if (bypassEnabled !== !bypassState) {
+          targetGeneration += 1;
+          if (affectsCursor) invalidateAdvancedValue("isEnabled", "cursorDevice");
+        }
+        setObservedBoolean(bypassDevice.isEnabled(), "enabled", "device" + request.params[0] + ":" + request.params[1], !bypassState);
+        result = constructionResult();
+        break;
+      case "device.delete":
+        requireArgumentCount(request.params, 2);
+        requireStoppedStructure();
+        var deletedDevice = requireBankDevice(request.params[0], request.params[1]);
+        var deletedDeviceBank = deviceBanks[request.params[0]];
+        var oldDeviceCount = observedCount(deletedDeviceBank, "devices" + request.params[0]);
+        if (oldDeviceCount < 1) throw bridgeError(-32004, "Device count unavailable");
+        var deviceCountGroup = "devices" + request.params[0];
+        beginConstruction(function () { return advancedState[deviceCountGroup].seen.count === true && deletedDeviceBank.itemCount().get() === oldDeviceCount - 1; });
+        advancedState[deviceCountGroup].seen.count = false;
+        deletedDevice.deleteObject();
+        result = constructionResult();
+        break;
+      case "device.select_next":
+      case "device.select_previous":
+      case "device.select_first":
+      case "device.select_last":
+        requireArgumentCount(request.params, 0);
+        var oldDevice = cursorDeviceStatus();
+        if (!oldDevice.exists) throw bridgeError(-32004, "Existing selected device required");
+        var hasNext = mixObserved(cursorDevice.hasNext(), "hasNext", "cursorDevice", "boolean");
+        var hasPrevious = mixObserved(cursorDevice.hasPrevious(), "hasPrevious", "cursorDevice", "boolean");
+        var selection = request.method.substring("device.select_".length);
+        if ((selection === "next" && !hasNext) || (selection === "previous" && !hasPrevious)) throw bridgeError(-32004, "No device in the requested direction");
+        if ((selection === "first" && !hasPrevious) || (selection === "last" && !hasNext)) { result = constructionResult(); break; }
+        beginConstruction(function () {
+          if (cursorDevice.exists().get() !== true || cursorDevice.position().get() === oldDevice.position) return false;
+          if (selection === "first") return cursorDevice.hasPrevious().get() === false;
+          if (selection === "last") return cursorDevice.hasNext().get() === false;
+          return true;
+        }, cursorTrackIdentity(oldDevice.trackPosition));
+        if (selection === "next") cursorDevice.selectNext();
+        else if (selection === "previous") cursorDevice.selectPrevious();
+        else if (selection === "first") cursorDevice.selectFirst();
+        else cursorDevice.selectLast();
+        result = constructionResult();
+        break;
+      case "device.browse_insert_before":
+      case "device.browse_insert_after":
+      case "device.browse_replace":
+        requireArgumentCount(request.params, 0);
+        var browserDevice = cursorDeviceStatus();
+        if (!browserDevice.exists || mixObserved(popupBrowser.exists(), "exists", "mixBrowser", "boolean") !== false) throw bridgeError(-32004, "Select an existing device and close the current browser");
+        beginConstruction(function () { return popupBrowser.exists().get() === true; }, function () {
+          return cursorTrackIdentity(browserDevice.trackPosition)() && cursorDevice.exists().get() === true && cursorDevice.position().get() === browserDevice.position;
+        });
+        if (request.method === "device.browse_insert_before") cursorDevice.beforeDeviceInsertionPoint().browse();
+        else if (request.method === "device.browse_insert_after") cursorDevice.afterDeviceInsertionPoint().browse();
+        else cursorDevice.replaceDeviceInsertionPoint().browse();
+        result = constructionResult();
+        break;
+      case "mixer.master.get_volume":
+        requireArgumentCount(request.params, 0);
+        if (mixObserved(masterTrack.exists(), "exists", "master", "boolean") !== true) throw bridgeError(-32004, "Master track unavailable");
+        result = mixNormalized(masterTrack.volume(), "level", "master");
+        break;
+      case "mixer.master.set_volume":
+        requireArgumentCount(request.params, 1);
+        requireNormalized(request.params[0]);
+        if (mixObserved(masterTrack.exists(), "exists", "master", "boolean") !== true) throw bridgeError(-32004, "Master track unavailable");
+        setMixNormalized(masterTrack.volume(), "level", "master", request.params[0], "volume", masterCursorMatches);
+        result = constructionResult();
+        break;
+      case "mixer.track.get_send":
+      case "mixer.track.set_send":
+        var setSend = request.method === "mixer.track.set_send";
+        requireArgumentCount(request.params, setSend ? 3 : 2);
+        if (setSend) requireNormalized(request.params[2]);
+        var sendTrack = requireExistingTrack(request.params[0]);
+        requireBankIndex(request.params[1], "Send index");
+        var sendGroup = "send" + request.params[0] + ":" + request.params[1];
+        var send = sendTrack.sendBank().getItemAt(request.params[1]);
+        if (mixObserved(send.exists(), "exists", sendGroup, "boolean") !== true) throw bridgeError(-32004, "Existing send required");
+        if (setSend) { setMixNormalized(send, "level", sendGroup, request.params[2]); result = constructionResult(); }
+        else result = mixNormalized(send, "level", sendGroup);
+        break;
+      case "mixer.return.list":
+        requireArgumentCount(request.params, 0);
+        var totalReturns = observedCount(effectTrackBank, "returns");
+        var returnOffset = mixObserved(effectTrackBank.scrollPosition(), "offset", "returns", "number");
+        if (!isIntegerInRange(returnOffset, 0, Math.max(0, totalReturns - 1))) throw bridgeError(-32004, "Return bank offset unavailable");
+        var returns = [];
+        var existingReturns = 0;
+        for (var returnIndex = 0; returnIndex < 8; returnIndex++) {
+          var returnState = mixChannelStatus(effectTrackBank.getItemAt(returnIndex), "return" + returnIndex, false);
+          returnState.index = returnIndex;
+          if (returnState.exists) existingReturns += 1;
+          returns.push(returnState);
+        }
+        if (existingReturns !== Math.min(8, totalReturns - returnOffset)) throw bridgeError(-32004, "Return bank observations inconsistent");
+        result = { returns: returns, coverage: { bankSize: 8, scrollPosition: returnOffset,
+          projectReturnCount: totalReturns, complete: returnOffset === 0 && totalReturns <= 8 } };
+        break;
+      case "mixer.return.volume":
+      case "mixer.return.pan":
+        requireArgumentCount(request.params, 2);
+        requireBankIndex(request.params[0], "Return index");
+        requireNormalized(request.params[1]);
+        var returnTrack = effectTrackBank.getItemAt(request.params[0]);
+        var returnGroup = "return" + request.params[0];
+        if (!mixChannelStatus(returnTrack, returnGroup, false).exists) throw bridgeError(-32004, "Existing return required");
+        var returnProperty = request.method === "mixer.return.volume" ? "volume" : "pan";
+        setMixNormalized(returnProperty === "volume" ? returnTrack.volume() : returnTrack.pan(), returnProperty, returnGroup, request.params[1], returnProperty, returnCursorMatches[request.params[0]]);
+        result = constructionResult();
         break;
 
       case "transport.toggle_metronome":
@@ -1493,6 +1877,7 @@ function handleRequest(request, connection, bridgeSession) {
 
       case "track.bank.volume":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          invalidateLegacyBankField(request.params[0], "volume", request.params[1]);
           trackBank.getItemAt(request.params[0]).volume().set(request.params[1]);
           result = "OK";
         } else throw invalidParams("Missing parameters");
@@ -1500,6 +1885,7 @@ function handleRequest(request, connection, bridgeSession) {
 
       case "track.bank.pan":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          invalidateLegacyBankField(request.params[0], "pan", request.params[1]);
           trackBank.getItemAt(request.params[0]).pan().set(request.params[1]);
           result = "OK";
         } else throw invalidParams("Missing parameters");
@@ -1507,6 +1893,7 @@ function handleRequest(request, connection, bridgeSession) {
 
       case "track.bank.mute":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          invalidateLegacyBankField(request.params[0], "mute", request.params[1]);
           trackBank.getItemAt(request.params[0]).mute().set(request.params[1]);
           result = "OK";
         } else throw invalidParams("Missing parameters");
@@ -1514,6 +1901,7 @@ function handleRequest(request, connection, bridgeSession) {
 
       case "track.bank.solo":
         if (request.params && request.params[0] !== undefined && request.params[1] !== undefined) {
+          invalidateLegacyBankField(request.params[0], "solo", request.params[1]);
           trackBank.getItemAt(request.params[0]).solo().set(request.params[1]);
           result = "OK";
         } else throw invalidParams("Missing parameters");
@@ -1655,6 +2043,7 @@ function handleRequest(request, connection, bridgeSession) {
 
       case "track.selected.volume":
         if (request.params && request.params[0] !== undefined) {
+          invalidateLegacySelectedField("volume", request.params[0]);
           cursorTrack.volume().set(request.params[0]);
           result = "OK";
         } else throw invalidParams("Missing parameter");
@@ -1662,6 +2051,7 @@ function handleRequest(request, connection, bridgeSession) {
 
       case "track.selected.pan":
         if (request.params && request.params[0] !== undefined) {
+          invalidateLegacySelectedField("pan", request.params[0]);
           cursorTrack.pan().set(request.params[0]);
           result = "OK";
         } else throw invalidParams("Missing parameter");
@@ -1669,6 +2059,7 @@ function handleRequest(request, connection, bridgeSession) {
 
       case "track.selected.mute":
         if (request.params && request.params[0] !== undefined) {
+          invalidateLegacySelectedField("mute", request.params[0]);
           cursorTrack.mute().set(request.params[0]);
           result = "OK";
         } else throw invalidParams("Missing parameter");
@@ -1676,6 +2067,7 @@ function handleRequest(request, connection, bridgeSession) {
 
       case "track.selected.solo":
         if (request.params && request.params[0] !== undefined) {
+          invalidateLegacySelectedField("solo", request.params[0]);
           cursorTrack.solo().set(request.params[0]);
           result = "OK";
         } else throw invalidParams("Missing parameter");
@@ -1683,6 +2075,7 @@ function handleRequest(request, connection, bridgeSession) {
 
       case "track.selected.arm":
         if (request.params && request.params[0] !== undefined) {
+          invalidateLegacySelectedField("arm", request.params[0]);
           cursorTrack.arm().set(request.params[0]);
           result = "OK";
         } else throw invalidParams("Missing parameter");

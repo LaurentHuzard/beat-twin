@@ -18,9 +18,11 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-- **BT-MCP-PORT-003 — Advanced transport and cue-marker controls** (Done locally; publication authorized). 338 offline tests pass; typecheck, architecture and distribution verified. Live tests deferred. See current-plan.md.
+- No implementation item active. BT-MCP-PORT-004 is locally complete with 363 offline tests, typecheck, architecture and distribution passing; authorized publication is in progress. Live tests remain deferred. See current-plan.md and its report. The 18 remaining source-level candidates are recorded in docs/BITWIG_MCP_PARITY.md.
 
 ### Previous readiness (historical)
+
+BT-MCP-PORT-003 merged through PR #96 as `02f992bd4741a86caeedc3d975d73590598a7202`; 338 offline tests, typecheck, architecture and distribution passed. Live acceptance deferred.
 
 BT-MCP-PORT-002 merged through PR #95 as `9bd2ec9c6c4bf5de15b2b97eafec78f9ad4a4b07`; 318 offline tests, typecheck, architecture and distribution passed. Live acceptance deferred.
 
