@@ -21,3 +21,7 @@ aux3tailles, reducedmotion/clavier, stale réel Undo et malformed/corrected twin
 Axe réel détecte ancien saut h1→h3 ; correction MIDI h2, composant2/2+build renouvelés,
 scan final0violation0incomplete aux3tailles. Rapport feature-20261009-midi-import-v11.md.
 Candidat local à revue ; aucun push/ready/merge. Vague11 dernière avant pause, pasv12.
+
+Delta focus après revue : input DOM stable + value='' native, aria-busy sansdisable ;
+aucun vol de focus, mêmes fichiers et reselectpending refus protégés pargeneration.
+Composant4/4/build/Chrome9/9 etaxe0/0 verts. NouveauSHA àrevuedelta indépendante.

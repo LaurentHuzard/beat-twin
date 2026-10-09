@@ -47,3 +47,44 @@ it("stale preview disables acceptance; malformed files leave state intact", asyn
   await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Invalid Standard MIDI header"));
   expect(usePlaygroundStore.getState().commandState).toBe(before);
 });
+
+it("deferred file reads preserve chooser focus without stealing focus the user moved elsewhere, including refusals", async () => {
+  render(<><MidiImportPanel /><button type="button">Other control</button></>);
+  const input=screen.getByLabelText("Local MIDI file") as HTMLInputElement;
+  const other=screen.getByRole("button",{name:"Other control"});
+  for(const leave of [false,true]) {
+    let complete!:(bytes:ArrayBuffer)=>void;
+    const pending=new Promise<ArrayBuffer>(resolve=>{complete=resolve;});
+    const chosen=new File([fixtureMidi().buffer as ArrayBuffer],"same.mid");
+    Object.defineProperty(chosen,"arrayBuffer",{value:()=>pending});
+    input.focus();fireEvent.change(input,{target:{files:[chosen]}});
+    expect(input).not.toBeDisabled();expect(input).toHaveFocus();
+    if(leave)other.focus();
+    await act(async()=>complete(fixtureMidi().buffer as ArrayBuffer));
+    await screen.findByRole("button",{name:"Add MIDI tracks"});
+    expect(screen.getByLabelText("Local MIDI file")).toBe(input);
+    expect(leave?other:input).toHaveFocus();expect(input.value).toBe("");
+  }
+  input.focus();fireEvent.change(input,{target:{files:[file(new Uint8Array(14))]}});
+  await waitFor(()=>expect(screen.getByRole("alert")).toHaveTextContent("Invalid Standard MIDI header"));
+  expect(screen.getByLabelText("Local MIDI file")).toBe(input);expect(input).toHaveFocus();
+  const huge=new File([new Uint8Array(1024*1024+1)],"oversize.mid");
+  fireEvent.change(input,{target:{files:[huge]}});
+  expect(screen.getByRole("alert")).toHaveTextContent("no larger than 1 MiB");expect(input).toHaveFocus();
+  fireEvent.change(input,{target:{files:[file()]}});await screen.findByRole("button",{name:"Add MIDI tracks"});expect(input).toHaveFocus();
+});
+
+it("new file intent supersedes an unfinished read, including immediate oversize refusal", async () => {
+  render(<MidiImportPanel />);
+  let complete!:(bytes:ArrayBuffer)=>void;
+  const pending=new Promise<ArrayBuffer>(resolve=>{complete=resolve;});
+  const chosen=new File([fixtureMidi().buffer as ArrayBuffer],"pending.mid");
+  Object.defineProperty(chosen,"arrayBuffer",{value:()=>pending});
+  const input=screen.getByLabelText("Local MIDI file");
+  fireEvent.change(input,{target:{files:[chosen]}});expect(screen.getByRole("status")).toHaveTextContent("Reading local MIDI");
+  fireEvent.change(input,{target:{files:[new File([new Uint8Array(1024*1024+1)],"large.mid")]}});
+  expect(screen.getByRole("alert")).toHaveTextContent("no larger than 1 MiB");expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  await act(async()=>complete(fixtureMidi().buffer as ArrayBuffer));
+  expect(screen.queryByRole("button",{name:"Add MIDI tracks"})).not.toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent("no larger than 1 MiB");
+});

@@ -13,24 +13,24 @@ export function MidiImportPanel() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [reading, setReading] = useState(false);
-  const [inputKey, setInputKey] = useState(0);
-  const clear = () => { generation.current++; setPending(null); setOpenNotes([]); setReading(false); setInputKey(key => key + 1); setTimeout(() => fileInput.current?.focus(), 0); };
+  const resetFileSelection = () => { if (fileInput.current) fileInput.current.value = ""; };
+  const clear = () => { generation.current++; setPending(null); setOpenNotes([]); setReading(false); resetFileSelection(); setTimeout(() => fileInput.current?.focus(), 0); };
   return <section aria-label="Import MIDI" className="midi-import-panel">
     <h2>Bring in a MIDI sketch</h2>
     <p>Preview a local MIDI file, then add its notes as new tracks. Your current tracks stay intact.</p>
-    <label>Local MIDI file <input ref={fileInput} key={inputKey} type="file" accept=".mid,.midi,audio/midi" disabled={reading} onChange={async event => {
+    <label>Local MIDI file <input ref={fileInput} type="file" accept=".mid,.midi,audio/midi" aria-busy={reading} onChange={async event => {
       const file = event.currentTarget.files?.[0];
       const request = ++generation.current, revision = commandState.revision;
-      setPending(null); setOpenNotes([]); setError(""); setMessage("");
+      setPending(null); setOpenNotes([]); setReading(false); setError(""); setMessage("");
       if (!file) return;
-      if (file.size > MAX_MIDI_IMPORT_BYTES) { setError("Choose a MIDI file no larger than 1 MiB."); setInputKey(key => key + 1); return; }
+      if (file.size > MAX_MIDI_IMPORT_BYTES) { setError("Choose a MIDI file no larger than 1 MiB."); resetFileSelection(); return; }
       setReading(true);
       try {
         const preview = inspectMidiImport(new Uint8Array(await file.arrayBuffer()));
         if (request === generation.current) setPending({ preview, revision, filename: file.name });
       } catch (cause) {
         if (request === generation.current) setError(cause instanceof Error ? cause.message : "MIDI preview failed.");
-      } finally { if (request === generation.current) { setReading(false); setInputKey(key => key + 1); } }
+      } finally { if (request === generation.current) { setReading(false); resetFileSelection(); } }
     }} /></label>
     {reading ? <p role="status">Reading local MIDI…</p> : null}
     {pending ? <div>

@@ -51,3 +51,21 @@ preuve ciblée, sans transformer les résultats historiques en validation actuel
 Export #84 et Duo #89 sont distincts, aucune branche ni ancien worktree supprimé.
 Aucun push/ready/merge avant revue exacte renouvelée ; parent gère livraison.
 La vague11 sera la dernière avant la pause demandée, sans activation v12.
+
+## Delta après revue focus (ancien candidat dafda10)
+
+Le reviewer a reproduit un chooser focusé qui perdait le focus vers BODY après
+lecture, car disabled puis remount inputKey. Le champ reste maintenant le même
+nœud DOM et focusable pendant lecture (`aria-busy`). Seule sa valeur native est
+vidée, ce qui autorise une reselection du même fichier sans restauration de focus
+heuristique. Si l’utilisateur déplace le focus vers un autre contrôle pendant
+lecture, celui-ci est conservé. Une nouvelle sélection invalide aussi la génération
+précédente ; même un refus oversize immédiat enlève loading et ignore la preview tardive.
+
+Sur le delta final : composant ciblé 4/4, build TypeScript/Vite vert, Chrome9/9
+(3scénarios ×3tailles) dont File.arrayBuffer différé synthétique, ownership positif,
+utilisateur quittant le champ, même nom de fichier, malformed/oversize et nouvelle
+sélection oversize pendant lecture. Preview/discard/Add/undo/stale et axe0v0incomplete
+revalidés dans les mêmes parcours. Assets finals `index-DzKsFlSu.js`, port5537.
+Suite201/parser/store inchangés depuis le premier candidat ; pas de rerun large.
+Cette correction attend la revue delta indépendante du nouveau SHA.

@@ -82,3 +82,42 @@ test("real stale preview and malformed file refuse without an extra song save, c
   expect(await page.evaluate(()=>localStorage.getItem("beat-twin.playground.song.v1"))).toBe(before);
   expect(errors).toEqual([]);
 });
+
+test("focused chooser survives deferred reading, same-file selection and errors without stealing another control's focus", async ({page}) => {
+  await page.addInitScript(() => {
+    const read = File.prototype.arrayBuffer;
+    File.prototype.arrayBuffer = function () {
+      return new Promise<ArrayBuffer>((resolve,reject) => {
+        (window as any).__releaseMidiRead = () => { read.call(this).then(resolve,reject); };
+      });
+    };
+  });
+  await page.emulateMedia({reducedMotion:"reduce"});await page.goto("/");
+  await page.getByRole("button",{name:"Start Jam"}).click();
+  const settings=page.getByRole("button",{name:"Settings",exact:true});await settings.click();
+  const panel=page.getByRole("region",{name:"Import MIDI",exact:true});
+  const input=panel.getByLabel("Local MIDI file");
+  for(const leave of [false,true]) {
+    await input.focus();
+    await input.setInputFiles({name:"same.mid",mimeType:"audio/midi",buffer:Buffer.from(fixtureMidi())});
+    await expect(panel.getByRole("status")).toContainText("Reading local MIDI");
+    await expect(input).toBeFocused();
+    if(leave)await settings.focus();
+    await page.evaluate(() => { (window as any).__releaseMidiRead(); });
+    await expect(panel.getByRole("button",{name:"Add MIDI tracks"})).toBeVisible();
+    await expect(leave?settings:input).toBeFocused();
+    expect(await input.inputValue()).toBe("");
+  }
+  await input.focus();await input.setInputFiles({name:"bad.mid",mimeType:"audio/midi",buffer:Buffer.alloc(14)});
+  await page.evaluate(() => { (window as any).__releaseMidiRead(); });
+  await expect(panel.getByRole("alert")).toContainText("Invalid Standard MIDI header");await expect(input).toBeFocused();
+  await input.setInputFiles({name:"large.mid",mimeType:"audio/midi",buffer:Buffer.alloc(1024*1024+1)});
+  await expect(panel.getByRole("alert")).toContainText("no larger than 1 MiB");await expect(input).toBeFocused();
+  await input.setInputFiles({name:"pending.mid",mimeType:"audio/midi",buffer:Buffer.from(fixtureMidi())});
+  await expect(panel.getByRole("status")).toContainText("Reading local MIDI");
+  await input.setInputFiles({name:"large.mid",mimeType:"audio/midi",buffer:Buffer.alloc(1024*1024+1)});
+  await expect(panel.getByRole("status")).toHaveCount(0);
+  await page.evaluate(() => { (window as any).__releaseMidiRead(); });
+  await expect(panel.getByRole("alert")).toContainText("no larger than 1 MiB");
+  await expect(panel.getByRole("button",{name:"Add MIDI tracks"})).toHaveCount(0);
+});
