@@ -14,7 +14,7 @@ and percussion mapping limits. All source songs in checks were generated fixture
 Checks:
 - core test files, including independent structural MIDI decoder: passed;
 - build:packages: passed;
-- full pnpm test offline suite: passed (see execution log, no live acceptance);
+- full pnpm test offline suite: 514 passed (no live acceptance);
 - Playground: 20 files, 190 tests passed;
 - Playground production TypeScript/Vite build: passed;
 - Playwright export flow: 2 passed with installed Chrome, local MIDI download,
@@ -24,9 +24,8 @@ Checks:
 - runtime page errors: none during export flow;
 - git diff --check: passed.
 
-Browser plugin/skill not listed; frontend-testing-debugging selected repository
-Playwright. Default bundled Chromium revision was absent; installed Google Chrome
-worked via PLAYWRIGHT_CHANNEL=chrome. Node localStorage and terminal color
+Repository Playwright used for browser validation. Default bundled Chromium
+revision was absent; installed Google Chrome worked via PLAYWRIGHT_CHANNEL=chrome. Node localStorage and terminal color
 warnings are runner warnings, not browser errors. No new dependency/framework.
 Private screenshots and raw logs stay under /tmp, outside versioned artifacts.
 
