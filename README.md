@@ -442,3 +442,6 @@ Gateway or S25 development workspace.
 
 NanoDAW can download a local Standard MIDI File from **Settings → Export MIDI**.
 See [MIDI export](docs/NANODAW_MIDI_EXPORT.md) for timing, channel and scope limits.
+NanoDAW also previews a local MIDI file and appends its tracks only on explicit
+acceptance; [MIDI import](docs/NANODAW_MIDI_IMPORT.md) documents the supported subset
+and tempo/Undo behavior.

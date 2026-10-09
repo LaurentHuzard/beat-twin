@@ -1,0 +1,60 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { inspectMidiImport } from "./midiImport";
+import { fixtureMidi } from "./test/midiFixture";
+import { usePlaygroundStore } from "./store";
+import { PLAYGROUND_SONG_STORAGE_KEY } from "./persistence";
+
+afterEach(() => { vi.restoreAllMocks(); localStorage.clear(); usePlaygroundStore.setState(usePlaygroundStore.getInitialState(), true); });
+it("inspection is readonly; explicit add preserves song/tempo and adds one revision, save and undo checkpoint", () => {
+  usePlaygroundStore.getState().createDemo();
+  const before = usePlaygroundStore.getState();
+  const preview = inspectMidiImport(fixtureMidi());
+  const save = vi.spyOn(localStorage,"setItem");
+  expect(usePlaygroundStore.getState().commandState).toBe(before.commandState);
+  expect(usePlaygroundStore.getState().acceptMidiImport(preview, before.commandState.revision)).toBe(true);
+  const after = usePlaygroundStore.getState();
+  expect(after.commandState.revision).toBe(before.commandState.revision+1);
+  expect(after.commandState.song?.id).toBe(before.commandState.song?.id);
+  expect(after.commandState.song?.transport.bpm).toBe(before.commandState.song?.transport.bpm);
+  expect(after.commandState.song?.tracks.slice(0,2)).toEqual(before.commandState.song?.tracks);
+  expect(after.commandState.song?.tracks.length).toBe(3);
+  expect(after.undoStack.length).toBe(before.undoStack.length+1);
+  expect(save).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(localStorage.getItem(PLAYGROUND_SONG_STORAGE_KEY)!).tracks.length).toBe(3);
+  usePlaygroundStore.getState().undo();
+  expect(usePlaygroundStore.getState().commandState.song).toEqual(before.commandState.song);
+  usePlaygroundStore.getState().redo();
+  expect(usePlaygroundStore.getState().commandState.song).toEqual(after.commandState.song);
+});
+it("new song uses source tempo; stale previews fail without any mutation/save", () => {
+  const initial = usePlaygroundStore.getState();
+  const preview = inspectMidiImport(fixtureMidi());
+  expect(initial.acceptMidiImport(preview, initial.commandState.revision)).toBe(true);
+  expect(usePlaygroundStore.getState().commandState.song?.transport.bpm).toBe(120);
+  const before = usePlaygroundStore.getState();
+  const save = vi.spyOn(localStorage,"setItem");
+  expect(before.acceptMidiImport(preview, initial.commandState.revision)).toBe(false);
+  const after = usePlaygroundStore.getState();
+  expect(after.commandState).toBe(before.commandState);
+  expect(after.undoStack).toBe(before.undoStack);
+  expect(save).not.toHaveBeenCalled();
+  expect(after.lastError).toMatch(/changed since/);
+});
+
+it("accepts an independent PPQ3 note ending at tick20 without changing its note values, then undoes", () => {
+  usePlaygroundStore.getState().createDemo();
+  const before = usePlaygroundStore.getState().commandState;
+  const preview = inspectMidiImport(fixtureMidi([7,144,60,100, 13,128,60,0],0,3));
+  const note = preview.tracks[0]!.notes[0]!;
+  expect(note.startBeat).toBe(7/3);
+  expect(note.lengthBeats).toBe(20/3 - 7/3);
+  expect(note.startBeat + note.lengthBeats).toBeGreaterThan(20/3);
+  expect(preview.tracks[0]!.lengthBeats).toBeGreaterThanOrEqual(note.startBeat + note.lengthBeats);
+  expect(usePlaygroundStore.getState().acceptMidiImport(preview,before.revision)).toBe(true);
+  const after = usePlaygroundStore.getState().commandState;
+  expect(after.revision).toBe(before.revision+1);
+  const imported = after.song!.tracks.at(-1)!.clips[0]!.pattern.notes[0]!;
+  expect({ pitch:imported.pitch, velocity:imported.velocity, startBeat:imported.startBeat, lengthBeats:imported.lengthBeats }).toEqual(note);
+  usePlaygroundStore.getState().undo();
+  expect(usePlaygroundStore.getState().commandState.song).toEqual(before.song);
+});

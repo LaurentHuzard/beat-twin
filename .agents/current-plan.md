@@ -1,28 +1,27 @@
-# BT-MIDI-084 — Local deterministic MIDI export
+# BT-MIDI-IMPORT-112 — Finaliser l’import local MIDI inspecté
 
-User authorized the Armada to choose useful product work and publish reviewed PRs.
-Fresh origin/main base: 802e4a400d4018e44dea39d08920125d4d2441ae.
-Dedicated worktree: beat-twin-midi-export-20261009; branch feat/midi-export-20261009.
+Orbit Ready unique : issue #112 et PR draft #111, autorité utilisateur/parent vague11.
+Base fraîche main 1775b363531a5ea5c2cf16470eac3a9e6230d464 ; nouveau worktree
+.worktrees/beat-twin-midi-import-finalize-20261009-v11, branche feat/midi-import-finalize-20261009-v11.
+Reprise fast-forward des deux commits préparés jusqu’à ab43d01977f3e34685ceeb9bb1d8d32130edebd9.
 
-One bounded outcome: download the browser-owned Song as SMF Type 1 without
-changing revisions, undo, autosave or audio playback. Pure validated core API;
-480 ticks per quarter note; tempo, absolute clip/note placement and names;
-empty instrument tracks included; noninstrument tracks omitted. Explicit MIDI
-channel/timing limits fail rather than silently collide. No external device,
-provider, sound-bank mapping or network is needed.
+Contrat inchangé : SMF0/1 PPQ/tempo constant, preview sans mutation, Add explicite
+CAS/append atomique avec pistes/identité/tempo existants préservés, 1 revision/undo/save.
+Bornes et sous-ensemble documentés ; malformed/controllers/sustain/tempo changes/
+SMPTE/type2/ambiguous notes refusés sans mutation. Pas de nouveau codec.
 
-Acceptance: structured MIDI parser checks header, tempo, tracks, positions,
-velocities, durations and deterministic bytes. Invalid inputs and unsupported
-limits fail. Store/UI checks prove local download and readonly musical state.
-Build and focused/full playground tests plus browser keyboard/responsive checks.
-Independent review at exact commit before authorized publication. No merge,
-deployment, live DAW, media processing or provider calls authorized by this plan.
+VERIFY renouvelé : parser/store/PPQ3/roundtrip, suite NanoDAW, build packages/app,
+browser preview/discard/Add/undo/stale/error/clavier/3 tailles/reduced motion/axe ciblé.
+Fixtures seules, aucune qualification Bitwig/Gateway/provider/écoute/audio réel.
+Next : commit local + revue indépendante exacte avant publication/ready/merge.
+Export #84 et Duo #89 restent distincts et préservés ; anciens worktrees conservés.
 
-PR89 Duo spike is separate: scripts/duo*, scenarios and spike tests. Governance
-files and README overlap only editorially; do not resume or alter that experiment.
+VERIFY : packages build, NanoDAW23files/201tests, production build verts. Chrome6/6
+aux3tailles, reducedmotion/clavier, stale réel Undo et malformed/corrected twin.
+Axe réel détecte ancien saut h1→h3 ; correction MIDI h2, composant2/2+build renouvelés,
+scan final0violation0incomplete aux3tailles. Rapport feature-20261009-midi-import-v11.md.
+Candidat local à revue ; aucun push/ready/merge. Vague11 dernière avant pause, pasv12.
 
-## Result
-
-Implementation and offline/browser checks passed. See
-`.agents/reports/feature-20261009-midi-export.md`. Await exact candidate review
-before authorized PR publication; no merge or live acceptance.
+Delta focus après revue : input DOM stable + value='' native, aria-busy sansdisable ;
+aucun vol de focus, mêmes fichiers et reselectpending refus protégés pargeneration.
+Composant4/4/build/Chrome9/9 etaxe0/0 verts. NouveauSHA àrevuedelta indépendante.
