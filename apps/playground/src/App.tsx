@@ -106,6 +106,7 @@ function App() {
   const saveSong = usePlaygroundStore((state) => state.saveSong);
   const loadSavedSong = usePlaygroundStore((state) => state.loadSavedSong);
   const exportSong = usePlaygroundStore((state) => state.exportSong);
+  const exportMidi = usePlaygroundStore((state) => state.exportMidi);
   const importSong = usePlaygroundStore((state) => state.importSong);
   const clearSavedSong = usePlaygroundStore((state) => state.clearSavedSong);
   const setSongJsonDraft = usePlaygroundStore((state) => state.setSongJsonDraft);
@@ -419,8 +420,10 @@ function App() {
           <button type="button" disabled={!selectedTrack} onClick={addClipToSelection}>Add clip</button>
           <button type="button" disabled={!song} onClick={saveSong}>Save Jam</button>
           <button type="button" disabled={!persistence.hasSavedSong} onClick={loadSavedSongAndRevealTools}>Load local song</button>
+          <button type="button" disabled={!song} onClick={exportMidi}>Export MIDI</button>
           <button type="button" onClick={() => setActiveSurface("bitwig")}>Open Bitwig Remote</button>
         </div>
+        <p role={persistence.phase === "error" ? "alert" : "status"}>{persistence.label}{persistence.detail ? ` — ${persistence.detail}` : ""}</p>
         <label>
           <input
             type="checkbox"

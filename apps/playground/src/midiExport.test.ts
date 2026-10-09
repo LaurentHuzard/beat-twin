@@ -1,0 +1,45 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { createSong } from "@beat-twin/core";
+import { createCommandState } from "@beat-twin/commands";
+import { usePlaygroundStore } from "./store";
+
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); localStorage.clear(); });
+it("downloads locally without changing revision, undo, song or saved content", () => {
+  vi.useFakeTimers();
+  const createObjectURL = vi.fn((_blob: Blob) => "blob:local-midi");
+  const revokeObjectURL = vi.fn();
+  vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
+  const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  const state = usePlaygroundStore.getInitialState();
+  usePlaygroundStore.setState({ ...state, commandState: createCommandState(createSong({ id: "fixture" }), 17) });
+  localStorage.setItem("sentinel", "preserve");
+  const before = usePlaygroundStore.getState();
+  usePlaygroundStore.getState().exportMidi();
+  const after = usePlaygroundStore.getState();
+  expect(after.commandState).toBe(before.commandState);
+  expect(after.undoStack).toBe(before.undoStack);
+  expect(after.redoStack).toBe(before.redoStack);
+  expect(after.performanceState).toBe(before.performanceState);
+  expect(after.songJsonDraft).toBe(before.songJsonDraft);
+  expect(localStorage.length).toBe(1);
+  expect(localStorage.getItem("sentinel")).toBe("preserve");
+  expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+  expect((createObjectURL.mock.calls[0]?.[0] as Blob).type).toBe("audio/midi");
+  expect(click).toHaveBeenCalledTimes(1);
+  expect(after.persistence.label).toBe("MIDI download requested");
+  expect(document.querySelector("a[download]")).toBeNull();
+  vi.runAllTimers();
+  expect(revokeObjectURL).toHaveBeenCalledWith("blob:local-midi");
+});
+it("reports unavailable download and missing song while preserving musical state", () => {
+  vi.stubGlobal("URL", { createObjectURL: vi.fn(() => { throw new Error("Downloads unavailable"); }) });
+  const state = usePlaygroundStore.getInitialState();
+  usePlaygroundStore.setState({ ...state, commandState: createCommandState(createSong({ id: "fixture" }), 2) });
+  const before = usePlaygroundStore.getState().commandState;
+  usePlaygroundStore.getState().exportMidi();
+  expect(usePlaygroundStore.getState().commandState).toBe(before);
+  expect(usePlaygroundStore.getState().persistence.detail).toBe("Downloads unavailable");
+  usePlaygroundStore.setState({ commandState: createCommandState(null) });
+  usePlaygroundStore.getState().exportMidi();
+  expect(usePlaygroundStore.getState().persistence.label).toBe("Nothing to export");
+});

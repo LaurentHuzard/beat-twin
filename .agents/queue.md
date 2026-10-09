@@ -20,6 +20,10 @@ may authorize a bounded product loop.
 
 No implementation item is active.
 
+BT-MIDI-084 / issue #84 implemented under the user’s Armada mandate; offline
+and browser validation passed. Await exact candidate review and authorized draft
+PR publication. No merge/live writes. See current-plan.md and MIDI export report.
+
 BT-MCP-PARITY-008 implementation and bounded live validation completed.
 Publication authorized; GitHub PR metadata records delivery status. See
 `.agents/reports/parity-20260928-expression-persistence.md`: 507 tests, three
