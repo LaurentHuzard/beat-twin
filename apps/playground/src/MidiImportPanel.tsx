@@ -16,7 +16,7 @@ export function MidiImportPanel() {
   const [inputKey, setInputKey] = useState(0);
   const clear = () => { generation.current++; setPending(null); setOpenNotes([]); setReading(false); setInputKey(key => key + 1); setTimeout(() => fileInput.current?.focus(), 0); };
   return <section aria-label="Import MIDI" className="midi-import-panel">
-    <h3>Bring in a MIDI sketch</h3>
+    <h2>Bring in a MIDI sketch</h2>
     <p>Preview a local MIDI file, then add its notes as new tracks. Your current tracks stay intact.</p>
     <label>Local MIDI file <input ref={fileInput} key={inputKey} type="file" accept=".mid,.midi,audio/midi" disabled={reading} onChange={async event => {
       const file = event.currentTarget.files?.[0];

@@ -18,11 +18,13 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
-No implementation item is active.
+BT-MIDI-IMPORT-112 — finaliser l’import local inspecté, issue #112 / PR draft #111.
+Worktree/branche v11 dédiés depuis main frais 1775b36, reprise FF ab43d01.
+Revalidation core/store/browser puis revue exacte avant livraison.
 
 BT-MIDI-IMPORT-001 implemented under the explicit user Armada mandate.
-200NanoDAW tests,finalbuild and2Chrome flows passed; awaiting independent
-exact-SHA review and authorized draft publication. See current-plan.md.
+Ancienne validation 200 tests et 2 Chrome flows ; draft #111 préparée au head
+ab43d01. Reprise bornée autorisée via #112 ci-dessus. See current-plan.md.
 
 BT-MIDI-084 / issue #84 implemented under the user’s Armada mandate; offline
 and browser validation passed. Merged through PR #110 at 1775b36. No live writes. See current-plan.md and MIDI export report.

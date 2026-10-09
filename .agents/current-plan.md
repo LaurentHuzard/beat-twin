@@ -1,25 +1,23 @@
-# BT-MIDI-IMPORT-001 — Inspect and accept a local MIDI sketch
+# BT-MIDI-IMPORT-112 — Finaliser l’import local MIDI inspecté
 
-User Armada mandate authorizes bounded parallel killer features and reviewed PRs.
-Fresh base: 1775b363531a5ea5c2cf16470eac3a9e6230d464; branch
-feat/midi-import-20261009-v2, dedicated task worktree. Parent approved contract.
+Orbit Ready unique : issue #112 et PR draft #111, autorité utilisateur/parent vague11.
+Base fraîche main 1775b363531a5ea5c2cf16470eac3a9e6230d464 ; nouveau worktree
+.worktrees/beat-twin-midi-import-finalize-20261009-v11, branche feat/midi-import-finalize-20261009-v11.
+Reprise fast-forward des deux commits préparés jusqu’à ab43d01977f3e34685ceeb9bb1d8d32130edebd9.
 
-SMF Type 0/1 with PPQ and constant tempo, parsed with pinned MIT midi-file library
-behind bounded byte framing and event validation. File <=1MiB, <=64 source tracks,
-<=20000 events, <=4096 notes. Explicitly reject malformed/truncated bytes, SMPTE,
-Type2, changed tempo, sustain, pitch/modulation controls and ambiguous notes.
-Preview source notes/tracks/tempo and benign omissions; no musical mutation.
-Explicit Add MIDI tracks appends through one revision-bound atomic command batch,
-one undo checkpoint and autosave. Current song and tempo retained; missing song
-created at source tempo. Stale previews fail; discard is read-only.
+Contrat inchangé : SMF0/1 PPQ/tempo constant, preview sans mutation, Add explicite
+CAS/append atomique avec pistes/identité/tempo existants préservés, 1 revision/undo/save.
+Bornes et sous-ensemble documentés ; malformed/controllers/sustain/tempo changes/
+SMPTE/type2/ambiguous notes refusés sans mutation. Pas de nouveau codec.
 
-Acceptance: independent handcrafted bytes + export roundtrip, format/invalid/bound
-checks; store preview/drop/drift/atomic acceptance/undo; browser keyboard import,
-accept and undo at mobile/desktop, screenshot tablet. Fixtures only. No live DAW,
-provider/media processing, merge or deployment. Parent exact-SHA review before PR.
+VERIFY renouvelé : parser/store/PPQ3/roundtrip, suite NanoDAW, build packages/app,
+browser preview/discard/Add/undo/stale/error/clavier/3 tailles/reduced motion/axe ciblé.
+Fixtures seules, aucune qualification Bitwig/Gateway/provider/écoute/audio réel.
+Next : commit local + revue indépendante exacte avant publication/ready/merge.
+Export #84 et Duo #89 restent distincts et préservés ; anciens worktrees conservés.
 
-## Result
-
-Implementation,200NanoDAW tests,finalbuild and2Chrome keyboard/reduced-motion
-flows passed. See feature-20261009-midi-import.md report. Await independent
-exact-SHA review before draft PR; no merge/live qualification.
+VERIFY : packages build, NanoDAW23files/201tests, production build verts. Chrome6/6
+aux3tailles, reducedmotion/clavier, stale réel Undo et malformed/corrected twin.
+Axe réel détecte ancien saut h1→h3 ; correction MIDI h2, composant2/2+build renouvelés,
+scan final0violation0incomplete aux3tailles. Rapport feature-20261009-midi-import-v11.md.
+Candidat local à revue ; aucun push/ready/merge. Vague11 dernière avant pause, pasv12.

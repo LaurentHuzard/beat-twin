@@ -34,11 +34,18 @@ test("local MIDI preview is readonly and explicit keyboard add is undoable", asy
   await page.keyboard.press("Tab");
   await page.keyboard.press("Shift+Tab");
   await expect(add).toBeFocused();
-  await page.screenshot({path:`/tmp/beat-midi-import-${testInfo.project.name}.png`,fullPage:true});
+  await page.screenshot({path:testInfo.outputPath("preview.png"),fullPage:true});
   if (testInfo.project.name === "desktop-chromium") {
     await page.setViewportSize({width:768,height:1024});
     await expect(add).toBeVisible();
-    await page.screenshot({path:"/tmp/beat-midi-import-tablet.png",fullPage:true});
+    await page.screenshot({path:testInfo.outputPath("preview-tablet.png"),fullPage:true});
+  }
+  if (process.env.BEAT_MIDI_AXE_SCRIPT) {
+    await page.addScriptTag({ path: process.env.BEAT_MIDI_AXE_SCRIPT });
+    const audit = await page.evaluate(async () => (window as any).axe.run(document.querySelector('[aria-label="Import MIDI"]')));
+    await testInfo.attach("midi-panel-axe", { body: JSON.stringify({violations:audit.violations,incomplete:audit.incomplete,passes:audit.passes.length}), contentType:"application/json" });
+    expect(audit.violations).toEqual([]);
+    expect(audit.incomplete).toEqual([]);
   }
   const box = await add.boundingBox();
   expect(box!.x).toBeGreaterThanOrEqual(0);
@@ -51,5 +58,27 @@ test("local MIDI preview is readonly and explicit keyboard add is undoable", asy
   expect(imported.transport.bpm).toBe(124);
   await page.getByRole("button",{name:"Undo",exact:true}).click();
   expect(JSON.parse((await page.evaluate(() => localStorage.getItem("beat-twin.playground.song.v1")))!)).toEqual(JSON.parse(storage!));
+  expect(errors).toEqual([]);
+});
+
+test("real stale preview and malformed file refuse without an extra song save, corrected file recovers", async ({page}) => {
+  const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
+  await page.emulateMedia({reducedMotion:"reduce"});await page.goto("/");
+  await page.getByRole("button",{name:"Start Jam"}).click();
+  await page.getByRole("button",{name:"Settings",exact:true}).click();
+  const panel=page.getByRole("region",{name:"Import MIDI",exact:true});
+  const choose=()=>panel.getByLabel("Local MIDI file").setInputFiles({name:"synthetic.mid",mimeType:"audio/midi",buffer:Buffer.from(fixtureMidi())});
+  await choose();await panel.getByRole("button",{name:"Add MIDI tracks"}).click();
+  await choose();await expect(panel.getByRole("button",{name:"Add MIDI tracks"})).toBeEnabled();
+  await page.getByRole("button",{name:"Undo",exact:true}).click();
+  await expect(panel.getByRole("alert")).toContainText("Song changed since preview");
+  await expect(panel.getByRole("button",{name:"Add MIDI tracks"})).toBeDisabled();
+  const before=await page.evaluate(()=>localStorage.getItem("beat-twin.playground.song.v1"));
+  await panel.getByLabel("Local MIDI file").setInputFiles({name:"malformed.mid",mimeType:"audio/midi",buffer:Buffer.alloc(14)});
+  await expect(panel.getByRole("alert")).toContainText("Invalid Standard MIDI header");
+  await expect(panel.getByRole("button",{name:"Add MIDI tracks"})).toHaveCount(0);
+  expect(await page.evaluate(()=>localStorage.getItem("beat-twin.playground.song.v1"))).toBe(before);
+  await choose();await expect(panel.getByRole("button",{name:"Add MIDI tracks"})).toBeEnabled();
+  expect(await page.evaluate(()=>localStorage.getItem("beat-twin.playground.song.v1"))).toBe(before);
   expect(errors).toEqual([]);
 });
