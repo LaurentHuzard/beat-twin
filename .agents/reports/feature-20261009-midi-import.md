@@ -42,10 +42,17 @@ Validation:
 - git diff --check passed.
 
 Audio Instruments identity retained, existing settings primitives/tokens reused;
-small note table uses semantic border/focus tokens. No axe runner exists in the
-repository; role/name/table/focus checks and keyboard screenshots are evidence,
-not a complete automated accessibility audit or WCAG qualification. No live DAW,
+small note table uses semantic border/focus tokens. A focused axe-core 4.11.1 scan
+reused the installed Callistocto dependency from a temporary script: zero violations
+and zero incomplete checks, 16 passes at each of the three viewports. No package
+or cross-repository runtime coupling was added. These checks are scoped to the
+expanded MIDI panel, not a complete app audit or WCAG qualification. No live DAW,
 listening or real media accepted. No claim that all MIDI files are supported.
 Screenshots/logs remain in /tmp, not versioned. Canonical stays clean main@base.
 
-Next: parent independent exact-SHA adversarial review before authorized draft PR.
+Independent review identified a PPQ3 floating-point boundary failure (note from
+ tick7 to tick20). Clip bounds now include actual computed start+duration endpoints,
+without changing note values. Regression checks preview→command batch→accept/undo;
+focused parser/store suite 9/9 passed after correction. Final build passed;
+Chrome2/2 passed again with chooser/summary target heights>=44px asserted. Framing
+review found no further issue. Await final exact-head delta review before draft PR.

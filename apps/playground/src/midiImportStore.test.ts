@@ -40,3 +40,21 @@ it("new song uses source tempo; stale previews fail without any mutation/save", 
   expect(save).not.toHaveBeenCalled();
   expect(after.lastError).toMatch(/changed since/);
 });
+
+it("accepts an independent PPQ3 note ending at tick20 without changing its note values, then undoes", () => {
+  usePlaygroundStore.getState().createDemo();
+  const before = usePlaygroundStore.getState().commandState;
+  const preview = inspectMidiImport(fixtureMidi([7,144,60,100, 13,128,60,0],0,3));
+  const note = preview.tracks[0]!.notes[0]!;
+  expect(note.startBeat).toBe(7/3);
+  expect(note.lengthBeats).toBe(20/3 - 7/3);
+  expect(note.startBeat + note.lengthBeats).toBeGreaterThan(20/3);
+  expect(preview.tracks[0]!.lengthBeats).toBeGreaterThanOrEqual(note.startBeat + note.lengthBeats);
+  expect(usePlaygroundStore.getState().acceptMidiImport(preview,before.revision)).toBe(true);
+  const after = usePlaygroundStore.getState().commandState;
+  expect(after.revision).toBe(before.revision+1);
+  const imported = after.song!.tracks.at(-1)!.clips[0]!.pattern.notes[0]!;
+  expect({ pitch:imported.pitch, velocity:imported.velocity, startBeat:imported.startBeat, lengthBeats:imported.lengthBeats }).toEqual(note);
+  usePlaygroundStore.getState().undo();
+  expect(usePlaygroundStore.getState().commandState.song).toEqual(before.song);
+});

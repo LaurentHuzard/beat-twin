@@ -21,6 +21,8 @@ again. Acceptance never replaces an existing song silently.
 
 - Standard MIDI File Type 0 or 1, PPQ timing, one constant tempo at beat zero.
 - Arbitrary PPQ divisions preserve note starts and durations as musical beats.
+  Clip bounds include computed note endpoints so floating-point rounding does not
+  reject a valid note; musical note values remain unchanged.
 - Explicit and running-status notes; velocity-zero note-on is note-off.
 - Notes split into new tracks per source track/channel. Each has one arrangement
   clip beginning at beat zero; note placement is absolute within that clip.

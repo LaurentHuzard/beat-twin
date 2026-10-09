@@ -98,7 +98,10 @@ export function inspectMidiImport(bytes: Uint8Array): MidiImportPreview {
     }
     for (const [channel, data] of channels) {
       if (data.held.size) throw new Error("MIDI has notes without a matching note-off.");
-      if (data.notes.length) tracks.push(Object.freeze({ name: `${name} · Ch ${channel + 1}`, channel, lengthBeats: Math.max(1, tick / ppq), notes: Object.freeze(data.notes.map(n => Object.freeze(n))) }));
+      // Match the exact floating-point addition used by NanoDAW's fit check.
+      // Rational PPQ endpoints can round one ulp above tick / ppq; notes stay intact.
+      const lengthBeats = data.notes.reduce((end, note) => Math.max(end, note.startBeat + note.lengthBeats), Math.max(1, tick / ppq));
+      if (data.notes.length) tracks.push(Object.freeze({ name: `${name} · Ch ${channel + 1}`, channel, lengthBeats, notes: Object.freeze(data.notes.map(n => Object.freeze(n))) }));
     }
   }
   if (!noteCount || tracks.length > 16 || tracks.filter(t => t.channel === 9).length > 1 || tracks.filter(t => t.channel !== 9).length > 15) throw new Error("Import needs sounding notes, at most 15 melodic tracks and one drum track.");

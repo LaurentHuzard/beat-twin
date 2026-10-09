@@ -10,6 +10,8 @@ test("local MIDI preview is readonly and explicit keyboard add is undoable", asy
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const panel = page.getByRole("region", { name: "Import MIDI", exact: true });
   const storage = await page.evaluate(() => localStorage.getItem("beat-twin.playground.song.v1"));
+  const fileBox = await panel.getByLabel("Local MIDI file").boundingBox();
+  expect(fileBox!.height).toBeGreaterThanOrEqual(44);
   const choose = async () => panel.getByLabel("Local MIDI file").setInputFiles({ name:"seed.mid", mimeType:"audio/midi", buffer:Buffer.from(fixtureMidi()) });
   await choose();
   const add = panel.getByRole("button",{name:"Add MIDI tracks"});
@@ -22,6 +24,8 @@ test("local MIDI preview is readonly and explicit keyboard add is undoable", asy
   expect(await page.evaluate(() => localStorage.getItem("beat-twin.playground.song.v1"))).toBe(storage);
   await choose();
   await panel.getByText("Review notes in Seed · Ch 1",{exact:true}).focus();
+  const summaryBox = await panel.getByText("Review notes in Seed · Ch 1",{exact:true}).boundingBox();
+  expect(summaryBox!.height).toBeGreaterThanOrEqual(44);
   await page.keyboard.press("Enter");
   const noteTable = panel.getByRole("table",{name:"Notes in Seed · Ch 1"});
   await expect(noteTable).toBeVisible();
