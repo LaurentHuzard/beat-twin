@@ -1,28 +1,25 @@
-# BT-MIDI-084 — Local deterministic MIDI export
+# BT-MIDI-IMPORT-001 — Inspect and accept a local MIDI sketch
 
-User authorized the Armada to choose useful product work and publish reviewed PRs.
-Fresh origin/main base: 802e4a400d4018e44dea39d08920125d4d2441ae.
-Dedicated worktree: beat-twin-midi-export-20261009; branch feat/midi-export-20261009.
+User Armada mandate authorizes bounded parallel killer features and reviewed PRs.
+Fresh base: 1775b363531a5ea5c2cf16470eac3a9e6230d464; branch
+feat/midi-import-20261009-v2, dedicated task worktree. Parent approved contract.
 
-One bounded outcome: download the browser-owned Song as SMF Type 1 without
-changing revisions, undo, autosave or audio playback. Pure validated core API;
-480 ticks per quarter note; tempo, absolute clip/note placement and names;
-empty instrument tracks included; noninstrument tracks omitted. Explicit MIDI
-channel/timing limits fail rather than silently collide. No external device,
-provider, sound-bank mapping or network is needed.
+SMF Type 0/1 with PPQ and constant tempo, parsed with pinned MIT midi-file library
+behind bounded byte framing and event validation. File <=1MiB, <=64 source tracks,
+<=20000 events, <=4096 notes. Explicitly reject malformed/truncated bytes, SMPTE,
+Type2, changed tempo, sustain, pitch/modulation controls and ambiguous notes.
+Preview source notes/tracks/tempo and benign omissions; no musical mutation.
+Explicit Add MIDI tracks appends through one revision-bound atomic command batch,
+one undo checkpoint and autosave. Current song and tempo retained; missing song
+created at source tempo. Stale previews fail; discard is read-only.
 
-Acceptance: structured MIDI parser checks header, tempo, tracks, positions,
-velocities, durations and deterministic bytes. Invalid inputs and unsupported
-limits fail. Store/UI checks prove local download and readonly musical state.
-Build and focused/full playground tests plus browser keyboard/responsive checks.
-Independent review at exact commit before authorized publication. No merge,
-deployment, live DAW, media processing or provider calls authorized by this plan.
-
-PR89 Duo spike is separate: scripts/duo*, scenarios and spike tests. Governance
-files and README overlap only editorially; do not resume or alter that experiment.
+Acceptance: independent handcrafted bytes + export roundtrip, format/invalid/bound
+checks; store preview/drop/drift/atomic acceptance/undo; browser keyboard import,
+accept and undo at mobile/desktop, screenshot tablet. Fixtures only. No live DAW,
+provider/media processing, merge or deployment. Parent exact-SHA review before PR.
 
 ## Result
 
-Implementation and offline/browser checks passed. See
-`.agents/reports/feature-20261009-midi-export.md`. Await exact candidate review
-before authorized PR publication; no merge or live acceptance.
+Implementation,200NanoDAW tests,finalbuild and2Chrome keyboard/reduced-motion
+flows passed. See feature-20261009-midi-import.md report. Await independent
+exact-SHA review before draft PR; no merge/live qualification.

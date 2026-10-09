@@ -1,3 +1,4 @@
+import { MidiImportPanel } from "./MidiImportPanel";
 import {
   useCallback,
   useEffect,
@@ -424,6 +425,7 @@ function App() {
           <button type="button" onClick={() => setActiveSurface("bitwig")}>Open Bitwig Remote</button>
         </div>
         <p role={persistence.phase === "error" ? "alert" : "status"}>{persistence.label}{persistence.detail ? ` — ${persistence.detail}` : ""}</p>
+        <MidiImportPanel />
         <label>
           <input
             type="checkbox"

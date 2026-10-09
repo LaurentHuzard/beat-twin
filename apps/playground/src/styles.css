@@ -3270,3 +3270,11 @@ input, select, textarea { color: var(--text-primary); }
 
 .agent-connect-grid .gateway-secret-toggle { display: flex; align-items: center; gap: 0.5rem; }
 .agent-connect-grid .gateway-secret-toggle input { width: 1rem; min-height: 1rem; height: 1rem; flex: 0 0 1rem; }
+
+.midi-import-panel summary { cursor: pointer; margin-block: 8px; }
+.midi-import-panel summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.midi-import-panel table { width: 100%; font-variant-numeric: tabular-nums; font-size: 13px; }
+.midi-import-panel th, .midi-import-panel td { text-align: left; padding: 4px; border-bottom: 1px solid var(--border-subtle); }
+
+.midi-import-panel { overflow-wrap: anywhere; }
+.midi-import-panel input[type="file"] { max-width: 100%; }

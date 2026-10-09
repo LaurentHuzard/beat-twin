@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { midiImportCommands, type MidiImportPreview } from "./midiImport";
 
 import {
   createCommandState,
@@ -121,6 +122,7 @@ export type PlaygroundStore = {
   readonly loadSavedSong: () => void;
   readonly exportSong: () => void;
   readonly exportMidi: () => void;
+  readonly acceptMidiImport: (preview: MidiImportPreview, expectedRevision: number) => boolean;
   readonly importSong: () => void;
   readonly clearSavedSong: () => void;
   readonly setSongJsonDraft: (draft: string) => void;
@@ -681,6 +683,31 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
         lastError: null,
       };
     });
+  },
+
+  acceptMidiImport: (preview, expectedRevision) => {
+    const current = get();
+    if (current.commandState.revision !== expectedRevision) {
+      set({ lastError: "Song changed since MIDI preview. Select the file again to review the current destination." });
+      return false;
+    }
+    try {
+      const commands = midiImportCommands(preview, Boolean(current.commandState.song), () => makeId("track"));
+      const result = applyCommands(current.commandState, commands);
+      if (result.error) { set({ lastError: result.error }); return false; }
+      const persistence = autosaveSong(result.state.song);
+      set({
+        commandState: result.state,
+        performanceState: syncPerformanceWithCommandState(current.performanceState, current.commandState, result.state),
+        undoStack: [...current.undoStack, current.commandState], redoStack: [],
+        ...deriveSelection(result.state), persistence: persistence ?? current.persistence,
+        lastError: null,
+      });
+      return true;
+    } catch (error) {
+      set({ lastError: error instanceof Error ? error.message : String(error) });
+      return false;
+    }
   },
 
   inspectRemoteSession: () => snapshotCommandState(get().commandState),

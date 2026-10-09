@@ -20,9 +20,12 @@ may authorize a bounded product loop.
 
 No implementation item is active.
 
+BT-MIDI-IMPORT-001 implemented under the explicit user Armada mandate.
+200NanoDAW tests,finalbuild and2Chrome flows passed; awaiting independent
+exact-SHA review and authorized draft publication. See current-plan.md.
+
 BT-MIDI-084 / issue #84 implemented under the user’s Armada mandate; offline
-and browser validation passed. Await exact candidate review and authorized draft
-PR publication. No merge/live writes. See current-plan.md and MIDI export report.
+and browser validation passed. Merged through PR #110 at 1775b36. No live writes. See current-plan.md and MIDI export report.
 
 BT-MCP-PARITY-008 implementation and bounded live validation completed.
 Publication authorized; GitHub PR metadata records delivery status. See

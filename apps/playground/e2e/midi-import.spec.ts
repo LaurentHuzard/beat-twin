@@ -1,0 +1,51 @@
+import { expect, test } from "@playwright/test";
+import { fixtureMidi } from "../src/test/midiFixture";
+
+test("local MIDI preview is readonly and explicit keyboard add is undoable", async ({ page }, testInfo) => {
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start Jam" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const panel = page.getByRole("region", { name: "Import MIDI", exact: true });
+  const storage = await page.evaluate(() => localStorage.getItem("beat-twin.playground.song.v1"));
+  const choose = async () => panel.getByLabel("Local MIDI file").setInputFiles({ name:"seed.mid", mimeType:"audio/midi", buffer:Buffer.from(fixtureMidi()) });
+  await choose();
+  const add = panel.getByRole("button",{name:"Add MIDI tracks"});
+  await expect(add).toBeVisible();
+  await expect(panel).toContainText("1 new track · 1 note · Source 120.00 BPM");
+  await expect(panel).toContainText("Current tempo stays at 124 BPM");
+  expect(await page.evaluate(() => localStorage.getItem("beat-twin.playground.song.v1"))).toBe(storage);
+  await panel.getByRole("button",{name:"Discard MIDI preview"}).click();
+  await expect(panel.getByLabel("Local MIDI file")).toBeFocused();
+  expect(await page.evaluate(() => localStorage.getItem("beat-twin.playground.song.v1"))).toBe(storage);
+  await choose();
+  await panel.getByText("Review notes in Seed · Ch 1",{exact:true}).focus();
+  await page.keyboard.press("Enter");
+  const noteTable = panel.getByRole("table",{name:"Notes in Seed · Ch 1"});
+  await expect(noteTable).toBeVisible();
+  await expect(noteTable.getByRole("row").nth(1)).toContainText("6010001");
+  await add.focus();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
+  await expect(add).toBeFocused();
+  await page.screenshot({path:`/tmp/beat-midi-import-${testInfo.project.name}.png`,fullPage:true});
+  if (testInfo.project.name === "desktop-chromium") {
+    await page.setViewportSize({width:768,height:1024});
+    await expect(add).toBeVisible();
+    await page.screenshot({path:"/tmp/beat-midi-import-tablet.png",fullPage:true});
+  }
+  const box = await add.boundingBox();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x+box!.width).toBeLessThanOrEqual(await page.evaluate(() => innerWidth));
+  await page.keyboard.press("Enter");
+  await expect(panel.getByRole("status")).toContainText("MIDI tracks added");
+  await expect(panel.getByLabel("Local MIDI file")).toBeFocused();
+  const imported = JSON.parse((await page.evaluate(() => localStorage.getItem("beat-twin.playground.song.v1")))!);
+  expect(imported.tracks.length).toBe(3);
+  expect(imported.transport.bpm).toBe(124);
+  await page.getByRole("button",{name:"Undo",exact:true}).click();
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem("beat-twin.playground.song.v1")))!)).toEqual(JSON.parse(storage!));
+  expect(errors).toEqual([]);
+});
