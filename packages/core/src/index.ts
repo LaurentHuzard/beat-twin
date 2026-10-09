@@ -1061,3 +1061,5 @@ function normalizeNote(value: unknown): Note {
     lengthBeats: assertPositiveNumber(value.lengthBeats, "note lengthBeats"),
   });
 }
+
+export { exportSongMidi, MIDI_TICKS_PER_BEAT } from "./midi.ts";

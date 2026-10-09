@@ -439,3 +439,6 @@ Gateway or S25 development workspace.
 - This smoke checks distribution contents and MCP startup with the existing
   local dependency installation. It is not a clean-network npm installation,
   browser packaging, live controller test or proof of DAW writes.
+
+NanoDAW can download a local Standard MIDI File from **Settings → Export MIDI**.
+See [MIDI export](docs/NANODAW_MIDI_EXPORT.md) for timing, channel and scope limits.

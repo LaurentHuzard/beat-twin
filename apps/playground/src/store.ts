@@ -15,7 +15,7 @@ import {
   type ExecuteCommandBatchRequest,
   type IdScope,
 } from "@beat-twin/commands";
-import type { BuiltInInstrumentId, Song } from "@beat-twin/core";
+import { exportSongMidi, type BuiltInInstrumentId, type Song } from "@beat-twin/core";
 
 import {
   buildPreviewAudition,
@@ -120,6 +120,7 @@ export type PlaygroundStore = {
   readonly saveSong: () => void;
   readonly loadSavedSong: () => void;
   readonly exportSong: () => void;
+  readonly exportMidi: () => void;
   readonly importSong: () => void;
   readonly clearSavedSong: () => void;
   readonly setSongJsonDraft: (draft: string) => void;
@@ -1182,6 +1183,29 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       persistence: persistenceStatus("exported", "Export ready", song.title),
       lastError: null,
     });
+  },
+
+  exportMidi: () => {
+    const song = get().commandState.song;
+    if (!song) {
+      set({ persistence: persistenceStatus("error", "Nothing to export", "Create a song first.") });
+      return;
+    }
+    try {
+      const bytes = exportSongMidi(song);
+      const url = URL.createObjectURL(new Blob([bytes.buffer as ArrayBuffer], { type: "audio/midi" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "beat-twin.mid";
+      document.body.appendChild(link);
+      try { link.click(); } finally {
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      set({ persistence: persistenceStatus("exported", "MIDI download requested", "Notes and tempo only; choose instruments in your DAW."), lastError: null });
+    } catch (error) {
+      set({ persistence: persistenceStatus("error", "MIDI export failed", error instanceof Error ? error.message : String(error)) });
+    }
   },
 
   importSong: () => {
