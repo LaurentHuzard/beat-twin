@@ -1,4 +1,12 @@
-# BT-MIDI-IMPORT-112 — Finaliser l’import local MIDI inspecté
+# Orbit Ready — shared NanoDAW MCP startup 2026-10-11
+
+Operator requests one MUE portfolio startup and four configured MCPs. Reuse the
+gateway HTTP library's existing local pairing mode in the NanoDAW composition
+root with explicit opt-in. Default secret pairing, loopback binding, exact
+origins, browser ownership and write confirmations remain. Validate local/foreign
+origins, existing integration tests and build; no live DAW write or publication.
+
+## Historical plan — BT-MIDI-IMPORT-112
 
 Orbit Ready unique : issue #112 et PR draft #111, autorité utilisateur/parent vague11.
 Base fraîche main 1775b363531a5ea5c2cf16470eac3a9e6230d464 ; nouveau worktree

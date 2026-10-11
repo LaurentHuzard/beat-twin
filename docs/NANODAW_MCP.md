@@ -1,5 +1,12 @@
 # NanoDAW MCP
 
+The composition root supports explicit `NANODAW_MCP_LOCAL_PAIRING=1` for a
+shared workstation gateway. It reuses the gateway HTTP library's loopback and
+exact-Origin local pairing checks. The default remains secret pairing; invalid
+flag values fail startup. Browser state ownership and exact musical write
+confirmations remain unchanged. Activating this mode in private configuration
+requires explicit operator approval because it changes pairing authentication.
+
 NanoDAW MCP is the standalone, no-external-DAW path for preparing musical
 edits from an MCP client. It connects to the browser-owned NanoDAW over the
 existing loopback Gateway and does not require Bitwig, a controller script, the
