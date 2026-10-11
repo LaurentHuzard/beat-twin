@@ -26,6 +26,7 @@ import {
 
 export type NanoDawMcpRuntimeOptions = {
   readonly operatorSecret: string;
+  readonly pairingMode?: "secret" | "local";
   readonly allowedOrigins: readonly string[];
   readonly host?: "127.0.0.1" | "::1";
   readonly port?: number;
@@ -74,6 +75,7 @@ export async function createNanoDawMcpRuntime(
   const service = await createNanoDawMcpService({ adapter, pairing, planStore });
   const fallback = createGatewayRequestHandler({
     operatorSecret: options.operatorSecret,
+    pairingMode: options.pairingMode,
     pairingScopes: [...DEFAULT_PAIRING_SCOPES, "transport.write"],
     pairing,
     planStore,

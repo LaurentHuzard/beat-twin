@@ -13,6 +13,17 @@ import { createNanoDawMcpRuntime } from "../src/runtime.ts";
 
 const ORIGIN = "http://127.0.0.1:5173";
 const OPERATOR_SECRET = "correct horse battery staple";
+test("explicit local pairing shares the existing gateway origin boundary", async () => {
+  const runtime = await createNanoDawMcpRuntime({ operatorSecret: OPERATOR_SECRET,
+    allowedOrigins: [ORIGIN], port: 0, pairingMode: "local" });
+  try {
+    for (const [origin, expected] of [[ORIGIN, 201], ["http://foreign.invalid", 403]]) {
+      const response = await fetch(`${runtime.baseUrl}/v1/pair`, { method: "POST",
+        headers: { "content-type": "application/json", origin: String(origin) }, body: JSON.stringify({ actorId: "startup-test" }) });
+      assert.equal(response.status, expected);
+    }
+  } finally { await runtime.close(); }
+});
 const PATCH = Object.freeze({
   schemaVersion: 2,
   tempoBpm: 118,

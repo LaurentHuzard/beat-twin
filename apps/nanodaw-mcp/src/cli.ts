@@ -21,7 +21,11 @@ export async function runNanoDawMcp(env: NodeJS.ProcessEnv = process.env, mode: 
   const port = parsePort(env.NANODAW_MCP_PORT);
   const provider = nanoDawProviderOptions(env);
   if (mode === "agent" && !provider) throw new Error("LITERT_BASE_URL and LITERT_MODEL are required for nanodaw:agent");
-  const runtime = await createNanoDawMcpRuntime({ operatorSecret, allowedOrigins, port, provider });
+  if (env.NANODAW_MCP_LOCAL_PAIRING !== undefined && !["0", "1"].includes(env.NANODAW_MCP_LOCAL_PAIRING)) {
+    throw new Error("NANODAW_MCP_LOCAL_PAIRING must be 0 or 1");
+  }
+  const runtime = await createNanoDawMcpRuntime({ operatorSecret, allowedOrigins, port, provider,
+    pairingMode: env.NANODAW_MCP_LOCAL_PAIRING === "1" ? "local" : "secret" });
 
   const shutdown = () => {
     void runtime.close().finally(() => {
