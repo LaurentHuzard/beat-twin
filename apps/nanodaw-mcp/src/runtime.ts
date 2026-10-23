@@ -33,6 +33,7 @@ export type NanoDawMcpRuntimeOptions = {
   readonly audit?: AuditSink;
   /** Explicit opt-in; never contacts a model until the paired browser requests it. */
   readonly provider?: LiteRtProviderOptions;
+  readonly directWrite?: boolean;
 };
 
 export type NanoDawMcpRuntime = {
@@ -72,7 +73,7 @@ export async function createNanoDawMcpRuntime(
       return stored?.digest === candidate.digest && stored.requestId === candidate.requestId;
     },
   });
-  const service = await createNanoDawMcpService({ adapter, pairing, planStore });
+  const service = await createNanoDawMcpService({ adapter, pairing, planStore, directWrite: options.directWrite });
   const fallback = createGatewayRequestHandler({
     operatorSecret: options.operatorSecret,
     pairingMode: options.pairingMode,

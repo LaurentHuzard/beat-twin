@@ -75,6 +75,25 @@ test("publishes inspect and preparation tools without confirmation or execution"
   assert.equal(NANODAW_MCP_TOOL_NAMES.some((name) => /confirm|execute|apply/.test(name)), false);
 });
 
+test("direct apply is opt-in and records uncertain adapter outcomes without retry", async () => {
+  const context = fixture();
+  const ids = ["request", "plan"];
+  const disabled = await createNanoDawMcpService({ adapter: context.adapter, pairing: context.pairing, planStore: context.planStore });
+  assert.equal(getNanoDawMcpToolDefinitions().some((tool) => tool.name === "nanodaw_apply_direct"), false);
+  await assert.rejects(disabled.applyDirect("missing"), /disabled/);
+  const enabled = await createNanoDawMcpService({
+    adapter: context.adapter, pairing: context.pairing, planStore: context.planStore,
+    directWrite: true, idGenerator: () => ids.shift() ?? "extra",
+  });
+  assert.equal(getNanoDawMcpToolDefinitions(true).some((tool) => tool.name === "nanodaw_apply_direct"), true);
+  const review = await enabled.prepareInstrumentClip(PATCH);
+  await assert.rejects(enabled.applyDirect(review.plan.planId), /must not execute/);
+  assert.equal(context.executions(), 1);
+  assert.equal(context.planStore.getExecutionStatus(review.plan.planId)?.state, "uncertain");
+  await assert.rejects(enabled.applyDirect(review.plan.planId));
+  assert.equal(context.executions(), 1);
+});
+
 test("prepares one immutable instrument clip plan without mutating NanoDAW", async () => {
   const context = fixture();
   const ids = ["request", "plan"];
