@@ -14,6 +14,12 @@ function randomSuffix(): string {
 function newEpoch(): string {
   return "session-" + randomSuffix();
 }
+const PADS = [
+  { key: "a", pitch: 60, label: "C4" }, { key: "s", pitch: 62, label: "D4" },
+  { key: "d", pitch: 64, label: "E4" }, { key: "f", pitch: 65, label: "F4" },
+  { key: "g", pitch: 67, label: "G4" }, { key: "h", pitch: 69, label: "A4" },
+  { key: "j", pitch: 71, label: "B4" }, { key: "k", pitch: 72, label: "C5" },
+] as const;
 const EMPTY_STATS: BrowserJamStats = {
   receivedMidi: 0, dispatchedNotes: 0, lastEvent: "none",
   rttP95Ms: null, rttSamples: 0, clockSync: "not_measured", audioProof: "not_measured",
@@ -47,6 +53,24 @@ export function RemoteJamBrowserPanel() {
       peerRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!connected) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
+      const target = event.target;
+      if (target instanceof HTMLElement &&
+        (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
+      const pad = PADS.find((value) => value.key === event.key.toLowerCase());
+      if (pad) {
+        event.preventDefault();
+        try { peerRef.current?.sendNote(pad.pitch); }
+        catch (error) { setIssue(String(error)); }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [connected]);
 
   function leave() {
     abortRef.current?.abort();
@@ -98,8 +122,8 @@ export function RemoteJamBrowserPanel() {
     }
   }
 
-  function sendDemo() {
-    try { peerRef.current?.sendC4(); }
+  function sendDemo(pitch: number) {
+    try { peerRef.current?.sendNote(pitch); }
     catch (error) { setIssue(String(error)); }
   }
 
@@ -133,10 +157,19 @@ export function RemoteJamBrowserPanel() {
           <button type="submit" disabled={busy || connected || secret.trim().length < 32}>
             {busy ? "Connecting…" : "Join room and enable sound"}
           </button>
-          <button type="button" onClick={sendDemo} disabled={!connected}>Send C4 to Go peer (350 ms)</button>
           <button type="button" onClick={leave} disabled={phase === "idle" || phase === "closed"}>Leave / release all notes</button>
         </div>
       </form>
+      <div className="remote-jam-browser-pads" aria-label="Remote Jam MIDI pad keyboard">
+        {PADS.map((pad) => (
+          <button key={pad.pitch} type="button" disabled={!connected}
+            onClick={() => sendDemo(pad.pitch)}
+            aria-label={`Send ${pad.label} to remote peer`}>
+            {pad.label}<small>{pad.key.toUpperCase()}</small>
+          </button>
+        ))}
+      </div>
+      <p className="remote-jam-browser-note">Pads send 350 ms MIDI notes; the other peer must own an audio instrument to hear them.</p>
       <p role="status">State: <strong>{phase}</strong>. {detail}</p>
       {issue ? <p role="alert">Connection problem: {issue}</p> : null}
       <dl className="remote-jam-browser-stats">
