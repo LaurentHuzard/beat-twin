@@ -9,7 +9,9 @@ import {
  * Developer-only acoustic smoke. This is intentionally NOT a remote connection
  * and does not impersonate a verified Remote Jam peer/session.
  */
-export function RemoteJamLocalAudition() {
+export function RemoteJamLocalAudition({
+  acquireAudio = acquireNanoDawRemoteJamAudio,
+}: Readonly<{ acquireAudio?: () => Promise<NanoJamSoundPort> }> = {}) {
   const portRef = useRef<NanoJamSoundPort | null>(null);
   const pendingRef = useRef<Promise<NanoJamSoundPort> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,7 +45,7 @@ export function RemoteJamLocalAudition() {
     if (pendingRef.current || portRef.current) return;
     setStatus("unlocking");
     try {
-      const pending = acquireNanoDawRemoteJamAudio();
+      const pending = acquireAudio();
       pendingRef.current = pending;
       const port = await pending;
       pendingRef.current = null;
@@ -84,10 +86,13 @@ export function RemoteJamLocalAudition() {
   }
 
   function stop() {
-    try { close(); }
-    finally {
+    try {
+      close();
       setStatus("idle");
       setMessage("Local test ended. No remote peer or WebRTC session was touched.");
+    } catch (error) {
+      setStatus("error");
+      setMessage("Sound cleanup failed: " + String(error));
     }
   }
 
