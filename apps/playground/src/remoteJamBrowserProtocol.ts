@@ -35,10 +35,12 @@ function checkId(value: string) {
   if (!ID.test(value)) throw Error("Invalid Remote Jam room/session/peer identifier");
 }
 function normalizeGoTime(value: string): string {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) throw Error("Invalid signaling time");
-  // Go time.Time MarshalJSON uses RFC3339Nano, trimming trailing fractional zeros.
-  return date.toISOString().replace(/(\.\d*?[1-9])0+Z$/, "$1Z").replace(/\.000Z$/, "Z");
+  // Preserve Go's nanosecond precision (Date loses the final six digits).
+  // Both this browser and the Remote Jam CLI sign timestamps in UTC.
+  const match = /^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d{1,9}))?Z$/.exec(value);
+  if (!match || !Number.isFinite(Date.parse(value))) throw Error("Invalid UTC signaling time");
+  const fraction = (match[2] ?? "").replace(/0+$/, "");
+  return match[1] + (fraction ? "." + fraction : "") + "Z";
 }
 function goJSON(value: unknown): string {
   return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, (char) => {
