@@ -44,7 +44,6 @@ export async function createNanoDawToneRemoteJamPort(
     voice = new tone.PolySynth(tone.Synth, {
       oscillator: { type: "triangle" },
       envelope: { attack: 0.008, decay: 0.16, sustain: 0.55, release: 0.18 },
-      maxPolyphony: 32,
     });
     voice.connect(gain);
   } catch (error) {
