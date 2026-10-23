@@ -51,6 +51,7 @@ import { AgentModePanel } from "./AgentModePanel";
 import { BitwigRemote } from "./BitwigRemote";
 import { LiveLauncher } from "./LiveLauncher";
 import { RemoteJamLocalAudition } from "./RemoteJamLocalAudition";
+import { RemoteJamBrowserPanel } from "./RemoteJamBrowserPanel";
 import { StepEditor } from "./StepEditor";
 import { buildPreviewAudition } from "./previewAudio";
 import {
@@ -455,7 +456,7 @@ function App() {
                 window.requestAnimationFrame(() => document.getElementById("edit-surface")?.focus());
               }}
             />
-            {developerMode && workspaceMode === "jam" ? <RemoteJamLocalAudition /> : null}
+            {developerMode && workspaceMode === "jam" ? <><RemoteJamLocalAudition /><RemoteJamBrowserPanel /></> : null}
           </div>
 
           <section id="edit-surface" tabIndex={-1} className="edit-surface" aria-label="EDIT" hidden={workspaceMode !== "edit"}>

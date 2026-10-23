@@ -3292,3 +3292,29 @@ input, select, textarea { color: var(--text-primary); }
 .remote-jam-local-audition p { font-size: 0.875rem; overflow-wrap: anywhere; }
 .remote-jam-local-audition-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .remote-jam-local-audition-actions button { min-height: 44px; }
+
+/* BT-RJ-003: explicit opt-in room controls in developer JAM mode only. */
+.remote-jam-browser {
+  margin-block: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  max-width: 56rem;
+}
+.remote-jam-browser h3 { margin: 0 0 0.4rem; font-size: 1.05rem; }
+.remote-jam-browser > p { overflow-wrap: anywhere; line-height: 1.45; }
+.remote-jam-browser-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 0.65rem; }
+.remote-jam-browser-fields label { display: grid; gap: 0.3rem; font-size: 0.85rem; }
+.remote-jam-browser-fields input, .remote-jam-browser-fields select { width: 100%; max-width: 100%; min-width: 0; min-height: 44px; }
+.remote-jam-browser-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-block: 1rem; }
+.remote-jam-browser-actions button { min-height: 44px; }
+.remote-jam-browser-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.6rem; }
+.remote-jam-browser-stats > div { padding: 0.5rem; border: 1px solid var(--border-subtle); border-radius: 8px; }
+.remote-jam-browser-stats dt { font-size: 0.72rem; opacity: 0.8; }
+.remote-jam-browser-stats dd { margin: 0.2rem 0 0; font-size: 0.9rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.remote-jam-browser-note { font-size: 0.82rem; }
+
+.remote-jam-browser-pads { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 0.3rem; margin-block: 0.75rem; }
+.remote-jam-browser-pads button { min-width: 0; min-height: 70px; font-size: 0.9rem; display: grid; align-content: center; gap: 0.3rem; text-align: center; }
+.remote-jam-browser-pads small { opacity: 0.68; font-size: 0.7rem; }
+@media (max-width: 600px) { .remote-jam-browser-pads { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
