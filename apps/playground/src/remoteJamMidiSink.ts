@@ -145,6 +145,7 @@ export class NanoDawRemoteJamMidiSink {
   #faulted = false;
   #windowStart = 0;
   #windowCount = 0;
+  #leaseEpoch = 0;
 
   constructor(options: {
     port: NanoJamNotePort;
@@ -172,6 +173,7 @@ export class NanoDawRemoteJamMidiSink {
     try { this.#port.panic(); }
     catch (error) { this.#faulted = true; throw new Error("initial MIDI panic failed: " + String(error)); }
     if (!this.#allowed(session)) { this.#fault(); throw new Error("arming authorization revoked"); }
+    this.#leaseEpoch += 1;
     this.#session = Object.freeze({ ...session });
     this.#lastSequence = 0;
     this.#windowCount = 0;
@@ -227,8 +229,9 @@ export class NanoDawRemoteJamMidiSink {
         if (this.#held.has(note)) return receipt("unsupported", "note already held");
         if (this.#held.size >= MAX_REMOTE_JAM_NOTES) return receipt("unsupported", "polyphony cap reached");
         this.#port.noteOn(note, velocity);
+        const epoch = this.#leaseEpoch;
         const timer = this.#clock.schedule(() => {
-          if (!this.#held.has(note)) return;
+          if (epoch !== this.#leaseEpoch || !this.#held.has(note)) return;
           try { this.#release(note); }
           catch { this.#fault(); }
         }, REMOTE_JAM_NOTE_LEASE_MS);
@@ -245,6 +248,7 @@ export class NanoDawRemoteJamMidiSink {
   disarm(): void {
     this.#session = null;
     this.#faulted = true;
+    this.#leaseEpoch += 1;
     this.#releaseTimers();
     try {
       this.#port.panic();
@@ -277,6 +281,7 @@ export class NanoDawRemoteJamMidiSink {
   #fault(): void {
     this.#session = null;
     this.#faulted = true;
+    this.#leaseEpoch += 1;
     this.#releaseTimers();
     try { this.#port.panic(); } catch { /* Never claim safe cleanup. */ }
   }
