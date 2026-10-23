@@ -1081,3 +1081,18 @@ function stableSerialize(value: unknown): string {
   }
   return JSON.stringify(value) ?? "undefined";
 }
+
+// Remote Jam communication-to-musician boundary: explicit opt-in, no network wiring.
+export {
+  REMOTE_JAM_DELIVERY_VERSION,
+  parseRemoteJamFrame,
+  createRemoteJamBitwigPort,
+  RemoteJamBitwigConsumer,
+  type RemoteJamEventType,
+  type RemoteJamFrame,
+  type RemoteJamSession,
+  type RemoteJamStatus,
+  type RemoteJamResult,
+  type RemoteJamMidiPort,
+  type RemoteJamBitwigRpc,
+} from "./remote-jam.js";
