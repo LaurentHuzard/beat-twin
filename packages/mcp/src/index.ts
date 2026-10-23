@@ -35,10 +35,26 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
+const readId = { type: "string", minLength: 1, maxLength: 128 };
+const readSchema = (properties: Record<string, unknown> = {}, required: string[] = []) => ({ type: "object", properties, required, additionalProperties: false });
+const READ_TOOL_DEFINITIONS = [
+  { name: "nanodaw_transport_get_status", description: "Read NanoDAW tempo, playhead, playback and recording state with song revision.", inputSchema: readSchema() },
+  { name: "nanodaw_transport_get_tempo", description: "Read NanoDAW tempo in BPM with song revision.", inputSchema: readSchema() },
+  { name: "nanodaw_transport_get_position", description: "Read NanoDAW playhead position in beats with song revision.", inputSchema: readSchema() },
+  { name: "nanodaw_transport_playing_status", description: "Read NanoDAW playback state with song revision.", inputSchema: readSchema() },
+  { name: "nanodaw_track_list", description: "List NanoDAW tracks with IDs, instruments and clip counts.", inputSchema: readSchema() },
+  { name: "nanodaw_track_get_info", description: "Read one NanoDAW track by stable ID.", inputSchema: readSchema({ trackId: readId }, ["trackId"]) },
+  { name: "nanodaw_clip_list", description: "List MIDI clips on one NanoDAW track by stable ID.", inputSchema: readSchema({ trackId: readId }, ["trackId"]) },
+  { name: "nanodaw_clip_get_info", description: "Read one NanoDAW MIDI clip by stable IDs.", inputSchema: readSchema({ trackId: readId, clipId: readId }, ["trackId", "clipId"]) },
+  { name: "nanodaw_clip_get_notes", description: "Read MIDI notes from one NanoDAW clip by stable IDs.", inputSchema: readSchema({ trackId: readId, clipId: readId }, ["trackId", "clipId"]) },
+  { name: "nanodaw_feature_map", description: "Describe NanoDAW MCP musical features and Bitwig-only feature families; availability still depends on the connected browser.", inputSchema: readSchema() },
+].map((tool) => ({ ...tool, annotations: { title: tool.name, readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }));
+
 export const NANODAW_MCP_TOOL_NAMES = Object.freeze([
   "nanodaw_list_instruments",
   "nanodaw_inspect",
   "nanodaw_prepare_instrument_clip",
+  ...READ_TOOL_DEFINITIONS.map((tool) => tool.name),
   ...EXTRA_DEFINITIONS.map((tool) => tool.name),
 ] as const);
 
@@ -67,6 +83,7 @@ export type NanoDawMcpService = {
   readonly listInstruments: () => readonly Readonly<Record<string, string>>[];
   readonly inspect: () => Promise<unknown>;
   readonly status: () => Promise<unknown>;
+  readonly readMusical: (name: string, args: Record<string, unknown>) => Promise<Record<string, unknown>>;
   readonly prepareMusical: (name: string, args: Record<string, unknown>) => Promise<NanoDawMcpReview>;
   readonly executionStatus: (planId: string) => unknown;
   readonly prepareInstrumentClip: (input: unknown) => Promise<NanoDawMcpReview>;
@@ -121,6 +138,27 @@ export async function createNanoDawMcpService(
     save: (review) => { reviews.set(review.plan.planId, deepFreeze(review)); },
   });
   return Object.freeze({
+    readMusical: async (name: string, args: Record<string, unknown>) => {
+      if (!READ_TOOL_DEFINITIONS.some((tool) => tool.name === name)) throw new Error(`unknown_tool: ${name}`);
+      if (name === "nanodaw_feature_map") return { supported: ["song inspection", "track and clip inspection", "MIDI note inspection and editing", "instrument track creation", "tempo and playback transport", "atomic musical batches"], unavailable: ["Bitwig controller and hardware MIDI", "device chains and remote controls", "per-track mixer volume, pan, mute and solo", "arranger recording and launcher scenes", "host audio capture"] };
+      const snapshot = await options.adapter.inspect();
+      const { song, revision } = snapshot.commandSnapshot;
+      if (!song) throw new Error("NanoDAW has no active song");
+      const identity = { songId: song.id, revision };
+      if (name === "nanodaw_transport_get_status") return { ...identity, transport: song.transport };
+      if (name === "nanodaw_transport_get_tempo") return { ...identity, bpm: song.transport.bpm };
+      if (name === "nanodaw_transport_get_position") return { ...identity, positionBeats: song.transport.positionBeats };
+      if (name === "nanodaw_transport_playing_status") return { ...identity, isPlaying: song.transport.isPlaying };
+      if (name === "nanodaw_track_list") return { ...identity, tracks: song.tracks.map((track) => ({ id: track.id, name: track.name, kind: track.kind, instrumentId: track.instrumentId ?? null, clipCount: track.clips.length })) };
+      const track = song.tracks.find((entry) => entry.id === args.trackId);
+      if (!track) throw new Error("NanoDAW track not found; inspect again");
+      if (name === "nanodaw_track_get_info") return { ...identity, track: { id: track.id, name: track.name, kind: track.kind, color: track.color, instrumentId: track.instrumentId ?? null, clipCount: track.clips.length } };
+      if (name === "nanodaw_clip_list") return { ...identity, trackId: track.id, clips: track.clips.map((clip) => ({ id: clip.id, name: clip.name, startBeat: clip.startBeat, lengthBeats: clip.lengthBeats, noteCount: clip.pattern.notes.length })) };
+      const clip = track.clips.find((entry) => entry.id === args.clipId);
+      if (!clip) throw new Error("NanoDAW clip not found; inspect again");
+      if (name === "nanodaw_clip_get_info") return { ...identity, trackId: track.id, clip: { id: clip.id, name: clip.name, startBeat: clip.startBeat, lengthBeats: clip.lengthBeats, noteCount: clip.pattern.notes.length } };
+      return { ...identity, trackId: track.id, clipId: clip.id, notes: clip.pattern.notes };
+    },
     directWrite: options.directWrite === true,
     applyDirect: async (planId: string) => {
       if (!options.directWrite) throw new Error("Direct NanoDAW writing is disabled");
@@ -250,7 +288,7 @@ export function getNanoDawMcpToolDefinitions(directWrite = false) {
     ? { ...tool, description: `Execute directly in the connected NanoDAW browser: ${OPERATION_MAP.get(tool.name)!.description} Requires songId and expectedRevision; returns the readback report.` }
     : tool);
   const batchSchema = EXTRA_DEFINITIONS.find((tool) => tool.name === "nanodaw_prepare_batch")!.inputSchema;
-  return [...legacyToolDefinitions(), ...musicalDefinitions, ...(directWrite ? [{
+  return [...legacyToolDefinitions(), ...READ_TOOL_DEFINITIONS, ...musicalDefinitions, ...(directWrite ? [{
     name: "nanodaw_apply_direct",
     description: "Execute one exact retained MCP plan in the connected NanoDAW browser without Confirm and apply. Requires explicit server opt-in. Single use; inspect the result before another edit.",
     inputSchema: { type: "object", properties: { planId: { type: "string", minLength: 1, maxLength: 128 } }, required: ["planId"], additionalProperties: false },
@@ -290,6 +328,7 @@ export function createNanoDawMcpServer(service: NanoDawMcpService): Server {
     if (name === "nanodaw_list_instruments") return toolResult({ instruments: service.listInstruments() });
     if (name === "nanodaw_inspect") return toolResult({ session: await service.inspect() });
     if (name === "nanodaw_get_status") return toolResult({ status: await service.status() });
+    if (READ_TOOL_DEFINITIONS.some((tool) => tool.name === name)) return toolResult(await service.readMusical(name, args));
     if (name === "nanodaw_get_execution_report") return toolResult({ execution: service.executionStatus(args.planId as string) });
     if (name === "nanodaw_get_plan") {
       const review = service.getReview(args.planId as string);

@@ -70,6 +70,35 @@ test("opted-in musical tools write track, clip, note, transport and atomic batch
   } finally { await f.close(); }
 });
 
+test("Bitwig-like NanoDAW reads expose targeted revision-tagged song data without mutation", async () => {
+  const f = await fixture();
+  try {
+    const tools = await f.client.listTools();
+    for (const name of ["nanodaw_transport_get_status", "nanodaw_track_list", "nanodaw_track_get_info", "nanodaw_clip_list", "nanodaw_clip_get_info", "nanodaw_clip_get_notes", "nanodaw_feature_map"]) {
+      assert.equal(tools.tools.some((tool) => tool.name === name), true, name);
+    }
+    const transport = await f.invoke("nanodaw_transport_get_status");
+    assert.equal(transport.payload.songId, "song");
+    assert.equal(transport.payload.revision, 0);
+    assert.equal(transport.payload.transport.bpm, 120);
+    assert.equal((await f.invoke("nanodaw_transport_get_tempo")).payload.bpm, 120);
+    assert.equal((await f.invoke("nanodaw_transport_get_position")).payload.positionBeats, 0);
+    assert.equal((await f.invoke("nanodaw_transport_playing_status")).payload.isPlaying, false);
+    const tracks = await f.invoke("nanodaw_track_list");
+    assert.equal(tracks.payload.tracks[0].id, "bass");
+    assert.equal(tracks.payload.tracks[0].clipCount, 1);
+    assert.equal((await f.invoke("nanodaw_track_get_info", { trackId: "bass" })).payload.track.instrumentId, "bass");
+    assert.equal((await f.invoke("nanodaw_clip_list", { trackId: "bass" })).payload.clips[0].id, "verse");
+    assert.equal((await f.invoke("nanodaw_clip_get_info", { trackId: "bass", clipId: "verse" })).payload.clip.noteCount, 1);
+    assert.equal((await f.invoke("nanodaw_clip_get_notes", { trackId: "bass", clipId: "verse" })).payload.notes[0].pitch, 36);
+    assert.equal((await f.invoke("nanodaw_feature_map")).payload.unavailable.includes("device chains and remote controls"), true);
+    assert.equal((await f.invoke("nanodaw_clip_get_notes", { trackId: "bass", clipId: "absent" })).result.isError, true);
+    assert.equal((await f.invoke("nanodaw_track_get_info", { trackId: "absent" })).result.isError, true);
+    assert.equal(f.port.batchExecutionCount, 0);
+    assert.equal(f.runtime.inspect().revision, 0);
+  } finally { await f.close(); }
+});
+
 test("MCP discovers and prepares one atomic groove; apply, variation, delete and guarded recovery", async () => {
   const f = await fixture();
   try {
