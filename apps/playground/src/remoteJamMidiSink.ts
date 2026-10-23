@@ -66,6 +66,14 @@ function integer(value: unknown, min: number, max: number): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= min && value <= max;
 }
 
+/** Bound UTF-8 *before* JSON.parse in a future authenticated DataChannel. */
+export function decodeNanoJamWireMessage(data: string): NanoJamFrame {
+  if (new TextEncoder().encode(data).length > MAX_REMOTE_JAM_FRAME_BYTES) {
+    throw new Error("Remote Jam MIDI wire message exceeds 4 KiB");
+  }
+  return parseNanoJamFrame(JSON.parse(data) as unknown);
+}
+
 /** Exactly the JSON field layout emitted by Remote Jam internal/midirelay.Frame. */
 export function parseNanoJamFrame(raw: unknown): NanoJamFrame {
   // Transport MUST bound bytes before JSON.parse. This secondary bound also
