@@ -59,6 +59,29 @@ describe("Remote Jam signed SDP / Go wire compatibility", () => {
     await expect(signRjSDP(remoteIdentity, "offer", sdp + "x".repeat(66_000), secret, when)).rejects.toThrow(/SDP/);
   });
 
+  it("matches an independent Go standard-library SignedSDP/HMAC fixture with nanos and HTML escapes", async () => {
+    // Produced independently with encoding/json, time.Parse(RFC3339Nano),
+    // crypto/hmac and crypto/sha256. Does not rely on the TS encoder.
+    const key = "a123456789012345678901234567890123456789012345678901234567890123";
+    const goFixture: RjSignal = {
+      version: "rj-lan-signal-v1",
+      room_id: "rehearsal-01",
+      session_id: "take-01",
+      from_peer_id: "beat-a",
+      to_peer_id: "browser-b",
+      kind: "offer",
+      issued_at: "2026-10-24T00:35:12.123456789Z",
+      sdp: "v=0\r\na=fingerprint:sha-256 01:02:03:04\r\na=foo:<>&\u2028\u2029\r\n",
+      mac: "dba5ed650e82436401e21f797a75a6a47362cec1895f96739163a5e98fbc6981",
+    };
+    const tested = await verifyRjSDP(
+      goFixture,
+      { roomId: "rehearsal-01", sessionId: "take-01", localPeerId: "browser-b", remotePeerId: "beat-a" },
+      "offer", key, new Date("2026-10-24T00:35:12.123Z"),
+    );
+    expect(tested.mac).toBe(goFixture.mac);
+  });
+
   it("handles HTML escaped bytes exactly as Go encoding/json", async () => {
     const escaped = sdp + "a=foo:<>&\u2028\u2029\r\n";
     const signed = await signRjSDP(identity, "answer", escaped, secret, when);
