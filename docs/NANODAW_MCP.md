@@ -26,6 +26,10 @@ track/clip/note editing, grouped plans, transport preparation, status/report
 inspection and revision-bound recovery. All mutations and transport changes
 remain preparations for browser confirmation by default. There is no plugin,
 filesystem or arbitrary-synthesis tool. Preparation does not mutate the song.
+The focused reads (`nanodaw_track_list`, `nanodaw_clip_get_notes`, transport
+status and related tools) expose the same kind of targeted observations used
+by Bitwig MCP, with NanoDAW song IDs and revisions. See the
+[parity map](NANODAW_MCP_PARITY.md) for actual coverage and host-specific gaps.
 
 To allow direct MCP writing on this local runtime, start it with
 `NANODAW_MCP_DIRECT_WRITE=1`. The tool `nanodaw_apply_direct` then appears.

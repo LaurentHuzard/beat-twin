@@ -18,6 +18,12 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
+BT-NANODAW-READ-PARITY-20261023 — lectures ciblées et cartographie de parité
+MCP NanoDAW/Bitwig, bornées au modèle de morceau NanoDAW. Worktree et critères
+dans current-plan.md ; autorisation utilisateur du 2026-10-23.
+
+### Previous readiness (historical)
+
 BT-NANODAW-MUSICAL-DIRECT-20261023 — outils piste/note/transport et batch
 atomique en écriture directe sous opt-in local. Worktree dédié et critère dans
 current-plan.md. Autorisation utilisateur du 2026-10-23.

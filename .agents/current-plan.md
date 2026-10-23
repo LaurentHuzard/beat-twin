@@ -1,4 +1,16 @@
-# Orbit Ready — direct NanoDAW musical tools 2026-10-23
+# Orbit Ready — NanoDAW MCP readable parity 2026-10-23
+
+The user clarified that NanoDAW MCP should resemble Bitwig MCP as closely as
+NanoDAW's actual song model permits. Add focused read tools for transport,
+track, clip and note inspection, alongside an explicit feature map. Preserve
+existing write controls and browser ownership. Acceptance: MCP reads return
+revision-tagged targeted data, reject unknown targets, and never mutate;
+feature map distinguishes implemented and unsupported host-specific families.
+No MUE or Bitwig startup. Worktree `.worktrees/beat-twin-nanodaw-mcp-readable-parity-20261023`,
+branch `feat/nanodaw-mcp-readable-parity-20261023`, base origin/main
+`8e81fbc87b2f0b3289f180556600a43965fc00a9`.
+
+## Historical plan — direct NanoDAW musical tools 2026-10-23
 
 User asked for direct add note, add track, play, and broad Bitwig-like NanoDAW
 MCP coverage. In the explicitly opted-in runtime, existing musical operation

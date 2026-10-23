@@ -1,6 +1,6 @@
 # NanoDAW MCP musical catalog (#72)
 
-The standalone NanoDAW MCP server exposes 27 tools by default (29 with direct
+The standalone NanoDAW MCP server exposes 37 tools by default (39 with direct
 writing enabled), including its three original
 instruments/inspect/instrument-clip tools. The new catalog is enabled by default
 in this server. It does not depend on BITWIG_MCP_TOOL_DISCOVERY and does not
@@ -70,6 +70,11 @@ Every musical edit below returns a preparation plan. `songId` and
 | `nanodaw_inspect` | Existing browser song/revision inspection |
 | `nanodaw_prepare_instrument_clip` | Existing strict SongPatchV2 input; unchanged shape |
 | `nanodaw_get_status` | Browser health, capabilities and confirmation boundary |
+| `nanodaw_transport_get_status` | songId, revision, tempo, playhead and playback/recording state |
+| `nanodaw_transport_get_tempo` / `nanodaw_transport_get_position` / `nanodaw_transport_playing_status` | Focused transport reads with revision |
+| `nanodaw_track_list` / `nanodaw_track_get_info` | Track summaries and one track by stable ID |
+| `nanodaw_clip_list` / `nanodaw_clip_get_info` / `nanodaw_clip_get_notes` | Clip and MIDI note inspection by stable IDs |
+| `nanodaw_feature_map` | Supported NanoDAW musical families and unavailable Bitwig host families |
 | `nanodaw_create_track` | name, instrumentId; optional id for later references |
 | `nanodaw_rename_track` | trackId, name |
 | `nanodaw_set_track_instrument` | trackId, instrumentId |
