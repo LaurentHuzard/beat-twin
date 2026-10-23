@@ -203,6 +203,7 @@ export async function joinBrowserRemoteJam(
   function shutdown(reason: string, isError = false): void {
     if (closed) return;
     closed = true;
+    config.signal.removeEventListener("abort", aborted);
     authenticated = false;
     if (noteTimer !== null) clearTimeout(noteTimer);
     if (pingTimer !== null) clearInterval(pingTimer);
@@ -333,7 +334,10 @@ export async function joinBrowserRemoteJam(
     // Must be entered by an actual click: Tone.start happens before networking.
     emitStatus("connecting", "Unlocking browser sound after explicit user action");
     audio = await acquireAudio();
-    if (closed || config.signal.aborted) throw Error("Session cancelled during audio unlock");
+    if (closed || config.signal.aborted) {
+      audio.dispose(); audio = null;
+      throw Error("Session cancelled during audio unlock");
+    }
     const hub = makeHub(config);
     await hub.join();
     if (closed) throw Error("Session cancelled before WebRTC setup");
@@ -366,6 +370,8 @@ export async function joinBrowserRemoteJam(
     if (closed) throw Error("Remote Jam connection closed during handshake");
     authenticated = true;
     emitStatus("authenticated", "Signed SDP verified; waiting for encrypted MIDI channel");
+    // Channel may open before the async SDP posting promise resolves.
+    if (channel?.readyState === "open") channel.onopen?.(new Event("open"));
 
     const until = deadline(config);
     while (!opened && !closed && Date.now() < until) await pause(100, config.signal);
@@ -374,7 +380,5 @@ export async function joinBrowserRemoteJam(
   } catch (error) {
     shutdown("Remote Jam connection failed; local sound released", true);
     throw error;
-  } finally {
-    config.signal.removeEventListener("abort", aborted);
   }
 }
