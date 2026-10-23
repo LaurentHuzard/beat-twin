@@ -3313,3 +3313,8 @@ input, select, textarea { color: var(--text-primary); }
 .remote-jam-browser-stats dt { font-size: 0.72rem; opacity: 0.8; }
 .remote-jam-browser-stats dd { margin: 0.2rem 0 0; font-size: 0.9rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .remote-jam-browser-note { font-size: 0.82rem; }
+
+.remote-jam-browser-pads { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 0.3rem; margin-block: 0.75rem; }
+.remote-jam-browser-pads button { min-width: 0; min-height: 70px; font-size: 0.9rem; display: grid; align-content: center; gap: 0.3rem; text-align: center; }
+.remote-jam-browser-pads small { opacity: 0.68; font-size: 0.7rem; }
+@media (max-width: 600px) { .remote-jam-browser-pads { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
