@@ -127,6 +127,25 @@ test("binds an immutable plan to target, commands, digest, scopes, and two-minut
   );
 });
 
+test("direct execution consumes one unconfirmed plan and rejects replay", async () => {
+  const { store, grant } = await fixture();
+  const plan = await store.createPlan({ token: grant.token, plan: unsignedPlan() });
+  assert.equal((await store.consumeDirectExecution({ token: grant.token, planId: plan.planId })).digest, plan.digest);
+  await assert.rejects(store.consumeDirectExecution({ token: grant.token, planId: plan.planId }));
+  await assert.rejects(store.confirm({ token: grant.token, planId: plan.planId }));
+  assert.equal(store.getExecutionStatus(plan.planId)?.state, "consumed");
+  await store.recordExecution({ planId: plan.planId, report: successReport(plan) });
+  assert.equal(store.getExecutionStatus(plan.planId)?.state, "completed");
+});
+
+test("direct execution cannot take a browser-confirmed plan", async () => {
+  const { store, grant } = await fixture();
+  const plan = await store.createPlan({ token: grant.token, plan: unsignedPlan() });
+  await store.confirm({ token: grant.token, planId: plan.planId });
+  await assert.rejects(store.consumeDirectExecution({ token: grant.token, planId: plan.planId }));
+  assert.equal(store.getExecutionStatus(plan.planId)?.state, "pending");
+});
+
 test("confirmation is exact, expires in at most thirty seconds, and is single-use", async () => {
   const { store, grant } = await fixture();
   const plan = await store.createPlan({ token: grant.token, plan: unsignedPlan() });

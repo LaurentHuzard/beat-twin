@@ -18,6 +18,12 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
+BT-NANODAW-DIRECT-20261023 — écriture MCP locale directe avec opt-in explicite,
+plan exact à usage unique, révision CAS et rapport de lecture. Autorisation
+utilisateur du 2026-10-23 ; worktree dédié indiqué dans current-plan.md.
+
+### Previous readiness (historical)
+
 BT-MIDI-IMPORT-112 — finaliser l’import local inspecté, issue #112 / PR draft #111.
 Worktree/branche v11 dédiés depuis main frais 1775b36, reprise FF ab43d01.
 Revalidation core/store/browser puis revue exacte avant livraison.

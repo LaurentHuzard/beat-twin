@@ -47,6 +47,7 @@ test("app owns startup, review, browser CAS execution, and clean shutdown", asyn
     allowedOrigins: [ORIGIN],
     host: "127.0.0.1",
     port: 0,
+    directWrite: true,
   });
   const commandRuntime = createCommandRuntime(createCommandState());
   let browser: WebSocket | undefined;
@@ -141,6 +142,19 @@ test("app owns startup, review, browser CAS execution, and clean shutdown", asyn
     assert.equal(commandRuntime.inspect().revision, 2);
     assert.equal(commandRuntime.inspect().song!.tracks[0]!.name, "Reviewed Bass");
     assert.equal(commandRuntime.inspect().song!.transport.isPlaying, true);
+
+    const directSnapshot = commandRuntime.inspect();
+    const direct = await runtime.service.prepareMusical("nanodaw_rename_track", {
+      songId: directSnapshot.song!.id, expectedRevision: directSnapshot.revision,
+      trackId, name: "Direct Bass",
+    });
+    const directReport = await runtime.service.applyDirect(direct.plan.planId);
+    assert.equal(directReport.status, "succeeded");
+    assert.equal(directReport.finalSnapshot.revision, 3);
+    assert.equal(commandRuntime.inspect().song!.tracks[0]!.name, "Direct Bass");
+    assert.equal(runtime.service.executionStatus(direct.plan.planId)?.state, "completed");
+    await assert.rejects(runtime.service.applyDirect(direct.plan.planId));
+    assert.equal(commandRuntime.inspect().revision, 3);
 
     const browserClosed = once(browser, "close");
     await runtime.close();

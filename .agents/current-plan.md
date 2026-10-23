@@ -1,4 +1,16 @@
-# Orbit Ready — shared NanoDAW MCP startup 2026-10-11
+# Orbit Ready — direct NanoDAW MCP writing 2026-10-23
+
+User requested applying NanoDAW edits without the browser Confirm and apply
+step. Add an explicit local runtime opt-in and one single-use MCP apply tool for
+retained plans. Acceptance: default catalog stays preparation-only; opted-in
+runtime applies one exact plan through the browser-owned adapter, records the
+report, and rejects replay/stale revision. No MUE or Bitwig startup.
+
+Task worktree: `.worktrees/beat-twin-nanodaw-direct-mcp-write-20261023` on
+`feat/nanodaw-direct-mcp-write-20261023`, based on verified origin/main
+`360cca5eebd0d898b79e3bfc3a8ef0503b059f34`.
+
+## Historical plan — shared NanoDAW MCP startup 2026-10-11
 
 Operator requests one MUE portfolio startup and four configured MCPs. Reuse the
 gateway HTTP library's existing local pairing mode in the NanoDAW composition

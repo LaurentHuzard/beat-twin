@@ -24,7 +24,11 @@ export async function runNanoDawMcp(env: NodeJS.ProcessEnv = process.env, mode: 
   if (env.NANODAW_MCP_LOCAL_PAIRING !== undefined && !["0", "1"].includes(env.NANODAW_MCP_LOCAL_PAIRING)) {
     throw new Error("NANODAW_MCP_LOCAL_PAIRING must be 0 or 1");
   }
+  if (env.NANODAW_MCP_DIRECT_WRITE !== undefined && !["0", "1"].includes(env.NANODAW_MCP_DIRECT_WRITE)) {
+    throw new Error("NANODAW_MCP_DIRECT_WRITE must be 0 or 1");
+  }
   const runtime = await createNanoDawMcpRuntime({ operatorSecret, allowedOrigins, port, provider,
+    directWrite: env.NANODAW_MCP_DIRECT_WRITE === "1",
     pairingMode: env.NANODAW_MCP_LOCAL_PAIRING === "1" ? "local" : "secret" });
 
   const shutdown = () => {

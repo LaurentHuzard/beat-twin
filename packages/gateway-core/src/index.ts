@@ -513,6 +513,9 @@ export class GatewayPlanStore {
   }): Promise<{ readonly confirmationToken: string; readonly expiresAt: string }> {
     const auth = await this.#pairing.authorize(input.token, "plan.confirm");
     const stored = this.#requireLivePlan(input.planId);
+    if (stored.executionState !== "pending" || this.#pendingExecutionPlanIds.has(stored.plan.planId)) {
+      throw new GatewayCoreError("conflict", "plan is already being executed or consumed");
+    }
     requirePlanScopes(auth, stored.plan.requiredScopes);
     if (stored.confirmationHash) {
       const previous = this.#confirmations.peek(stored.confirmationHash);
@@ -671,6 +674,47 @@ export class GatewayPlanStore {
         }
       } catch (error) {
         confirmation.used = false;
+        stored.executionState = "pending";
+        stored.executionAuthorization = undefined;
+        throw error;
+      }
+      return stored.plan;
+    } finally {
+      this.#pendingExecutionPlanIds.delete(stored.plan.planId);
+    }
+  }
+
+  /** Explicit operator-authorized path for a locally opted-in MCP runtime. */
+  async consumeDirectExecution(input: {
+    readonly token: string;
+    readonly planId: string;
+  }): Promise<ExecutablePlan> {
+    const auth = await this.#pairing.authorize(input.token, "plan.execute");
+    const stored = this.#requireLivePlan(input.planId);
+    requirePlanScopes(auth, stored.plan.requiredScopes);
+    if (stored.executionState !== "pending" || stored.confirmationHash || this.#pendingExecutionPlanIds.has(stored.plan.planId)) {
+      throw new GatewayCoreError("conflict", "plan is already confirmed, consumed, or being executed");
+    }
+    this.#pendingExecutionPlanIds.add(stored.plan.planId);
+    try {
+      let allowed = false;
+      try { allowed = (await this.#policy(stored.plan, auth)) === true; } catch { /* fail closed */ }
+      if (allowed !== true) throw new GatewayCoreError("policy_blocked", "plan policy rejected execution");
+      if (stored.executionState !== "pending" || stored.confirmationHash || Date.parse(stored.plan.expiresAt) <= this.#clock.now()) {
+        throw new GatewayCoreError("plan_expired", "plan is no longer available for direct execution");
+      }
+      stored.executionState = "consumed";
+      stored.executionAuthorization = auth;
+      try {
+        await this.#emit({
+          type: "plan.execution_consumed", timestamp: iso(this.#clock.now()), outcome: "allowed",
+          actorId: auth.actorId, tokenFingerprint: auth.tokenFingerprint,
+          planId: stored.plan.planId, adapterId: stored.plan.adapterId,
+        });
+        if (Date.parse(stored.plan.expiresAt) <= this.#clock.now()) {
+          throw new GatewayCoreError("plan_expired", `plan ${stored.plan.planId} expired`);
+        }
+      } catch (error) {
         stored.executionState = "pending";
         stored.executionAuthorization = undefined;
         throw error;
