@@ -11,7 +11,7 @@ import {
   type LiveAudioControllerHost,
 } from "./liveAudioController";
 
-export type BrowserAudioOwner = "preview" | "live" | "song" | "browser-smoke";
+export type BrowserAudioOwner = "preview" | "live" | "song" | "browser-smoke" | "remote-jam";
 
 export type BrowserAudioLease = {
   readonly owner: BrowserAudioOwner;
@@ -29,7 +29,7 @@ export type BrowserAudioLeaseAcquirer = (
 ) => Promise<BrowserAudioLease>;
 
 /**
- * Preview and live performance are mutually exclusive owners of the singleton
+ * Preview, live performance and remote-jam audio are mutually exclusive owners of the singleton
  * Tone transport. A lease never disposes the shared engine by itself.
  */
 export function createBrowserAudioLeaseCoordinator(
