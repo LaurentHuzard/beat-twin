@@ -16,9 +16,12 @@ RTT p95 is computed only from confirmed ping/pong round trips. Cross-machine one
 
 ## Manual: two NanoDAW browser tabs, no Bitwig or Go peer
 
-1. In the **Remote Jam** repository, create a fresh room key and start the hub (with Go 1.26):
+1. In the **Remote Jam** repository, verify Go 1.26, resolve dependencies and create a fresh room key. Before starting the hub, run the following checks:
 
 ~~~bash
+go version
+go mod tidy
+go test ./...
 umask 077
 mkdir -p "$HOME/.config/remote-jam"
 openssl rand -hex 32 > "$HOME/.config/remote-jam/room.key"
@@ -37,7 +40,7 @@ REMOTE_JAM_BROWSER_PROXY=1 pnpm --filter @beat-twin/playground dev
 5. Click "Join room and enable sound" on B, then A. Both should show "connected". Play notes with A/S/D/F/G/H/J/K or the eight on-screen pads. Each note travels via WebRTC and is synthesized by the OTHER tab, with a nominal 350 ms note length. There is no local echo.
 6. Observe receiver events and RTT samples. Click "Leave / release all notes"; inspect cleanup and run again with a fresh room/session/stream.
 
-This is a recipe, not a claim that two-browser audio has already been heard.
+This is a recipe, not a claim that two-browser audio has already been heard. The first Go dependency resolution can generate go.sum locally; review it before committing.
 
 ## Manual: one NanoDAW browser tab and one Go peer
 
