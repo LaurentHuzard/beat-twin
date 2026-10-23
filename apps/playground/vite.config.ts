@@ -134,8 +134,47 @@ function bitwigWebBridgePlugin() {
   };
 }
 
+
+// Explicit, DEVELOPMENT-ONLY same-origin proxy to the loopback Remote Jam hub.
+// Disabled unless the operator sets REMOTE_JAM_BROWSER_PROXY=1. The hub itself
+// still enforces its bearer credential, supplied by the browser in memory.
+function remoteJamHubGuardPlugin() {
+  return {
+    name: "beat-twin-remote-jam-hub-guard",
+    configureServer(server: {
+      middlewares: {
+        use(handler: (
+          request: { readonly method?: string; readonly url?: string; readonly headers: Readonly<Record<string, string | readonly string[] | undefined>> },
+          response: { statusCode: number; setHeader(name: string, value: string): void; end(body: string): void },
+          next: () => void,
+        ) => void): void;
+      };
+    }) {
+      server.middlewares.use((request, response, next) => {
+        const path = request.url?.split("?", 1)[0] ?? "";
+        if (path !== "/api/remote-jam-hub" && !path.startsWith("/api/remote-jam-hub/")) { next(); return; }
+        const host = request.headers.host;
+        const origin = request.headers.origin;
+        const fetchSite = request.headers["sec-fetch-site"];
+        let validHost = false;
+        try {
+          const url = new URL("http://" + host);
+          validHost = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+          if (typeof origin === "string" && new URL(origin).host !== host) validHost = false;
+        } catch { validHost = false; }
+        if (!validHost || fetchSite === "cross-site" || (request.method !== "GET" && request.method !== "POST")) {
+          sendJson(response, 403, { error: "remote_jam_proxy_refused" });
+          return;
+        }
+        response.setHeader("Cache-Control", "no-store");
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), bitwigWebBridgePlugin()],
+  plugins: [react(), bitwigWebBridgePlugin(), remoteJamHubGuardPlugin()],
   resolve: {
     alias: {
       "@beat-twin/audio-tone": fileURLToPath(
@@ -151,6 +190,16 @@ export default defineConfig({
         new URL("../../packages/retention/src/index.ts", import.meta.url),
       ),
     },
+  },
+  server: {
+    host: "127.0.0.1",
+    proxy: process.env.REMOTE_JAM_BROWSER_PROXY === "1" ? {
+      "/api/remote-jam-hub": {
+        target: "http://127.0.0.1:19777",
+        changeOrigin: true,
+        rewrite: (path: string) => path.replace(/^\/api\/remote-jam-hub/, ""),
+      },
+    } : {},
   },
   test: {
     environment: "jsdom",
