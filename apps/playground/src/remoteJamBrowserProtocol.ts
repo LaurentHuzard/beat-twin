@@ -43,7 +43,9 @@ function normalizeGoTime(value: string): string {
   return match[1] + (fraction ? "." + fraction : "") + "Z";
 }
 function goJSON(value: unknown): string {
-  return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, (char) => {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) throw Error("Cannot serialize Remote Jam signal");
+  return serialized.replace(/[<>&\u2028\u2029]/g, (char) => {
     switch (char) {
       case "<": return "\\u003c";
       case ">": return "\\u003e";
