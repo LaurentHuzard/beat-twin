@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   MAX_REMOTE_JAM_NOTES,
+  decodeNanoJamWireMessage,
   NanoDawRemoteJamMidiSink,
   parseNanoJamFrame,
   REMOTE_JAM_NOTE_LEASE_MS,
@@ -111,6 +112,47 @@ describe("Remote Jam NanoDAW sink", () => {
     ];
     for (const input of invalid) expect(() => parseNanoJamFrame(input)).toThrow();
     expect(() => parseNanoJamFrame({ ...valid, bogus: "x".repeat(5000) })).toThrow();
+  });
+
+  it("bounds UTF-8 JSON before parse and recognizes the exact Go envelope", () => {
+    const wire = JSON.stringify(frame(1));
+    expect(decodeNanoJamWireMessage(wire).event.event_type).toBe("note_on");
+    expect(() => decodeNanoJamWireMessage(wire + " ".repeat(5_000))).toThrow(/4 KiB/);
+    expect(() => decodeNanoJamWireMessage("{bad json")).toThrow();
+  });
+
+  it("ignores an old lease callback after a fresh stream has been armed", () => {
+    const callbacks: Array<() => void> = [];
+    const calls: unknown[][] = [];
+    const sink = new NanoDawRemoteJamMidiSink({
+      port: {
+        noteOn: (pitch) => { calls.push(["on", pitch]); },
+        noteOff: (pitch) => { calls.push(["off", pitch]); },
+        panic: () => { calls.push(["panic"]); },
+      },
+      isOperatorArmed: () => true,
+      isAuthenticatedPeer: () => true,
+      clock: {
+        nowMs: () => 0,
+        schedule: (callback) => {
+          callbacks.push(callback);
+          return callbacks.length as unknown as ReturnType<typeof setTimeout>;
+        },
+        cancel: () => undefined, // Intentionally deliver a cancelled stale callback.
+      },
+    });
+    sink.arm(SESSION);
+    sink.accept(frame(1));
+    sink.disarm();
+    sink.arm({ ...SESSION, streamId: "epoch-2" });
+    const current = frame(1);
+    sink.accept({ ...current, stream_id: "epoch-2" });
+    callbacks[0]!(); // late callback from prior stream
+    expect(sink.heldNotes).toBe(1);
+    callbacks[1]!();
+    expect(sink.heldNotes).toBe(0);
+    expect(calls.filter((call) => call[0] === "off")).toEqual([["off", 60]]);
+    sink.disarm();
   });
 
   it("refuses unauthenticated or unarmed sessions", () => {
