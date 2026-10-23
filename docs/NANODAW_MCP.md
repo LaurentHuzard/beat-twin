@@ -37,6 +37,15 @@ stale revision or uncertain execution must be inspected before another edit.
 The browser still owns the song; this flag does not enable Bitwig writes or a
 model provider.
 
+In this opted-in mode, the musical tools also execute in one call:
+`nanodaw_create_track`, `nanodaw_create_clip`, `nanodaw_add_note`, edits,
+deletions, tempo, `nanodaw_play`, `nanodaw_stop`, and playhead. Each takes the
+inspected `songId` and `expectedRevision` and returns `applied`, `planId`, and
+the readback `report`. `nanodaw_execute_batch` applies up to 256 ordered
+operations atomically. `nanodaw_prepare_batch`, `nanodaw_undo`, and
+`nanodaw_prepare_instrument_clip` still prepare plans for review or explicit
+`nanodaw_apply_direct`; their names keep their preparation meaning.
+
 ## End-to-End Flow
 
 ```text

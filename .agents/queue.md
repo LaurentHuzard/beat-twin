@@ -18,6 +18,12 @@ may authorize a bounded product loop.
 
 ## Orbit Ready
 
+BT-NANODAW-MUSICAL-DIRECT-20261023 — outils piste/note/transport et batch
+atomique en écriture directe sous opt-in local. Worktree dédié et critère dans
+current-plan.md. Autorisation utilisateur du 2026-10-23.
+
+### Previous readiness (historical)
+
 BT-NANODAW-DIRECT-20261023 — écriture MCP locale directe avec opt-in explicite,
 plan exact à usage unique, révision CAS et rapport de lecture. Autorisation
 utilisateur du 2026-10-23 ; worktree dédié indiqué dans current-plan.md.

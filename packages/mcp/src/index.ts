@@ -246,11 +246,20 @@ function legacyToolDefinitions() {
 }
 
 export function getNanoDawMcpToolDefinitions(directWrite = false) {
-  return [...legacyToolDefinitions(), ...EXTRA_DEFINITIONS, ...(directWrite ? [{
+  const musicalDefinitions = EXTRA_DEFINITIONS.map((tool) => OPERATION_MAP.has(tool.name) && directWrite
+    ? { ...tool, description: `Execute directly in the connected NanoDAW browser: ${OPERATION_MAP.get(tool.name)!.description} Requires songId and expectedRevision; returns the readback report.` }
+    : tool);
+  const batchSchema = EXTRA_DEFINITIONS.find((tool) => tool.name === "nanodaw_prepare_batch")!.inputSchema;
+  return [...legacyToolDefinitions(), ...musicalDefinitions, ...(directWrite ? [{
     name: "nanodaw_apply_direct",
     description: "Execute one exact retained MCP plan in the connected NanoDAW browser without Confirm and apply. Requires explicit server opt-in. Single use; inspect the result before another edit.",
     inputSchema: { type: "object", properties: { planId: { type: "string", minLength: 1, maxLength: 128 } }, required: ["planId"], additionalProperties: false },
     annotations: { title: "Apply NanoDAW plan directly", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+  }, {
+    name: "nanodaw_execute_batch",
+    description: "Execute 1-256 ordered musical operations atomically in the connected NanoDAW browser. Requires songId and expectedRevision; returns the readback report.",
+    inputSchema: batchSchema,
+    annotations: { title: "Execute NanoDAW musical batch", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   }] : [])];
 }
 
@@ -289,6 +298,11 @@ export function createNanoDawMcpServer(service: NanoDawMcpService): Server {
     }
     if (name === "nanodaw_prepare_instrument_clip") return reviewResult(await service.prepareInstrumentClip(args));
     if (name === "nanodaw_apply_direct") return toolResult({ report: await service.applyDirect(args.planId as string) });
+    if (service.directWrite && (OPERATION_MAP.has(name) || name === "nanodaw_execute_batch")) {
+      const review = await service.prepareMusical(name === "nanodaw_execute_batch" ? "nanodaw_prepare_batch" : name, args);
+      const report = await service.applyDirect(review.plan.planId);
+      return toolResult({ planId: review.plan.planId, applied: report.ok, report });
+    }
     if (OPERATION_MAP.has(name) || name === "nanodaw_prepare_batch" || name === "nanodaw_undo") return reviewResult(await service.prepareMusical(name, args));
     throw new Error(`unknown_tool: ${name}`);
   };
