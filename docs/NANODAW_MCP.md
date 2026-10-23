@@ -4,7 +4,7 @@ The composition root supports explicit `NANODAW_MCP_LOCAL_PAIRING=1` for a
 shared workstation gateway. It reuses the gateway HTTP library's loopback and
 exact-Origin local pairing checks. The default remains secret pairing; invalid
 flag values fail startup. Browser state ownership and exact musical write
-confirmations remain unchanged. Activating this mode in private configuration
+confirmations remain unchanged by this pairing setting. Activating this mode in private configuration
 requires explicit operator approval because it changes pairing authentication.
 
 NanoDAW MCP is the standalone, no-external-DAW path for preparing musical
@@ -24,9 +24,27 @@ The MCP server preserves these three original tools:
 The expanded [musical catalog](NANODAW_MCP_CATALOG.md) adds search_tools/call_tool,
 track/clip/note editing, grouped plans, transport preparation, status/report
 inspection and revision-bound recovery. All mutations and transport changes
-remain preparations for browser confirmation. There is no MCP confirmation,
-autonomous apply/execute, plugin, filesystem or arbitrary-synthesis tool.
-Preparation does not mutate the song.
+remain preparations for browser confirmation by default. There is no plugin,
+filesystem or arbitrary-synthesis tool. Preparation does not mutate the song.
+
+To allow direct MCP writing on this local runtime, start it with
+`NANODAW_MCP_DIRECT_WRITE=1`. The tool `nanodaw_apply_direct` then appears.
+Inspect the song, prepare an exact plan, and call it with that `planId` to
+execute without clicking **Confirm and apply**. The opt-in is disabled by
+default; only retained MCP plans can be applied. Each plan is single use and
+the response includes the adapter readback report. A disconnected browser,
+stale revision or uncertain execution must be inspected before another edit.
+The browser still owns the song; this flag does not enable Bitwig writes or a
+model provider.
+
+In this opted-in mode, the musical tools also execute in one call:
+`nanodaw_create_track`, `nanodaw_create_clip`, `nanodaw_add_note`, edits,
+deletions, tempo, `nanodaw_play`, `nanodaw_stop`, and playhead. Each takes the
+inspected `songId` and `expectedRevision` and returns `applied`, `planId`, and
+the readback `report`. `nanodaw_execute_batch` applies up to 256 ordered
+operations atomically. `nanodaw_prepare_batch`, `nanodaw_undo`, and
+`nanodaw_prepare_instrument_clip` still prepare plans for review or explicit
+`nanodaw_apply_direct`; their names keep their preparation meaning.
 
 ## End-to-End Flow
 
@@ -59,6 +77,7 @@ the browser pairing form must receive the same value. Example MCP configuration:
 ```bash
 codex mcp add nanodaw \
   --env NANODAW_MCP_OPERATOR_SECRET=replace-with-a-long-local-secret \
+  --env NANODAW_MCP_DIRECT_WRITE=1 \
   -- node --experimental-strip-types \
   /absolute/path/to/beat-twin/apps/nanodaw-mcp/src/cli.ts
 ```

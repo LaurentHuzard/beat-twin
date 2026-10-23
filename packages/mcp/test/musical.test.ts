@@ -8,7 +8,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createNanoDawMcpServer, createNanoDawMcpService } from "../src/index.ts";
 
-async function fixture() {
+async function fixture(directWrite = false) {
   let now = Date.now();
   const clock = { now: () => now };
   let song = addTrack(createSong({ id: "song" }), createTrack({ id: "bass", name: "Bass", instrumentId: "bass" }));
@@ -19,7 +19,7 @@ async function fixture() {
   const pairing = new PairingAuthority({ audit: () => undefined, clock });
   const planStore = new GatewayPlanStore({ pairing, audit: () => undefined, policy: () => true, clock });
   const adapter = new NanoDawAdapter({ port, verifyDigest: (plan) => planStore.getPlan(plan.planId)?.digest === plan.digest, now: clock.now });
-  const service = await createNanoDawMcpService({ adapter, pairing, planStore, clock });
+  const service = await createNanoDawMcpService({ adapter, pairing, planStore, clock, directWrite });
   const server = createNanoDawMcpServer(service);
   const client = new Client({ name: "musical-test", version: "1" });
   const [a, b] = InMemoryTransport.createLinkedPair();
@@ -39,6 +39,36 @@ async function fixture() {
   };
   return { invoke, client, server, service, port, runtime, apply, planStore, expire: () => { now += 120001; }, close: async () => { await client.close(); await server.close(); } };
 }
+
+test("opted-in musical tools write track, clip, note, transport and atomic batch directly", async () => {
+  const f = await fixture(true);
+  try {
+    const tools = await f.client.listTools();
+    assert.equal(tools.tools.some((tool) => tool.name === "nanodaw_execute_batch"), true);
+    const track = await f.invoke("nanodaw_create_track", { songId: "song", expectedRevision: 0, id: "lead", name: "Lead", instrumentId: "lead" });
+    assert.equal(track.payload.applied, true, JSON.stringify(track.payload));
+    assert.equal(track.payload.report.finalSnapshot.revision, 1);
+    const clip = await f.invoke("nanodaw_create_clip", { songId: "song", expectedRevision: 1, id: "hook", trackId: "lead", name: "Hook", lengthBeats: 4 });
+    assert.equal(clip.payload.applied, true, JSON.stringify(clip.payload));
+    const note = await f.invoke("call_tool", { name: "nanodaw_add_note", arguments: { songId: "song", expectedRevision: 2, trackId: "lead", clipId: "hook", pitch: 60, startBeat: 0, lengthBeats: 1 } });
+    assert.equal(note.payload.applied, true, JSON.stringify(note.payload));
+    assert.equal(f.runtime.inspect().song!.tracks.find((item) => item.id === "lead")!.clips[0]!.pattern.notes[0]!.pitch, 60);
+    const play = await f.invoke("nanodaw_play", { songId: "song", expectedRevision: 3 });
+    assert.equal(play.payload.applied, true, JSON.stringify(play.payload));
+    assert.equal(f.runtime.inspect().song!.transport.isPlaying, true);
+    const batch = await f.invoke("nanodaw_execute_batch", { songId: "song", expectedRevision: 4, operations: [
+      { tool: "nanodaw_set_tempo", arguments: { bpm: 120 } },
+      { tool: "nanodaw_stop", arguments: {} },
+    ] });
+    assert.equal(batch.payload.applied, true, JSON.stringify(batch.payload));
+    assert.equal(batch.payload.report.finalSnapshot.revision, 5);
+    assert.equal(f.runtime.inspect().song!.transport.isPlaying, false);
+    assert.equal(f.runtime.inspect().song!.transport.bpm, 120);
+    const stale = await f.invoke("nanodaw_add_note", { songId: "song", expectedRevision: 2, trackId: "lead", clipId: "hook", pitch: 64, startBeat: 1, lengthBeats: 1 });
+    assert.equal(stale.result.isError, true);
+    assert.equal(f.port.batchExecutionCount, 5);
+  } finally { await f.close(); }
+});
 
 test("MCP discovers and prepares one atomic groove; apply, variation, delete and guarded recovery", async () => {
   const f = await fixture();

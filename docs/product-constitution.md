@@ -21,12 +21,16 @@ musician opens standalone NanoDAW
 
 1. The browser is the only owner of NanoDAW song state.
 2. Standalone NanoDAW remains useful without Bitwig, MCP, Gateway, or S25.
-3. Model output is a proposal, never confirmation or execution authority.
+3. Model output is a proposal. Execution authority comes from browser
+   confirmation or the operator's explicit local NanoDAW MCP direct-write opt-in.
 4. Bitwig writes remain blocked until target identity, authentication, strict
    bounds, explicit confirmation, and readback are proven.
 5. Read-only and write-capable surfaces remain visibly distinct.
 6. Offline tests never claim live controller, Bitwig, Gateway, or model success.
 7. Uncertain execution outcomes fail closed and require reconciliation.
+8. Local NanoDAW MCP direct execution requires an explicit runtime opt-in and
+   an exact retained plan ID. The browser remains the state owner; single-use
+   execution, revision checks, and readback still apply.
 
 ## Sensitive Data
 
@@ -36,7 +40,7 @@ be uploaded to undeclared services or included in public reports by default.
 
 ## Prohibited Automation
 
-- autonomous DAW writes or confirmation;
+- autonomous DAW writes without the explicit local NanoDAW MCP direct-write opt-in;
 - silent target switching;
 - exposing the unauthenticated controller bridge to untrusted networks;
 - automatic merge, publication, deployment, or branch deletion;

@@ -1,6 +1,7 @@
 # NanoDAW MCP musical catalog (#72)
 
-The standalone NanoDAW MCP server exposes 27 tools, including its three original
+The standalone NanoDAW MCP server exposes 27 tools by default (29 with direct
+writing enabled), including its three original
 instruments/inspect/instrument-clip tools. The new catalog is enabled by default
 in this server. It does not depend on BITWIG_MCP_TOOL_DISCOVERY and does not
 change the Bitwig server or the model-visible V1/V2 provider projections.
@@ -21,7 +22,17 @@ installing the new build. The existing pairing and browser connection setup in
 5. Select the incoming proposal in TWIN. Inspect the exact musical changes,
    including deletions, and click **Confirm and apply once**.
 6. Read `nanodaw_get_execution_report` and inspect again before the next edit.
-   No MCP tool confirms, executes or retries a plan autonomously.
+   By default, no MCP tool executes or retries a plan.
+
+With `NANODAW_MCP_DIRECT_WRITE=1`, the additional `nanodaw_apply_direct`
+tool executes a retained plan by `planId` in the connected browser. This skips
+step 5; inspect the returned report and revision before the next edit. The
+runtime flag is required, and no plan is retried automatically.
+The named musical tools (`nanodaw_create_track`, `nanodaw_add_note`,
+`nanodaw_play`, and the other track, clip, note and transport operations) then
+prepare and execute in one call. `nanodaw_execute_batch` does the same for one
+atomic group. Every call still requires the inspected song ID and revision.
+`nanodaw_prepare_batch` and `nanodaw_undo` retain their preparation semantics.
 
 ```json
 {"name":"search_tools","arguments":{"query":"clip","limit":10,"offset":0}}
@@ -79,6 +90,8 @@ Every musical edit below returns a preparation plan. `songId` and
 | `nanodaw_prepare_batch` | operations: ordered array of {tool, arguments} |
 | `nanodaw_get_plan` | planId; retained exact preview/plan |
 | `nanodaw_get_execution_report` | planId; pending/consumed/completed/uncertain status |
+| `nanodaw_apply_direct` | planId; opt-in only, executes once without browser confirmation |
+| `nanodaw_execute_batch` | Opt-in only; songId, expectedRevision, and 1–256 ordered operations applied atomically |
 | `nanodaw_undo` | planId of the successful musical plan to recover |
 | `search_tools` | optional query, limit, offset |
 | `call_tool` | name, optional arguments object |
@@ -87,7 +100,8 @@ Search matches all whitespace-separated terms literally and case-insensitively
 against names/descriptions. Results contain canonical descriptions, schemas and
 annotations, `total`, and `nextOffset` (null at the end). Generic wrappers do
 not appear in search results. Neither wrapper can invoke another wrapper,
-Bitwig tools, arbitrary methods, or NanoDAW confirmation/execution.
+Bitwig tools or arbitrary methods. The opt-in direct tool is reachable through
+`call_tool` only when it is present in the enabled catalog.
 
 ## One grouped musical plan
 

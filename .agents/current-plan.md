@@ -1,4 +1,31 @@
-# Orbit Ready — shared NanoDAW MCP startup 2026-10-11
+# Orbit Ready — direct NanoDAW musical tools 2026-10-23
+
+User asked for direct add note, add track, play, and broad Bitwig-like NanoDAW
+MCP coverage. In the explicitly opted-in runtime, existing musical operation
+tools execute in one MCP call; add an atomic direct batch. Keep prepare-only
+default, browser ownership, song/revision CAS, single-use execution and report.
+Accept when representative track/note/transport calls and grouped batch work
+through MCP with readback, stale input is rejected, and the default remains
+prepare-only. No MUE or Bitwig startup.
+
+Task worktree: `.worktrees/beat-twin-nanodaw-direct-musical-tools-20261023`,
+branch `feat/nanodaw-direct-musical-tools-20261023`, fresh origin/main
+`360cca5eebd0d898b79e3bfc3a8ef0503b059f34` plus cherry-picked prior
+direct-plan feature `8c10ad3` (source `ddee089`).
+
+## Historical plan — direct NanoDAW MCP writing 2026-10-23
+
+User requested applying NanoDAW edits without the browser Confirm and apply
+step. Add an explicit local runtime opt-in and one single-use MCP apply tool for
+retained plans. Acceptance: default catalog stays preparation-only; opted-in
+runtime applies one exact plan through the browser-owned adapter, records the
+report, and rejects replay/stale revision. No MUE or Bitwig startup.
+
+Task worktree: `.worktrees/beat-twin-nanodaw-direct-mcp-write-20261023` on
+`feat/nanodaw-direct-mcp-write-20261023`, based on verified origin/main
+`360cca5eebd0d898b79e3bfc3a8ef0503b059f34`.
+
+## Historical plan — shared NanoDAW MCP startup 2026-10-11
 
 Operator requests one MUE portfolio startup and four configured MCPs. Reuse the
 gateway HTTP library's existing local pairing mode in the NanoDAW composition
