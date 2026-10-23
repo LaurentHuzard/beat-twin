@@ -34,7 +34,7 @@ export type BrowserJamStats = Readonly<{
   audioProof: "not_measured";
 }>;
 export type BrowserJamHandle = Readonly<{
-  sendC4(): void;
+  sendNote(pitch: number): void;
   close(): void;
   stats(): BrowserJamStats;
 }>;
@@ -185,7 +185,7 @@ export async function joinBrowserRemoteJam(
   let outboundSequence = 0;
   let pingSequence = 0;
   let pingTimer: ReturnType<typeof setInterval> | null = null;
-  let noteTimer: ReturnType<typeof setTimeout> | null = null;
+  const noteTimers = new Map<number, ReturnType<typeof setTimeout>>();
   const pending = new Map<number, number>();
   const samples: number[] = [];
   const counts = { receivedMidi: 0, dispatchedNotes: 0, lastEvent: "none" };
@@ -205,7 +205,8 @@ export async function joinBrowserRemoteJam(
     closed = true;
     config.signal.removeEventListener("abort", aborted);
     authenticated = false;
-    if (noteTimer !== null) clearTimeout(noteTimer);
+    for (const timer of noteTimers.values()) clearTimeout(timer);
+    noteTimers.clear();
     if (pingTimer !== null) clearInterval(pingTimer);
     pending.clear();
     try { sink?.disarm(); } catch { /* Do not claim successful silence. */ }
@@ -223,6 +224,7 @@ export async function joinBrowserRemoteJam(
     channel.send(data);
   }
   function sendMidi(kind: "note_on" | "note_off" | "stop", payload: Record<string, number>) {
+    if (outboundSequence >= 4096) throw Error("Remote Jam stream exhausted; reconnect with a fresh epoch");
     const current = ++outboundSequence;
     const sent = Math.max(0, Math.floor(performance.now() * 1_000_000));
     send(JSON.stringify({
@@ -236,15 +238,18 @@ export async function joinBrowserRemoteJam(
       },
     }));
   }
-  function sendC4() {
+  function sendNote(pitch: number) {
     if (closed || !authenticated || !opened) throw Error("Remote Jam must be connected");
-    if (noteTimer !== null) throw Error("Demo note is already active");
-    sendMidi("note_on", { channel: 1, note: 60, velocity: 96 });
-    noteTimer = setTimeout(() => {
-      noteTimer = null;
-      try { sendMidi("note_off", { channel: 1, note: 60, velocity: 0 }); }
+    if (!Number.isInteger(pitch) || pitch < 0 || pitch > 127) throw Error("Invalid MIDI pitch");
+    if (noteTimers.has(pitch)) return;
+    if (noteTimers.size >= 8) throw Error("Demo pad polyphony exceeded");
+    sendMidi("note_on", { channel: 1, note: pitch, velocity: 96 });
+    const timer = setTimeout(() => {
+      noteTimers.delete(pitch);
+      try { sendMidi("note_off", { channel: 1, note: pitch, velocity: 0 }); }
       catch { shutdown("Remote MIDI note-off could not be sent; connection closed", true); }
     }, 350);
+    noteTimers.set(pitch, timer);
   }
   function onMessage(data: unknown) {
     if (closed || !authenticated || typeof data !== "string"
@@ -376,7 +381,7 @@ export async function joinBrowserRemoteJam(
     const until = deadline(config);
     while (!opened && !closed && Date.now() < until) await pause(100, config.signal);
     if (!opened || closed) throw Error("Authenticated MIDI channel did not open");
-    return Object.freeze({ sendC4, close: () => shutdown("User left Remote Jam; all notes released"), stats });
+    return Object.freeze({ sendNote, close: () => shutdown("User left Remote Jam; all notes released"), stats });
   } catch (error) {
     shutdown("Remote Jam connection failed; local sound released", true);
     throw error;
