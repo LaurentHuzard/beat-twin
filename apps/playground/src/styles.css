@@ -3279,3 +3279,16 @@ input, select, textarea { color: var(--text-primary); }
 .midi-import-panel { overflow-wrap: anywhere; }
 .midi-import-panel input[type="file"] { max-width: 100%; min-height: 44px; }
 .midi-import-panel input[type="file"]::file-selector-button { min-height: 44px; }
+
+/* BT-RJ-002: clearly labeled local-only acoustic test, never a network join. */
+.remote-jam-local-audition {
+  margin-block: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  max-width: 46rem;
+}
+.remote-jam-local-audition h3 { margin: 0 0 0.35rem; font-size: 1rem; }
+.remote-jam-local-audition p { font-size: 0.875rem; overflow-wrap: anywhere; }
+.remote-jam-local-audition-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.remote-jam-local-audition-actions button { min-height: 44px; }
