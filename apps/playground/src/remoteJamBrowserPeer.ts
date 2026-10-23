@@ -304,7 +304,7 @@ export async function joinBrowserRemoteJam(
     dc.onerror = () => shutdown("WebRTC datachannel error", true);
     dc.onclose = () => shutdown("WebRTC datachannel closed, notes released");
     dc.onopen = () => {
-      if (closed || !pc || !authenticated) return;
+      if (closed || opened || !pc || !authenticated) return;
       try {
         sink = new NanoDawRemoteJamMidiSink({
           port: audio!,
