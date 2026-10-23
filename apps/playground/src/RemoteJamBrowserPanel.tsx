@@ -7,8 +7,12 @@ import {
   type BrowserJamStatus,
 } from "./remoteJamBrowserPeer";
 
+function randomSuffix(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(4));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
 function newEpoch(): string {
-  return "session-" + crypto.randomUUID().slice(0, 8);
+  return "session-" + randomSuffix();
 }
 const EMPTY_STATS: BrowserJamStats = {
   receivedMidi: 0, dispatchedNotes: 0, lastEvent: "none",
@@ -19,7 +23,7 @@ const EMPTY_STATS: BrowserJamStats = {
 export function RemoteJamBrowserPanel() {
   const [room, setRoom] = useState("nanodaw-rehearsal");
   const [session, setSession] = useState(newEpoch);
-  const [stream, setStream] = useState(() => "epoch-" + crypto.randomUUID().slice(0, 8));
+  const [stream, setStream] = useState(() => "epoch-" + randomSuffix());
   const [localPeer, setLocalPeer] = useState("browser-b");
   const [remotePeer, setRemotePeer] = useState("beat-a");
   const [role, setRole] = useState<"offer" | "answer">("answer");
